@@ -953,8 +953,8 @@ static	int	set_mode(aClient *cptr,
 		break;
 	      if (MyClient(sptr) && opcnt >= MAXMODEPARAMS)
 		break;
-	      if (!(nusers = atoi(*++parv)))
-		break;
+	      if ( (nusers = atoi(*++parv)) <= 0)
+	        break;
 	      lp = &chops[opcnt++];
 	      lp->flags = MODE_ADD|MODE_LIMIT;
 	      limitset = 1;
