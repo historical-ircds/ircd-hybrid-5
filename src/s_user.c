@@ -400,6 +400,7 @@ static	int	register_user(aClient *cptr,
   short	oldstatus = sptr->status;
   anUser *user = sptr->user;
   int 	i, dots;
+  int   bad_dns;	/* flag a bad dns name */
 #ifdef BOTCHECK
   int	isbot;
   char	bottemp[HOSTLEN + 1];
@@ -460,6 +461,7 @@ static	int	register_user(aClient *cptr,
 
       dots = 0;
       p = user->host;
+      bad_dns = NO;
       while(*p)
 	{
 	  if (!isalnum(*p))
@@ -469,11 +471,7 @@ static	int	register_user(aClient *cptr,
 #else
 		if ((*p != '-') && (*p != '.') && (*p != '_') && (*p != '/'))
 #endif /* RFC1035_ANAL */
-		  {
-		    sendto_realops("Illegal character in hostname for %s (%s), dumping user",
-				   user->host,sptr->hostip);
-		    return exit_client(cptr, sptr, &me, "Illegal character in hostname");
-		  }
+		    bad_dns = YES;
 	    } 
 	  if( *p == '.' )
 	    dots++;
@@ -493,6 +491,13 @@ static	int	register_user(aClient *cptr,
 	  return exit_client(cptr, sptr, &me, "Invalid hostname");
 	}
 
+      if(bad_dns) {
+         sendto_one(sptr, ":%s NOTICE %s :You have a bad character in your hostname",
+         me.name,cptr->name);
+         strcpy(user->host,sptr->hostip);
+	 strcpy(sptr->sockhost,sptr->hostip);
+      }
+
       aconf = sptr->confs->value.aconf;
       if (sptr->flags & FLAGS_DOID && !(sptr->flags & FLAGS_GOTID))
 	{
@@ -505,11 +510,11 @@ static	int	register_user(aClient *cptr,
 	  user->username[USERLEN] = '\0';
 #ifdef IDENTD_COMPLAIN
 /* tell them to install identd -Taner */
-	  sendto_one(sptr, ":%s NOTICE %s :\002It seems that you don't have identd installed on your host.\002",
+	  sendto_one(sptr, ":%s NOTICE %s :It seems that you don't have identd installed on your host.",
 		     me.name,cptr->name);
-	  sendto_one(sptr, ":%s NOTICE %s :\002If you wish to have your username show up without the ~ (tilde),\002",
+	  sendto_one(sptr, ":%s NOTICE %s :If you wish to have your username show up without the ~ (tilde),",
 		     me.name,cptr->name);
-	  sendto_one(sptr, ":%s NOTICE %s :\002then install identd.\002",
+	  sendto_one(sptr, ":%s NOTICE %s :then install identd.",
 		     me.name,cptr->name);
 /* end identd hack */
 #endif
