@@ -1946,9 +1946,6 @@ int     m_wallops(aClient *cptr,
 
 
 /* raped from csr30 */
-/* If I had my choice, I'd rip this stupid code out, and only
-   ignore the LAME OPERWALL message *grrrr* -Dianora
-*/
 
 int     m_operwall(aClient *cptr,
 		   aClient *sptr,
@@ -2632,7 +2629,7 @@ static int majority_gline(char *oper_nick,
   GLINE_PENDING *last_gline_pending_ptr;
   GLINE_PENDING *tmp_gline_pending_ptr;
   
-  if(pending_glines == (GLINE_PENDING *)NULL)	/* first gline placed */
+  if(pending_glines == (GLINE_PENDING *)NULL) /* first gline request placed */
     {
       new_pending_gline = (GLINE_PENDING *)malloc(sizeof(GLINE_PENDING));
       if(new_pending_gline == (GLINE_PENDING *)NULL)
@@ -2664,24 +2661,24 @@ static int majority_gline(char *oper_nick,
     }
 
   expire_pending_glines();
-  gline_pending_ptr = last_gline_pending_ptr = pending_glines;
+  gline_pending_ptr = pending_glines;
 
   while(gline_pending_ptr)
     {
-      if( (match(gline_pending_ptr->user,user) != 0) || 
-	  (match(gline_pending_ptr->host,host) != 0) )
+      if( (strcasecmp(gline_pending_ptr->user,user) != 0) || 
+	  (strcasecmp(gline_pending_ptr->host,host) != 0) )
 	{
 	  /* Not a match for this user */
-	  last_gline_pending_ptr = gline_pending_ptr;
 	  gline_pending_ptr = gline_pending_ptr->next;
 	  continue;
 	}
 
-      if( (match(gline_pending_ptr->oper_user1,oper_user) == 0) ||
-	  (match(gline_pending_ptr->oper_host1,oper_host) == 0) ||
-	  (match(gline_pending_ptr->oper_server1,oper_server) == 0) )
+      if( ((strcasecmp(gline_pending_ptr->oper_user1,oper_user) == 0) &&
+	  (strcasecmp(gline_pending_ptr->oper_host1,oper_host) == 0)) ||
+	  (strcasecmp(gline_pending_ptr->oper_server1,oper_server) == 0) )
 	{
-	  /* This oper has already "voted" */
+	  /* This oper or server has already "voted" */
+	  sendto_realops("oper or server has already voted");
 	  return NO;
 	}
 
@@ -2689,25 +2686,28 @@ static int majority_gline(char *oper_nick,
 	{
 	  /* already two opers have "voted" yes */
 	  
-	  if( (match(gline_pending_ptr->oper_user2,oper_user) == 0) ||
-	      (!match(gline_pending_ptr->oper_host2,oper_host) == 0) ||
-	      (!match(gline_pending_ptr->oper_server2,oper_server) == 0) )
-	    return NO;
-	  
-	  if(pending_glines == last_gline_pending_ptr)
-	    pending_glines = last_gline_pending_ptr =
-	      tmp_gline_pending_ptr = gline_pending_ptr->next;
-	  else
-	    tmp_gline_pending_ptr = last_gline_pending_ptr->next =
-	      gline_pending_ptr->next;
-
-	  MyFree(gline_pending_ptr);
+	  if( ((strcasecmp(gline_pending_ptr->oper_user2,oper_user) == 0) &&
+	      (strcasecmp(gline_pending_ptr->oper_host2,oper_host) == 0)) ||
+	      (strcasecmp(gline_pending_ptr->oper_server2,oper_server) == 0) )
+	    {
+	      /* This oper or server has already "voted" */
+	      sendto_ops("oper or server has already voted");
+	      return NO;
+	    }
+	  /* expire it this way */
+	  gline_pending_ptr->last_gline_time = (time_t)0;
+	  expire_pending_glines();
 	  return YES;
 	}
-      last_gline_pending_ptr = gline_pending_ptr;
-      gline_pending_ptr = gline_pending_ptr->next;
+      else
+	{
+	  strncpyzt(gline_pending_ptr->oper_nick2,oper_nick,NICKLEN);
+	  strncpyzt(gline_pending_ptr->oper_user2,oper_user,USERLEN);
+	  strncpyzt(gline_pending_ptr->oper_host2,oper_host,HOSTLEN);
+	  gline_pending_ptr->oper_server2 = find_or_add(oper_server);
+	  return NO;
+	}
     }
-
   return NO;
 }
 

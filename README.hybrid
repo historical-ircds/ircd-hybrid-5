@@ -1,3 +1,13 @@
++hybrid-5.1 (10/6/97)
+* The inevitable bug fix release
+-fixes
+* removed ident_fdlist it was never used anyway (comstud)
+* fixed quote kline for 10 character user names (Dianora)
+* obscure bug with KICK message in a desync channel situation (Dianora)
+-feature adds
+* stop people from laming up the kline conf file with # in comment
+* added comstuds SEPARATE_QUOTE_KLINES_BY_DATE
+* use block allocator in FLUD code (Shadowfax)
 +hybrid-5 (9/26/97)
 * LOTS AND LOTS OF CHANGES IN CONFIG.H
 * reorganized source tree, eliminating common subdir
