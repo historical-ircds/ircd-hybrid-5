@@ -802,7 +802,7 @@ static	int	set_mode(aClient *cptr,
 	    {
 #ifdef LITTLE_I_LINES
 	      if(MyClient(who) && !IsAnOper(who) 
-		 && ischop && (*curr=='o') && IsRestricted(who))
+		 && isok && (*curr=='o') && IsRestricted(who))
 		{
 		  sendto_one(who, ":%s NOTICE %s :*** Notice -- %s attempted to chanop you. You are restricted and cannot be chanopped",
 			     me.name,
@@ -884,7 +884,7 @@ static	int	set_mode(aClient *cptr,
 		sendto_one(cptr, err_str(ERR_KEYSET),
 			   me.name, cptr->name,
 			   chptr->chname);
-	      else if (ischop &&
+	      else if (isok &&
 		       (!*mode->key || IsServer(cptr)))
 		{
 		  lp = &chops[opcnt++];
@@ -898,7 +898,7 @@ static	int	set_mode(aClient *cptr,
 	    }
 	  else if (whatt == MODE_DEL)
 	    {
-	      if (ischop && (mycmp(mode->key, *parv) == 0 ||
+	      if (isok && (mycmp(mode->key, *parv) == 0 ||
 			     IsServer(cptr)))
 		{
 		  lp = &chops[opcnt++];
@@ -956,7 +956,7 @@ static	int	set_mode(aClient *cptr,
 	   * limit 'l' to only *1* change per mode command but
 	   * eat up others.
 	   */
-	  if (limitset || !ischop)
+	  if (limitset || !isok)
 	    {
 	      if (whatt == MODE_ADD && --parc > 0)
 		parv++;
@@ -987,7 +987,7 @@ static	int	set_mode(aClient *cptr,
 		     me.name, cptr->name, "MODE +l");
 	  break;
 	case 'i' : /* falls through for default case */
-	  if ((whatt == MODE_DEL) && ischop)
+	  if ((whatt == MODE_DEL) && isok)
 	    while ( (lp = chptr->invites) )
 	      del_invite(lp->value.cptr, chptr);
 	default:
@@ -1028,24 +1028,6 @@ static	int	set_mode(aClient *cptr,
 
   whatt = 0;
 
-  /* if it's a non-deopped non-op on a TS channel from a TS
-  ** server, allow only ops and deops and ignore everything
-  ** else (to avoid having desynched ops) -orabidoo
-  */
-  if (!ischop && isok)
-    {
-      Reg	int 	i;
-      Reg	int	j;
-      
-      new = oldm.mode;
-      for (i = 0, j = 0; i < opcnt; i++)
-	if (chops[i].flags & (MODE_CHANOP|MODE_VOICE))
-	  chops[j++] = chops[i];
-	else
-	  count--;
-      opcnt = j;
-    }
-
   for (ip = flags; *ip; ip += 2)
     if ((*ip & new) && !(*ip & oldm.mode))
       {
@@ -1054,7 +1036,7 @@ static	int	set_mode(aClient *cptr,
 	    *mbuf++ = '+';
 	    whatt = 1;
 	  }
-	if (ischop)
+	if (isok)
 	  mode->mode |= *ip;
 	*mbuf++ = *(ip+1);
       }
@@ -1166,7 +1148,7 @@ static	int	set_mode(aClient *cptr,
 	      len += strlen(cp);
 	      (void)strcat(pbuf, " ");
 	      len++;
-	      if (!ischop)
+	      if (!isok)
 		break;
 	      if (strlen(cp) > (size_t) KEYLEN)
 		*(cp+KEYLEN) = '\0';
@@ -1184,7 +1166,7 @@ static	int	set_mode(aClient *cptr,
 	      len += strlen(cp);
 	      (void)strcat(pbuf, " ");
 	      len++;
-	      if (!ischop)
+	      if (!isok)
 		break;
 	      mode->limit = nusers;
 	      break;
@@ -1209,7 +1191,7 @@ static	int	set_mode(aClient *cptr,
 		set_deopped(lp, chptr);
 	      break;
 	    case MODE_BAN :
-	      if (ischop && (((whatt & MODE_ADD) &&
+	      if (isok && (((whatt & MODE_ADD) &&
 			     !add_banid(sptr, chptr, cp)) ||
 			     ((whatt & MODE_DEL) &&
 			     !del_banid(chptr, cp))))

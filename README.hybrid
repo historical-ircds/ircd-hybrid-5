@@ -51,6 +51,9 @@
   found (Rodder)
 * Check for error when timeofday is set (Shadowfax)
 * Announce TS changes after TS induced deops (Shadowfax)
+* stop redistributing away information to other servers
+* Prepared for TS4 mixed net by checking validity of channel mode changes
+  only at the local server (orabidoo)
 
 +hybrid-5 (9/26/97)
 * LOTS AND LOTS OF CHANGES IN CONFIG.H
