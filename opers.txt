@@ -1,5 +1,5 @@
 This file outlines the features that ircd-hybrid has for IRC Operators.
-- 09/09/97 - ThemBones (kraemer@u.washington.edu)
+- 09/27/97 - ThemBones (kraemer@u.washington.edu)
 
 =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
@@ -14,10 +14,10 @@ Usermodes: (* designates that the umode is oper only)
          +i     - Designates this client 'invisible'.
          +w     - Can see server wallops.
        * +z     - Can see oper wallops.
-         +s     - Can see generic server messages.
+         +s     - Can see generic server messages and oper kills.
        * +c     - Can see client connections and exits.
        * +r     - Can see 'rejected' client notices.
-         +k     - Can see kill messages.
+         +k     - Can see server kill messages.
        * +f     - Can see 'I-line is full' notices.
        * +y     - Can see stats/links/admin requests to name a few.
        * +d     - Can see server debug messages.
