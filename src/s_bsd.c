@@ -202,6 +202,11 @@ void	report_error(char *text,aClient *cptr)
   sendto_realops_lev(DEBUG_LEV,text, host, strerror(errtmp));
 #ifdef USE_SYSLOG
   syslog(LOG_WARNING, text, host, strerror(errtmp));
+  if (bootopt & BOOT_STDERR)
+  {
+    fprintf(stderr, text, host, strerror(errtmp));
+    fprintf(stderr, "\n");
+  }
 #endif
   return;
 }
@@ -503,11 +508,12 @@ void	init_sys()
       return;
     }
   (void)close(1);
-  if (!(bootopt & BOOT_DEBUG))
+  if (!(bootopt & BOOT_DEBUG) && !(bootopt & BOOT_STDERR))
     (void)close(2);
 
   if (((bootopt & BOOT_CONSOLE) || isatty(0)) &&
-      !(bootopt & (BOOT_INETD|BOOT_OPER)))
+      !(bootopt & (BOOT_INETD|BOOT_OPER)) &&
+      !(bootopt & BOOT_STDERR))
     {
       int pid;
       if( (pid = fork()) < 0)

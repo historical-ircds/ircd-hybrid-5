@@ -1,7 +1,7 @@
 # Generated automatically from Makefile.in by configure.
 CC=gcc
 RM=/bin/rm
-IRCDLIBS=-lcrypt 
+IRCDLIBS=-ldescrypt 
 INCLUDEDIR=-I../include
 
 SRC_1 = bsd.c channel.c class.c dbuf.c dich_conf.c

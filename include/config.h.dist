@@ -91,24 +91,20 @@
 #define	PPATH	"ircd.pid"
 #define HPATH	"opers.txt"
 
-/* Contributed by Shadowfax */
-/* LOCKFILE
+/* LOCKFILE - Exclusive use of ircd.conf and kline.conf during writes
  *
- * There is a saying  about too many cooks in the kitchen.  It happens quite
- * often while one person is editting the ircd.conf, another person adds a
- * kline using the /quote kline command.  Or, another person tries to edit
- * the config file at the same time you are.  This should deal with the
- * problem.  When a kline is added, rather than writing it to a file, it is
- * stuck into a list.  At rehash time, the list is checked, and klines are
- * added to the file if it can be locked.  This way, every time a kline is
- * added or the server is rehashed (which often happens after editting the
- * conf file), pending klines will be added.
+ * This creates a lockfile prior to writes to ircd.conf or kline.conf, and
+ * can be used in conjunction with viconf (included in the tools directory).
+ * This prevents loss of data when klines are added while someone is manually
+ * editting the file.  File writes will be retried at the next KLINE, DLINE,
+ * REHASH, or after CHECK_PENDING_KLINES minutes have elapsed.
  *
  * If you do not wish to use this feature, leave LOCKFILE #undef 
  */
 #define LOCKFILE "/tmp/ircd.conf.lock"
+#define	CHECK_PENDING_KLINES	10	/* in minutes */
 
-/* SEPARATE_QUOTE_KLINES_BY_DATE (from comstud)
+/* SEPARATE_QUOTE_KLINES_BY_DATE
  * If you define this, then klines will be read and written
  * to a separate kline file according to date. You =must= then run
  * a daily/nightly script to consolidate your klines, or the previous
@@ -123,13 +119,6 @@
  */
 #define UNKLINE
 
-/* CHECK_PENDING_KLINES - a timer (IN MINUTES)
- * that will try to write out pending klines if
- * there are still klines in queue
- */
-#define	CHECK_PENDING_KLINES	10	/* in minutes */
-
-
 /* FNAME_USERLOG and FNAME_OPERLOG - logs of local USERS and OPERS
  * Define this filename to maintain a list of persons who log
  * into this server. Logging will stop when the file does not exist.
@@ -142,19 +131,16 @@
 #define FNAME_USERLOG "/usr/local/ircd/users" /* */
 #define FNAME_OPERLOG "/usr/local/ircd/opers" /* */
 
-/* ANTI_IP_SPOOF - protects against TCP sequence guessing attacks
- * Define this if you want the server to send a random ping at USER or NICK 
- * to defeat IP sequence spoofers. Note, this will stop _some_ very few
- * clients from using the server. MIRC/IRCII clients are fine with this though
- *
- * N.B. This code would be totally unnecessary if you only get
- * the proper anti-sequence prediction patches from your OS vendor,
- * but if you absolutely need this until you do, here it is.
- */
-#undef ANTI_IP_SPOOF
-
 /* FOLLOW_IDENT_RFC
- * Defining this allows all users to set whatever username they wish.
+ * 
+ * From RFC 1413, "The Identification Protocol is not intended as an
+ * authorization or access control protocol ... The use of the information
+ * returned by this protocol for other than auditing is strongly discouraged."
+ * 
+ * Defining this allows all users to set whatever username they wish, despite
+ * what may be discovered by ident.  While we may get a valid ident response
+ * with a different username than submitted by the client, this option will
+ * cause the ident response to be discarded.
  */
 #undef FOLLOW_IDENT_RFC 
 
@@ -259,7 +245,8 @@
  * Define this if you want GLINE support
  * when this is defined, 3 completely different opers from
  * three different servers must do the identical GLINE in order
- * for the G line to take effect. 
+ * for the G line to take effect. I don't know what comstud did
+ * (nor do I really care) I have not looked at his code. - Dianora
  */
 #define GLINES
 
@@ -555,7 +542,7 @@
  * this option is used unless you tell the system administrator beforehand
  * and obtain their permission to send messages to the system log files.
  *
- * It is stronglt recomended that you DO use syslog.  Many fatal ircd errors
+ * IT IS STRONGLY RECOMMENDED THAT YOU *DO* USE SYSLOG.  Many fatal ircd errors
  * are only logged to syslog.
  */
 #define	USE_SYSLOG
@@ -596,7 +583,6 @@
 /* IDLE_FROM_MSG - Idle-time nullified only from privmsg
  * Idle-time nullified only from privmsg, if undefined idle-time
  * is nullified from everything except ping/pong.
- * Added 3.8.1992, kny@cs.hut.fi (nam)
  */
 #define IDLE_FROM_MSG
 
@@ -630,6 +616,11 @@
  * Sends an extra NOTICE in the beginning of client connection
  */
 #define	IRCII_KLUDGE
+
+/* NOISY_HTM - should HTM be noisy by default
+ * should be YES or NO
+ */
+#define NOISY_HTM NO
 
 /*   STOP STOP STOP STOP STOP STOP STOP STOP STOP STOP STOP STOP STOP STOP  */
 
@@ -762,26 +753,17 @@
  */
 #define	SENDQ_ALWAYS
 
-/* -------------------------------------------------------------------------
-   Shadowfax's anti flud code... Michael took great care to minimize
-   the effect of this code on the server CPU wise. However, you may not
-   wish to take the risk. It should certainly not be deffed for a HUB
-   You may also have objections to the fact it "sneaks a peek" at PRIVMSG's
-   sneaking a peek at the inside contents of messages is already done by
-   bot catching code, and no privacy is breached..
-
-   You choose.
-   - Dianora
-*/
-
-/* FLUD - define this if you wish to enable server CTCP flood detection and
- * protection for your clients.  This works well against fludnets
- * and flood clones.  You may choose to tweak the following default
- * thresholds, but these seem to work well.  Not useful for routing
- * only servers. (Shadowfax)
+/* FLUD - CTCP Flood Detection and Protection
  * 
- * The hybrid team strongly recommends you not use FLUD with HUB
- * if you do, you are on your own.
+ * This enables server CTCP flood detection and protection for local clients.
+ * It works well against fludnets and flood clones.  The effect of this code
+ * on server CPU and memory usage is minimal, however you may not wish to
+ * take the risk, or be fundamentally opposed to checking the contents of
+ * PRIVMSG's (though no privacy is breached).  This code is not useful for
+ * routing only servers (ie, HUB's with little or no local client base), and
+ * the hybrid team strongly recommends that you do not use FLUD with HUB.
+ * The following default thresholds may be tweaked, but these seem to work
+ * well.
  */
 #define FLUD
 
@@ -790,8 +772,6 @@
  * if ANTI_SPAMBOT is defined try to discourage spambots
  * The defaults =should= be fine for the timers/counters etc.
  * but you can play with them. -Dianora
- * If this is a routing server only, i.e. no clients at all
- * You don't need this defined.
  */
 #define ANTI_SPAMBOT
 
@@ -827,8 +807,6 @@
 #endif
 
 #ifdef FLUD
-/* FLUD_NUM FLUD_TIME FLUD_BLOCK - control behavior of FLUD protection
- */
 #define FLUD_NUM	4	/* Number of flud messages to trip alarm */
 #define FLUD_TIME	3	/* Seconds in which FLUD_NUM msgs must occur */
 #define FLUD_BLOCK	15	/* Seconds to block fluds */
@@ -836,6 +814,22 @@
 
 
 /* ----------------- archaic and/or broken secion -------------------- */
+
+/* ANTI_IP_SPOOF - protects against TCP sequence guessing attacks
+ * Define this if you want the server to send a random ping at USER or NICK
+ * to defeat IP sequence spoofers. Note, this will stop _some_ very few
+ * clients from using the server. MIRC/IRCII clients are fine with this though
+ *
+ * N.B. This code would be totally unnecessary if you only get
+ * the proper anti-sequence prediction patches from your OS vendor,
+ * but if you absolutely need this until you do, here it is.
+ *
+ * this code isn't ready for primetime yet, it's guaranteed to make
+ * your ircd dump core.
+ *
+ */
+#undef ANTI_IP_SPOOF
+
 #undef DNS_DEBUG
 
 /* SETUID_ROOT - plock - keep the ircd from being swapped out.

@@ -899,7 +899,7 @@ static	int	register_user(aClient *cptr,
 	       return exit_client(sptr, sptr, &me, "Ghosted Client");
 	     }
 	 }
-	      send_umode(NULL, sptr, 0, SEND_UMODES, ubuf);
+	send_umode(NULL, sptr, 0, SEND_UMODES, ubuf);
 	if (!*ubuf)
 	  {
 	    ubuf[0] = '+';
@@ -910,6 +910,9 @@ static	int	register_user(aClient *cptr,
 			   nick, sptr->hopcount+1, sptr->tsinfo, ubuf,
 			   user->username, user->host, user->server,
 			   sptr->info);
+	if (ubuf[1])
+		 send_umode_out(cptr, sptr, 0);
+
 	return 0;
     }
 

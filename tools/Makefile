@@ -1,7 +1,7 @@
 # Generated automatically from Makefile.in by configure.
 CC=gcc
 RM=/bin/rm
-IRCDLIBS=-lcrypt 
+IRCDLIBS=-ldescrypt 
 INCLUDEDIR=-I../include
 
 mkpasswd_SOURCES = mkpasswd.c
@@ -10,10 +10,12 @@ chkconf_SOURCES = chkconf.c
 chkconf_OBJECTS = chkconf.o
 viconf_SOURCES = viconf.c
 viconf_OBJECTS = viconf.o
+fixklines_SOURCES = fixklines.c
+fixklines_OBJECT = fixklines.o
 
-all_OBJECTS = $(viconf_OBJECTS) $(mkpasswd_OBJECTS) $(chkconf_OBJECTS)
+all_OBJECTS = $(viconf_OBJECTS) $(mkpasswd_OBJECTS) $(chkconf_OBJECTS) ${fixklines_OBJECT}
 
-all: viconf chkconf mkpasswd
+all: viconf chkconf mkpasswd fixklines
 
 build: all
 
@@ -26,8 +28,11 @@ mkpasswd: $(mkpasswd_OBJECTS)
 viconf: viconf.o
 	$(CC) -o viconf viconf.o ${IRCDLIBS}
 
+fixklines: fixklines.o
+	$(CC) -o fixklines fixklines.o
+
 clean:
-	$(RM) -f $(all_OBJECTS) viconf chkconf mkpasswd *~ core
+	$(RM) -f $(all_OBJECTS) fixklines viconf chkconf mkpasswd *~ core
 
 distclean: clean
 	$(RM) -f Makefile

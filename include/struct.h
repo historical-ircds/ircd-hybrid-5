@@ -121,6 +121,7 @@ typedef struct	MotdItem aMotd;
 #define	BOOT_TTY	16
 #define	BOOT_OPER	32
 #define	BOOT_AUTODIE	64
+#define BOOT_STDERR	128
 #define	STAT_LOG	-6	/* logfile for -x */
 #define	STAT_MASTER	-5	/* Local ircd master before identification */
 #define	STAT_CONNECTING	-4

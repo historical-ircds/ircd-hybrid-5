@@ -131,7 +131,7 @@ static	int	dorehash = 0;
 static	char	*dpath = DPATH;
 int     rehashed = 1;
 int     dline_in_progress = 0;	/* killing off matching D lines ? */
-int     noisy_htm=NO;		/* Is high traffic mode noisy or not? */
+int     noisy_htm=NOISY_HTM;	/* Is high traffic mode noisy or not? */
 time_t	nextconnect = 1;	/* time for next try_connections call */
 time_t	nextping = 1;		/* same as above for check_pings() */
 time_t	nextdnscheck = 0;	/* next time to poll dns to force timeouts */
@@ -622,7 +622,7 @@ ping_timeout:
 static	int	bad_command()
 {
   (void)printf(
-	 "Usage: ircd %s[-h servername] [-p portnumber] [-x loglevel] [-t]\n",
+	 "Usage: ircd %s[-h servername] [-p portnumber] [-x loglevel] [-s] [-t]\n",
 #ifdef CMDLINE_CONFIG
 	 "[-f config] "
 #else
@@ -781,6 +781,9 @@ int	main(int argc, char *argv[])
 	case 'p':
 	  if ((portarg = atoi(p)) > 0 )
 	    portnum = portarg;
+	  break;
+	case 's':
+	  bootopt |= BOOT_STDERR;
 	  break;
 	case 't':
 	  (void)setuid((uid_t)uid);
@@ -960,10 +963,24 @@ normal user.\n");
 	portnum = aconf->port;
       Debug((DEBUG_ERROR, "Port = %d", portnum));
       if (inetport(&me, star, portnum))
+      {
+	if (bootopt & BOOT_STDERR)
+          fprintf(stderr,"Couldn't bind to primary port %d\n", portnum);
+#ifdef USE_SYSLOG
+	(void)syslog(LOG_CRIT, "Couldn't bind to primary port %d\n", portnum);
+#endif
 	exit(1);
+      }
     }
   else if (inetport(&me, "*", 0))
+  {
+    if (bootopt & BOOT_STDERR)
+      fprintf(stderr,"Couldn't bind to port passed from inetd\n");
+#ifdef USE_SYSLOG
+      (void)syslog(LOG_CRIT, "Couldn't bind to port passed from inetd\n");
+#endif
     exit(1);
+  }
 
   (void)setup_ping();
   (void)get_my_name(&me, me.sockhost, sizeof(me.sockhost)-1);

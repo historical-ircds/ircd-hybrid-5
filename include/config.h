@@ -82,7 +82,7 @@
  * -Dianora
  */
 
-#define	DPATH	"./"
+#define	DPATH	"/usr/local/ircd/"
 #define	SPATH	"/usr/local/ircd/ircd"
 #define	CPATH	"ircd.conf"
 #define KPATH   "kline.conf"
@@ -130,17 +130,6 @@
  */
 #define FNAME_USERLOG "/usr/local/ircd/users" /* */
 #define FNAME_OPERLOG "/usr/local/ircd/opers" /* */
-
-/* ANTI_IP_SPOOF - protects against TCP sequence guessing attacks
- * Define this if you want the server to send a random ping at USER or NICK 
- * to defeat IP sequence spoofers. Note, this will stop _some_ very few
- * clients from using the server. MIRC/IRCII clients are fine with this though
- *
- * N.B. This code would be totally unnecessary if you only get
- * the proper anti-sequence prediction patches from your OS vendor,
- * but if you absolutely need this until you do, here it is.
- */
-#undef ANTI_IP_SPOOF
 
 /* FOLLOW_IDENT_RFC
  * 
@@ -553,7 +542,7 @@
  * this option is used unless you tell the system administrator beforehand
  * and obtain their permission to send messages to the system log files.
  *
- * It is stronglt recomended that you DO use syslog.  Many fatal ircd errors
+ * IT IS STRONGLY RECOMMENDED THAT YOU *DO* USE SYSLOG.  Many fatal ircd errors
  * are only logged to syslog.
  */
 #define	USE_SYSLOG
@@ -594,7 +583,6 @@
 /* IDLE_FROM_MSG - Idle-time nullified only from privmsg
  * Idle-time nullified only from privmsg, if undefined idle-time
  * is nullified from everything except ping/pong.
- * Added 3.8.1992, kny@cs.hut.fi (nam)
  */
 #define IDLE_FROM_MSG
 
@@ -628,6 +616,11 @@
  * Sends an extra NOTICE in the beginning of client connection
  */
 #define	IRCII_KLUDGE
+
+/* NOISY_HTM - should HTM be noisy by default
+ * should be YES or NO
+ */
+#define NOISY_HTM NO
 
 /*   STOP STOP STOP STOP STOP STOP STOP STOP STOP STOP STOP STOP STOP STOP  */
 
@@ -821,6 +814,22 @@
 
 
 /* ----------------- archaic and/or broken secion -------------------- */
+
+/* ANTI_IP_SPOOF - protects against TCP sequence guessing attacks
+ * Define this if you want the server to send a random ping at USER or NICK
+ * to defeat IP sequence spoofers. Note, this will stop _some_ very few
+ * clients from using the server. MIRC/IRCII clients are fine with this though
+ *
+ * N.B. This code would be totally unnecessary if you only get
+ * the proper anti-sequence prediction patches from your OS vendor,
+ * but if you absolutely need this until you do, here it is.
+ *
+ * this code isn't ready for primetime yet, it's guaranteed to make
+ * your ircd dump core.
+ *
+ */
+#undef ANTI_IP_SPOOF
+
 #undef DNS_DEBUG
 
 /* SETUID_ROOT - plock - keep the ircd from being swapped out.

@@ -2,7 +2,7 @@
 # Generated automatically by configure.
 # Run this file to recreate the current configuration.
 # This directory was configured as follows,
-# on host koruna.varner.com:
+# on host irc.vol.com:
 #
 # ./configure 
 #
@@ -40,7 +40,7 @@ s%@CPPFLAGS@%%g
 s%@CXXFLAGS@%%g
 s%@DEFS@%-DHAVE_CONFIG_H%g
 s%@LDFLAGS@%%g
-s%@LIBS@%-lcrypt %g
+s%@LIBS@%-ldescrypt %g
 s%@exec_prefix@%${prefix}%g
 s%@prefix@%/usr/local%g
 s%@program_transform_name@%s,x,x,%g
@@ -59,21 +59,21 @@ s%@mandir@%${prefix}/man%g
 s%@PACKAGE@%ircd-hybrid%g
 s%@VERSION@%4.2%g
 s%@CC@%gcc%g
-s%@host@%i386-unknown-freebsd2.2.1%g
-s%@host_alias@%i386-unknown-freebsd2.2.1%g
+s%@host@%i386-unknown-freebsd2.2.2%g
+s%@host_alias@%i386-unknown-freebsd2.2.2%g
 s%@host_cpu@%i386%g
 s%@host_vendor@%unknown%g
-s%@host_os@%freebsd2.2.1%g
-s%@target@%i386-unknown-freebsd2.2.1%g
-s%@target_alias@%i386-unknown-freebsd2.2.1%g
+s%@host_os@%freebsd2.2.2%g
+s%@target@%i386-unknown-freebsd2.2.2%g
+s%@target_alias@%i386-unknown-freebsd2.2.2%g
 s%@target_cpu@%i386%g
 s%@target_vendor@%unknown%g
-s%@target_os@%freebsd2.2.1%g
-s%@build@%i386-unknown-freebsd2.2.1%g
-s%@build_alias@%i386-unknown-freebsd2.2.1%g
+s%@target_os@%freebsd2.2.2%g
+s%@build@%i386-unknown-freebsd2.2.2%g
+s%@build_alias@%i386-unknown-freebsd2.2.2%g
 s%@build_cpu@%i386%g
 s%@build_vendor@%unknown%g
-s%@build_os@%freebsd2.2.1%g
+s%@build_os@%freebsd2.2.2%g
 s%@CPP@%gcc -E%g
 s%@SET_MAKE@%%g
 s%@RM@%/bin/rm%g
@@ -209,9 +209,9 @@ for ac_file in .. $CONFIG_HEADERS; do if test "x$ac_file" != x..; then
   cat $ac_file_inputs > conftest.in
 
   cat > conftest.frag <<CEOF
-${ac_dA}HAVE_LIBCRYPT${ac_dB}HAVE_LIBCRYPT${ac_dC}1${ac_dD}
-${ac_uA}HAVE_LIBCRYPT${ac_uB}HAVE_LIBCRYPT${ac_uC}1${ac_uD}
-${ac_eA}HAVE_LIBCRYPT${ac_eB}HAVE_LIBCRYPT${ac_eC}1${ac_eD}
+${ac_dA}HAVE_LIBDESCRYPT${ac_dB}HAVE_LIBDESCRYPT${ac_dC}1${ac_dD}
+${ac_uA}HAVE_LIBDESCRYPT${ac_uB}HAVE_LIBDESCRYPT${ac_uC}1${ac_uD}
+${ac_eA}HAVE_LIBDESCRYPT${ac_eB}HAVE_LIBDESCRYPT${ac_eC}1${ac_eD}
 ${ac_dA}STDC_HEADERS${ac_dB}STDC_HEADERS${ac_dC}1${ac_dD}
 ${ac_uA}STDC_HEADERS${ac_uB}STDC_HEADERS${ac_uC}1${ac_uD}
 ${ac_eA}STDC_HEADERS${ac_eB}STDC_HEADERS${ac_eC}1${ac_eD}
