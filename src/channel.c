@@ -1726,8 +1726,6 @@ int	m_kick(aClient *cptr,
 	    -Dianora
 
 		     */
-	  name = strtoken(&p, (char*)NULL, ",");
-
 	}
 
       user = strtoken(&p2, parv[2], ",");
