@@ -948,17 +948,8 @@ static	int	register_user(aClient *cptr,
 
     while(*p)
       {
-	if( (*p > 127) || (*p < ' '))
-	  {
-	    sendto_realops_lev(REJ_LEV,"Invalid username: %s (%s@%s)",
-			       nick, user->username, user->host);
-	    ircstp->is_ref++;
-	    (void)ircsprintf(tmpstr2, "Invalid username [%s]",
-			     user->username);
-	    return exit_client(cptr, sptr, &me, tmpstr2);
-	  }
-
-	if((*p == '*') || (*p == '?') || (*p == '!'))
+	if( (*p > 127) || (*p <= ' ') || 
+	    (*p == '*') || (*p == '?') || (*p == '!'))
 	  {
 	    sendto_realops_lev(REJ_LEV,"Invalid username: %s (%s@%s)",
 			       nick, user->username, user->host);

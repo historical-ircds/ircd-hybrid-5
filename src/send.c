@@ -943,7 +943,7 @@ va_dcl
   va_start(vl);
 #endif
 #ifdef USE_LINKLIST
-  for(cptr = oper_cptr_list; cptr; cptr = cptr->next_oper_client)
+  for(cptr = local_cptr_list; cptr; cptr = cptr->next_local_client)
     if(SendServNotice(cptr))
 #else
   for (i = 0; i <= highest_fd; i++)
@@ -1160,6 +1160,9 @@ va_dcl
 #else
   par = p1;
 #endif
+  /* DEBUG */
+Debug((DEBUG_DEBUG,"sendto_prefix_one to %x from %x",to,from));
+
 /* Optimize by checking if (from && to) before everything */
   if (to && from)
     {

@@ -3304,11 +3304,6 @@ int     m_gline(aClient *cptr,
 	  return 0;
 	}
 
-      /* DEBUG */
-      Debug((DEBUG_DEBUG,
-	     "GLINE placed by local oper user [%s] host [%s] reason [%s]",
-	     user,host,parv[2]));
-
       if(strchr(parv[2], ':'))
 	{
           sendto_one(sptr,
@@ -3379,18 +3374,6 @@ int     m_gline(aClient *cptr,
       else
 	return;
 
-      /* DEBUG */
-      Debug((DEBUG_DEBUG,
-     "GLINE about to sendto_serv_butone(:%s GLINE %s %s %s %s %s %s :%s);",
-	     me.name,
-	     oper_name,
-	     oper_username,
-	     oper_host,
-	     oper_server,
-	     user,
-	     host,
-	     reason));
-
       sendto_serv_butone(NULL, ":%s GLINE %s %s %s %s %s %s :%s",
 			 me.name,
 			 oper_name,
@@ -3405,8 +3388,6 @@ int     m_gline(aClient *cptr,
     {
       if(!IsServer(sptr))
         return(0);
-      /* DEBUG */
-      Debug((DEBUG_DEBUG,"GLINE received from a server"));
       
       oper_name = parv[1];
       oper_username = parv[2];
@@ -3416,27 +3397,12 @@ int     m_gline(aClient *cptr,
       host = parv[6];
       reason = parv[7];
 
-      /* DEBUG */
-      Debug((DEBUG_DEBUG,
-	     "GLINE received from server :%s GLINE %s %s %s %s %s %s :%s",
-       sptr->name,
-       oper_name,oper_username,oper_host,oper_server,
-       user,
-       host,
-       reason));
-
-
-      Debug((DEBUG_DEBUG,
-	     "GLINE sending to all servers but sptr %x sptr->name [%s]",
-       sptr,sptr->name));
-
       sendto_serv_butone(sptr, ":%s GLINE %s %s %s %s %s %s :%s",
                          sptr->name,
 			 oper_name,oper_username,oper_host,oper_server,
                          user,
                          host,
                          reason);
-      /*DEBUG */
     }
 
    sendto_realops("%s!%s@%s on %s is requesting gline for [%s@%s] [%s]",
@@ -3542,13 +3508,6 @@ static int majority_gline(aClient *sptr,
       new_pending_gline->reason1 = strdup(reason);
       new_pending_gline->reason2 = (char *)NULL;
 
-Debug((DEBUG_DEBUG,"new GLINE %s!%s@%s on %s for %s@%s [%s]",
-       new_pending_gline->oper_nick1,
-       new_pending_gline->oper_user1,
-       new_pending_gline->oper_host1,
-       new_pending_gline->oper_server1
-       ,user,host,reason));
-
       new_pending_gline->next = (GLINE_PENDING *)NULL;
       new_pending_gline->last_gline_time = NOW;
       pending_glines = new_pending_gline;
@@ -3557,86 +3516,58 @@ Debug((DEBUG_DEBUG,"new GLINE %s!%s@%s on %s for %s@%s [%s]",
   else
     expire_pending_glines();
 
-Debug((DEBUG_DEBUG,"after expire_pending_glines() pending_glines = %X",
-       pending_glines));
-
-  gline_pending_ptr = pending_glines;
-
-  while(gline_pending_ptr)
+  for(gline_pending_ptr = pending_glines;
+      gline_pending_ptr; gline_pending_ptr = gline_pending_ptr->next)
     {
-Debug((DEBUG_DEBUG,"while(gline_pending_ptr)... %s!%s@%s on %s for %s@%s [%s]",
-       gline_pending_ptr->oper_nick1,
-       gline_pending_ptr->oper_user1,
-       gline_pending_ptr->oper_host1,
-       gline_pending_ptr->oper_server1,user,host,reason));
-
-      if( (strcasecmp(gline_pending_ptr->user,user) != 0) || 
-	  (strcasecmp(gline_pending_ptr->host,host) != 0) )
+      if( (strcasecmp(gline_pending_ptr->user,user) == 0) &&
+	  (strcasecmp(gline_pending_ptr->host,host) ==0 ) )
 	{
-	  /* Not a match for this user */
-
-	  gline_pending_ptr = gline_pending_ptr->next;
-	  continue;
-	}
-
-      if( ((strcasecmp(gline_pending_ptr->oper_user1,oper_user) == 0) &&
-	  (strcasecmp(gline_pending_ptr->oper_host1,oper_host) == 0)) ||
-	  (strcasecmp(gline_pending_ptr->oper_server1,oper_server) == 0) )
-	{
-	  /* This oper or server has already "voted" */
-	  sendto_realops("oper or server has already voted");
-	  return NO;
-	}
-
-      if( gline_pending_ptr->oper_user2[0] != '\0' )
-	{
-	  Debug((DEBUG_DEBUG,
-		 "oper_user2[0] new GLINE %s!%s@%s on %s for %s@%s [%s]",
-       gline_pending_ptr->oper_nick2,
-       gline_pending_ptr->oper_user2,
-       gline_pending_ptr->oper_host2,
-       gline_pending_ptr->oper_server2,user,host,reason));
-
-	  /* already two opers have "voted" yes */
-	  
-	  if( ((strcasecmp(gline_pending_ptr->oper_user2,oper_user) == 0) &&
-	      (strcasecmp(gline_pending_ptr->oper_host2,oper_host) == 0)) ||
-	      (strcasecmp(gline_pending_ptr->oper_server2,oper_server) == 0) )
+	  if(((strcasecmp(gline_pending_ptr->oper_user1,oper_user) == 0) &&
+	      (strcasecmp(gline_pending_ptr->oper_host1,oper_host) == 0)) ||
+	      (strcasecmp(gline_pending_ptr->oper_server1,oper_server) == 0) )
 	    {
 	      /* This oper or server has already "voted" */
-	      sendto_ops("oper or server has already voted");
+	      sendto_realops("oper or server has already voted");
 	      return NO;
 	    }
-          /* expire it this way */
-          gline_pending_ptr->last_gline_time = (time_t)0;
-          expire_pending_glines();
 
-	  if(find_is_glined(host,user))
+	  if(gline_pending_ptr->oper_user2[0] != '\0')
 	    {
-	      Debug((DEBUG_DEBUG,"already glined %s@%s answer NO",user,host));
-	      return NO;
-	    }
+	      /* already two opers have "voted" yes */
+	  
+	      if(((strcasecmp(gline_pending_ptr->oper_user2,oper_user)==0) &&
+		  (strcasecmp(gline_pending_ptr->oper_host2,oper_host)==0)) ||
+		  (strcasecmp(gline_pending_ptr->oper_server2,oper_server)==0))
+		{
+		  /* This oper or server has already "voted" */
+		  sendto_ops("oper or server has already voted");
+		  return NO;
+		}
 
-	  if(find_is_klined(host,user))
+	      if(find_is_glined(host,user))
+		{
+		  return NO;
+		}
+
+	      if(find_is_klined(host,user))
+		{
+		  return NO;
+		}
+
+	      log_gline(sptr,parv0,gline_pending_ptr,
+			oper_nick,oper_user,oper_host,oper_server,
+			user,host,reason);
+	      return YES;
+	    }
+	  else
 	    {
-	      Debug((DEBUG_DEBUG,"already klined %s@%s answer NO",user,host));
+	      strncpyzt(gline_pending_ptr->oper_nick2,oper_nick,NICKLEN+1);
+	      strncpyzt(gline_pending_ptr->oper_user2,oper_user,USERLEN);
+	      strncpyzt(gline_pending_ptr->oper_host2,oper_host,HOSTLEN);
+	      gline_pending_ptr->reason2 = strdup(reason);
+	      gline_pending_ptr->oper_server2 = find_or_add(oper_server);
 	      return NO;
 	    }
-
-	  log_gline(sptr,parv0,gline_pending_ptr,
-		    oper_nick,oper_user,oper_host,oper_server,
-		    user,host,reason);
-	  Debug((DEBUG_DEBUG,"after log_gline answer YES"));
-	  return YES;
-	}
-      else
-	{
-	  strncpyzt(gline_pending_ptr->oper_nick2,oper_nick,NICKLEN+1);
-	  strncpyzt(gline_pending_ptr->oper_user2,oper_user,USERLEN);
-	  strncpyzt(gline_pending_ptr->oper_host2,oper_host,HOSTLEN);
-	  gline_pending_ptr->reason2 = strdup(reason);
-	  gline_pending_ptr->oper_server2 = find_or_add(oper_server);
-	  return NO;
 	}
     }
   return NO;
@@ -3742,15 +3673,10 @@ void expire_pending_glines()
   last_gline_pending_ptr = (GLINE_PENDING *)NULL;
   gline_pending_ptr = pending_glines;
 
-Debug((DEBUG_DEBUG,"gline_pending_ptr %x",gline_pending_ptr));
-
   while(gline_pending_ptr)
     {
       if( (gline_pending_ptr->last_gline_time + GLINE_PENDING_EXPIRE) <= NOW )
 	{
-Debug((DEBUG_DEBUG,"expiring gline_pending_ptr %x last_gline_time %d NOW %d",
-       gline_pending_ptr,gline_pending_ptr->last_gline_time,NOW));
-
 	  if(last_gline_pending_ptr)
 	    last_gline_pending_ptr->next = gline_pending_ptr->next;
 	  else
