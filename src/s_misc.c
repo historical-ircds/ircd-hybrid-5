@@ -49,14 +49,18 @@ static char *rcs_version = "$Id$";
 #include <time.h>
 #endif
 #include "h.h"
+#include "fdlist.h"
+/* FDLIST */
+extern fdlist serv_fdlist;
 
+#ifdef USE_LINKLIST
 /* LINKLIST */
 extern aClient *local_cptr_list;
 extern aClient *oper_cptr_list;
 extern aClient *serv_cptr_list;
+#endif
 
-#if defined(NO_CHANOPS_WHEN_SPLIT) || defined(PRESERVE_CHANNEL_ON_SPLIT) || \
-	defined(NO_JOIN_ON_SPLIT)
+#ifdef NO_CHANOPS_WHEN_SPLIT
 extern int server_was_split;
 extern time_t server_split_time;
 #endif
@@ -256,7 +260,7 @@ char	*get_client_name(aClient *sptr,int showip)
 #ifdef SHOW_UH
 	    (void)ircsprintf(nbuf, "%s[%s%s@%s]",
 			     sptr->name,
-			     (!IsGotId(sptr)) ? "" :
+			     (!(sptr->flags & FLAGS_GOTID)) ? "" :
 			     "(+)",
 			     sptr->user?sptr->user->username :
 			     sptr->username, 
@@ -264,7 +268,7 @@ char	*get_client_name(aClient *sptr,int showip)
 #else
 	    (void)sprintf(nbuf, "%s[%s@%s]",
 			sptr->name,
-			(!isGotId(sptr)) ? "" :
+			(!(sptr->flags & FLAGS_GOTID)) ? "" :
 			sptr->username,
 			inetntoa((char *)&sptr->ip));
 #endif
@@ -273,7 +277,7 @@ char	*get_client_name(aClient *sptr,int showip)
 #ifdef SHOW_UH
             (void)ircsprintf(nbuf, "%s[%s%s@%s]",
                              sptr->name,
-                             (!IsGotId(sptr)) ? "" :
+                             (!(sptr->flags & FLAGS_GOTID)) ? "" :
                              "(+)",
                              sptr->user?sptr->user->username :
                              sptr->username,
@@ -281,7 +285,7 @@ char	*get_client_name(aClient *sptr,int showip)
 #else
             (void)sprintf(nbuf, "%s[%s@%s]",
                         sptr->name,
-                        (!IsGotId(sptr)) ? "" :
+                        (!(sptr->flags & FLAGS_GOTID)) ? "" :
                         sptr->username,
                         "255.255.255.255");
 #endif
@@ -316,7 +320,7 @@ char  *get_client_host(aClient *cptr)
   else
     (void)ircsprintf(nbuf, "%s[%-.*s@%-.*s]",
 		     cptr->name, USERLEN,
-		     (!IsGotId(cptr)) ? "" : cptr->username,
+		     (!(cptr->flags & FLAGS_GOTID)) ? "" : cptr->username,
 		     HOSTLEN, cptr->hostp->h_name);
   return nbuf;
  }
@@ -413,6 +417,10 @@ char	*comment	/* Reason for the exit */
 #endif
       if (IsAnOper(sptr))
 	{
+          /* FDLIST */
+	  delfrom_fdlist(sptr->fd, &oper_fdlist);
+
+#ifdef USE_LINKLIST
           /* LINKLIST */
           /* oh for in-line functions... */
           {
@@ -434,11 +442,13 @@ char	*comment	/* Reason for the exit */
                 cur_cptr = cur_cptr->next_oper_client;
               }
           }
+#endif
 	}
       if (IsClient(sptr))
         {
           Count.local--;
 
+#ifdef USE_LINKLIST
           /* LINKLIST */
           /* oh for in-line functions... */
           if(IsPerson(sptr))	/* a little extra paranoia */
@@ -462,11 +472,15 @@ char	*comment	/* Reason for the exit */
                   cur_cptr = cur_cptr->next_local_client;
                 }
             }
+#endif
         }
       if (IsServer(sptr))
 	{
 	  Count.myserver--;
+          /* FDLIST */
+	  delfrom_fdlist(sptr->fd, &serv_fdlist);
 
+#ifdef USE_LINKLIST
           /* LINKLIST */
           /* oh for in-line functions... */
           {
@@ -489,9 +503,10 @@ char	*comment	/* Reason for the exit */
                 cur_cptr = cur_cptr->next_server_client;
 	      }
           }
+#endif
 
-#if defined(NO_CHANOPS_WHEN_SPLIT) || defined(PRESERVE_CHANNEL_ON_SPLIT) || \
-	defined(NO_JOIN_ON_SPLIT)
+#ifdef NO_CHANOPS_WHEN_SPLIT
+	  /*	  if(serv_fdlist.entry[1] <= serv_fdlist.last_entry) */
 	  if(Count.myserver == 0)
 	    {
 	      server_was_split = YES;
@@ -540,7 +555,9 @@ char	*comment	/* Reason for the exit */
 	      {
 		if (logfile == -1)
 		  {
+		    /*		    (void)alarm(3); */
 		    logfile = open(FNAME_USERLOG, O_WRONLY|O_APPEND);
+		    /* (void)alarm(0); */
 		  }
 		(void)ircsprintf(linebuf,
 				 "%s (%3d:%02d:%02d): %s!%s@%s %d/%d\n",
@@ -551,13 +568,17 @@ char	*comment	/* Reason for the exit */
 				 sptr->user->host,
 				 sptr->sendK,
 				 sptr->receiveK);
+		/*		(void)alarm(3); */
 		(void)write(logfile, linebuf, strlen(linebuf));
+		/*		(void)alarm(0); */
 		/*
 		 * Resync the file evey 10 seconds
 		 */
 		if (timeofday - lasttime > 10)
 		  {
+		    (void)alarm(3);
 		    (void)close(logfile);
+		    /*		    (void)alarm(0); */
 		    logfile = -1;
 		    lasttime = timeofday;
 		  }
@@ -668,13 +689,6 @@ static	void	exit_one_client(aClient *cptr,
       ** need to send different names to different servers
       ** (domain name matching)
       */
-      /*
-       * blah. can't use the local server link list at this point because
-       * if its a server squit, the server will have been removed
-       * already. oh well, I can fix that, but for now, the old
-       * code will do
-       */
-
       for (i = 0; i <= highest_fd; i++)
 	{
 	  Reg	aConfItem *aconf;
@@ -906,7 +920,30 @@ void serv_info(aClient *cptr,char *name)
   int	j, fd;
   long	sendK, receiveK, uptime;
   aClient	*acptr;
-  char nbuf[HOSTLEN * 2 + USERLEN + 5];
+#ifndef USE_LINKLIST
+  fdlist	l;
+
+  l = serv_fdlist;
+
+  sendK = receiveK = 0;
+
+  for (fd = l.entry[j=1]; j <= l.last_entry; fd = l.entry[++j])
+    {
+      if (!(acptr = local[fd]))
+	continue;
+      sendK += acptr->sendK;
+      receiveK += acptr->receiveK;
+      sendto_one(cptr, Lformat, me.name, RPL_STATSLINKINFO,
+		 name, get_client_name(acptr, TRUE),
+		 (int)DBufLength(&acptr->sendQ),
+		 (int)acptr->sendM, (int)acptr->sendK,
+		 (int)acptr->receiveM, (int)acptr->receiveK,
+		 timeofday - acptr->firsttime,
+		 timeofday - acptr->since,
+		 IsServer(acptr) ? (DoesTS(acptr) ?
+				    "TS" : "NoTS") : "-");
+    }
+#else
 
   sendK = receiveK = 0;
   j = 1;
@@ -915,32 +952,19 @@ void serv_info(aClient *cptr,char *name)
     {
       sendK += acptr->sendK;
       receiveK += acptr->receiveK;
-      /* There are no more non TS servers on this network, so that test
-       * removed. Also, do not allow non opers to see the IP's of servers
-       * on stats ?
-       */
-      if(IsAnOper(cptr))
-	sendto_one(cptr, Lformat, me.name, RPL_STATSLINKINFO,
-		   name, get_client_name(acptr, TRUE),
-		   (int)DBufLength(&acptr->sendQ),
-		   (int)acptr->sendM, (int)acptr->sendK,
-		   (int)acptr->receiveM, (int)acptr->receiveK,
-		   timeofday - acptr->firsttime,
-		   timeofday - acptr->since,
-		   IsServer(acptr) ? "TS" : "-" );
-      else
-	{
-	  sendto_one(cptr, Lformat, me.name, RPL_STATSLINKINFO,
-		     name, get_client_name(acptr, HIDEME),
-		     (int)DBufLength(&acptr->sendQ),
-		     (int)acptr->sendM, (int)acptr->sendK,
-		     (int)acptr->receiveM, (int)acptr->receiveK,
-		     timeofday - acptr->firsttime,
-		     timeofday - acptr->since,
-		     IsServer(acptr) ? "TS" : "-" );
-	}
+      sendto_one(cptr, Lformat, me.name, RPL_STATSLINKINFO,
+		 name, get_client_name(acptr, TRUE),
+		 (int)DBufLength(&acptr->sendQ),
+		 (int)acptr->sendM, (int)acptr->sendK,
+		 (int)acptr->receiveM, (int)acptr->receiveK,
+		 timeofday - acptr->firsttime,
+		 timeofday - acptr->since,
+		 IsServer(acptr) ? (DoesTS(acptr) ?
+				    "TS" : "NoTS") : "-");
       j++;
     }
+
+#endif
 
   sendto_one(cptr, ":%s %d %s :%u total server%s",
 	     me.name, RPL_STATSDEBUG, name, --j, (j==1)?"":"s");
@@ -968,6 +992,29 @@ void show_opers(aClient *cptr,char *name)
 {
   register aClient	*cptr2;
   register int j=0;
+#ifndef	USE_LINKLIST
+  register int i, fd;
+  fdlist *l;
+  
+  l = &oper_fdlist;
+  for (fd = l->entry[i=1]; i <= l->last_entry; fd = l->entry[++i])
+    {
+      if (!(cptr2 = local[fd]))
+	continue;
+      if (!IsClient(cptr2))
+	{
+	  sendto_one(cptr, ":%s %d %s :Weird fd %d(%d) - not client (%d)",
+		     me.name, RPL_STATSDEBUG, name, fd, cptr2->fd,
+		     cptr2->status);
+	  continue;
+	}
+      j++;
+      sendto_one(cptr, ":%s %d %s :%s (%s@%s) Idle: %d",
+		 me.name, RPL_STATSDEBUG, name, cptr2->name,
+		 cptr2->user->username, cptr2->user->host,
+		 timeofday - cptr2->user->last);
+    }
+#else	/* USE_LINKLIST */
 
   for(cptr2 = oper_cptr_list; cptr2; cptr2 = cptr2->next_oper_client)
     {
@@ -978,6 +1025,7 @@ void show_opers(aClient *cptr,char *name)
 		 timeofday - cptr2->user->last);
     }
 
+#endif
   sendto_one(cptr, ":%s %d %s :%d OPER%s", me.name, RPL_STATSDEBUG,
 	     name, j, (j==1) ? "" : "s");
 }
@@ -986,7 +1034,31 @@ void show_servers(aClient *cptr,char *name)
 {
   Reg aClient	*cptr2;
   register j=0;
-
+#ifndef	USE_LINKLIST
+  register int i, fd;
+  fdlist  *l;
+ 
+  l = &serv_fdlist;
+  for (fd = l->entry[i=1]; i <= l->last_entry; fd = l->entry[++i])
+    {
+      if (!(cptr2 = local[fd]))
+	continue;
+      if (!IsServer(cptr2))
+	{
+	  sendto_one(cptr, ":%s %d %s :Weird fd %d(%d) - not server (%d)",
+		     me.name, RPL_STATSDEBUG, name, fd, cptr2->fd,
+		     cptr2->status);
+	  continue;
+	}
+      j++;
+      sendto_one(cptr, ":%s %d %s :%s (%s!%s@%s) Idle: %d",
+		 me.name, RPL_STATSDEBUG, name, cptr2->name,
+		 (cptr2->serv->by[0] ? cptr2->serv->by : "Remote."), 
+		 (cptr2->serv->user ? cptr2->serv->user->username : "*"),
+		 (cptr2->serv->user ? cptr2->serv->user->host : "*"),
+		 timeofday - cptr2->lasttime);
+    }
+#else /* USE_LINKLIST */
   for(cptr2 = serv_cptr_list; cptr2; cptr2 = cptr2->next_server_client)
     {
       j++;
@@ -997,6 +1069,7 @@ void show_servers(aClient *cptr,char *name)
 		 (cptr2->serv->user ? cptr2->serv->user->host : "*"),
 		 timeofday - cptr2->lasttime);
     }
+#endif
 
   sendto_one(cptr, ":%s %d %s :%d Server%s", me.name, RPL_STATSDEBUG,
 	     name, j, (j==1) ? "" : "s");

@@ -37,12 +37,12 @@ extern int BlockHeapGarbageCollect(BlockHeap *);
 
 
 /*
- * re-written to use Wohali (joant@cadence.com)
- * block allocator routines. very nicely done Wohali
- *
- * -Dianora
- *
- */
+re-written to use Wohali (joant@cadence.com)
+block allocator routines. very nicely done Wohali
+
+-Dianora
+
+*/
 
 /* Number of Link's to pre-allocate at a time 
    for Efnet 1000 seems reasonable, 
@@ -104,18 +104,18 @@ void	initlists()
 }
 
 /*
- * outofmemory()
- *
- * input	- NONE
- * output	- NONE
- * side effects	- simply try to report there is a problem
- *	  	  I free all the memory in the kline lists
- *		  hoping to free enough memory so that a proper
- *		  report can be made. If I was already here (was_here)
- *	  	  then I got called twice, and more drastic measures
- *		  are in order. I'll try to just abort() at least.
- *		  -Dianora
- */
+outofmemory()
+
+input		- NONE
+output		- NONE
+side effects	- simply try to report there is a problem
+		  I free all the memory in the kline lists
+		  hoping to free enough memory so that a proper
+		  report can be made. If I was already here (was_here)
+		  then I got called twice, and more drastic measures
+		  are in order. I'll try to just abort() at least.
+		  -Dianora
+*/
 
 void	outofmemory()
 {
@@ -125,7 +125,9 @@ void	outofmemory()
     abort();
 
   was_here = YES;
-  clear_mtrie_conf_links();
+  clear_conf_list(&KList1);
+  clear_conf_list(&KList2);
+  clear_conf_list(&KList3);
 
   Debug((DEBUG_FATAL, "Out of memory: restarting server..."));
   restart("Out of Memory");
@@ -220,7 +222,7 @@ void free_client(aClient *cptr)
    about it
 */
       sendto_ops("list.c couldn't BlockHeapFree(free_remote_aClients,cptr) cptr = %lX", cptr );
-       sendto_ops("Please report to the hybrid team! ircd-hybrid@the-project.org");
+       sendto_ops("Please report to the hybrid team! ircd-hybrid@vol.com");
 
 #if defined(USE_SYSLOG) && defined(SYSLOG_BLOCK_ALLOCATOR)
        syslog(LOG_DEBUG,"list.c couldn't BlockHeapFree(free_remote_aClients,cptr) cptr = %lX", cptr);
@@ -295,7 +297,7 @@ void	free_user(anUser *user, aClient *cptr)
       if(BlockHeapFree(free_anUsers,user))
 	{
 	  sendto_ops("list.c couldn't BlockHeapFree(free_anUsers,user) user = %lX", user );
-	  sendto_ops("Please report to the hybrid team! ircd-hybrid@the-project.org");
+	  sendto_ops("Please report to the hybrid team! ircd-hybrid@vol.com");
 #if defined(USE_SYSLOG) && defined(SYSLOG_BLOCK_ALLOCATOR)
 	  syslog(LOG_DEBUG,"list.c couldn't BlockHeapFree(free_anUsers,user) user = %lX", user);
 #endif
@@ -346,12 +348,13 @@ void	remove_client_from_list(aClient *cptr)
     }
 
   /* YEUCK... This is telling me the only way of knowing that
-   * a cptr was pointing to a remote aClient or not is by checking
-   * to see if its fd is not -2
-   *
-   * -Dianora 
-   *
-   */
+     a cptr was pointing to a remote aClient or not is by checking
+     to see if its fd is not -2, that is, unless you look at
+     FLAGS_LOCAL
+
+     -Dianora 
+
+     */
   /*
   if (cptr->fd == -2)
     cloc.inuse--;
@@ -489,7 +492,6 @@ void	free_conf(aConfItem *aconf)
     bzero(aconf->passwd, strlen(aconf->passwd));
   MyFree(aconf->passwd);
   MyFree(aconf->name);
-  MyFree(aconf->mask);
   MyFree((char *)aconf);
   return;
 }

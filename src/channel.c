@@ -32,11 +32,10 @@ static char *rcs_version="$Id$";
 #include "channel.h"
 #include "h.h"
 
-#if defined(NO_CHANOPS_WHEN_SPLIT) || defined(PRESERVE_CHANNEL_ON_SPLIT) || \
-	defined(NO_JOIN_ON_SPLIT)
+#ifdef NO_CHANOPS_WHEN_SPLIT
 int server_was_split=NO;
 time_t server_split_time;
-int server_split_recovery_time = (DEFAULT_SERVER_SPLIT_RECOVERY_TIME * 60);
+int server_split_recovery_time = (MAX_SERVER_SPLIT_RECOVERY_TIME * 60);
 #define USE_ALLOW_OP
 #endif
 
@@ -75,15 +74,7 @@ static	char	*PartFmt = ":%s PART %s";
 /*
  * some buffers for rebuilding channel/nick lists with ,'s
  */
-/*
- * hrmmm "char	nickbuf[BUFSIZE];" was never used. odd. removed
- * actually, it was only used if V28PlusOnly was defined,
- * which it never was.
- *
- * -Dianora
- */
-
-static	char	buf[BUFSIZE];
+static	char	nickbuf[BUFSIZE], buf[BUFSIZE];
 static	char	modebuf[MODEBUFLEN], parabuf[MODEBUFLEN];
 
 /* externally defined function */
@@ -390,9 +381,7 @@ void	remove_user_from_channel(aClient *sptr,aChannel *chptr)
 	break;
       }
   sptr->user->joined--;
-
   sub1_from_channel(chptr);
-
 }
 
 static	void	change_chan_flag(Link *lp, aChannel *chptr)
@@ -712,10 +701,8 @@ int	m_mode(aClient *cptr,
 		     me.name, parv[0], chptr->chname);
 	else
 	  {
-#ifndef DONT_SEND_FAKES
-	    sendto_ops_lev(REJ_LEV,"Fake: %s MODE %s %s %s",
-		       parv[0], parv[1], modebuf, parabuf);
-#endif
+	    /*sendto_ops("Fake: %s MODE %s %s %s",
+	      parv[0], parv[1], modebuf, parabuf);*/
 	    ircstp->is_fake++;
 	  }
 	break;
@@ -1261,30 +1248,6 @@ static	int	can_join(aClient *sptr, aChannel *chptr, char *key)
 {
   Reg	Link	*lp;
 
-#if defined(PRESERVE_CHANNEL_ON_SPLIT) || defined(NO_JOIN_ON_SPLIT)
-  if(Count.myserver == 0)
-    {
-#ifdef NO_JOIN_ON_SPLIT 
-      if(chptr->mode.mode & MODE_SPLIT)
-	return (ERR_NOJOINSPLIT);
-#endif
-    }
-  else
-    {
-      if((chptr->mode.mode & MODE_SPLIT) &&
-	 server_was_split && server_split_recovery_time)
-	{
-	  if((server_split_time + server_split_recovery_time) < NOW)
-	    {
-	      server_was_split = NO;
-	      chptr->mode.mode &= ~MODE_SPLIT;
-	      if(chptr->users == 0)
-		chptr->mode.mode = 0;
-	    }
-	}
-    }
-#endif
-
   if (is_banned(sptr, chptr))
     return (ERR_BANNEDFROMCHAN);
   if (chptr->mode.mode & MODE_INVITEONLY)
@@ -1345,12 +1308,6 @@ static	aChannel *get_channel(aClient *cptr,
     }
   if ((chptr = find_channel(chname, (aChannel *)NULL)))
     return (chptr);
-
-  /*
-   * If a channel is created during a split make sure its marked
-   * as created locally 
-   */
-
   if (flag == CREATE)
     {
       chptr = (aChannel *)MyMalloc(sizeof(aChannel) + len);
@@ -1361,8 +1318,6 @@ static	aChannel *get_channel(aClient *cptr,
       chptr->prevch = NULL;
       chptr->nextch = channel;
       channel = chptr;
-      if(Count.myserver == 0)
-	chptr->locally_created = YES;
       (void)add_to_channel_hash_table(chname, chptr);
       Count.chan++;
     }
@@ -1440,47 +1395,38 @@ static	void	sub1_from_channel(aChannel *chptr)
 
   if (--chptr->users <= 0)
     {
-#if defined(PRESERVE_CHANNEL_ON_SPLIT) || defined(NO_JOIN_ON_SPLIT)
-      if(!(chptr->locally_created) && (Count.myserver == 0))
+      /*
+       * Now, find all invite links from channel structure
+       */
+      while ((tmp = chptr->invites))
+	del_invite(tmp->value.cptr, chptr);
+      
+      tmp = chptr->banlist;
+      while (tmp)
 	{
-	  chptr->mode.mode |= MODE_SPLIT;
-	  /*
-	   * Now, find all invite links from channel structure
-	   */
-	  while ((tmp = chptr->invites))
-	    del_invite(tmp->value.cptr, chptr);
-	}
-      else
-#endif
-	{
-	  tmp = chptr->banlist;
-	  while (tmp)
-	    {
-	      obtmp = tmp;
-	      tmp = tmp->next;
+	  obtmp = tmp;
+	  tmp = tmp->next;
 #ifdef BAN_INFO
-	      MyFree(obtmp->value.banptr->banstr);
-	      MyFree(obtmp->value.banptr->who);
-	      MyFree(obtmp->value.banptr);
+	  MyFree(obtmp->value.banptr->banstr);
+	  MyFree(obtmp->value.banptr->who);
+	  MyFree(obtmp->value.banptr);
 #else
-	      MyFree(obtmp->value.cp);
+	  MyFree(obtmp->value.cp);
 #endif
-	      free_link(obtmp);
-	    }
-	  if (chptr->prevch)
-	    chptr->prevch->nextch = chptr->nextch;
-	  else
-	    channel = chptr->nextch;
-	  if (chptr->nextch)
-	    chptr->nextch->prevch = chptr->prevch;
-
-#ifdef FLUD
-	  free_fluders(NULL, chptr);
-#endif
-	  (void)del_from_channel_hash_table(chptr->chname, chptr);
-	  MyFree((char *)chptr);
-	  Count.chan--;
+	  free_link(obtmp);
 	}
+      if (chptr->prevch)
+	chptr->prevch->nextch = chptr->nextch;
+      else
+	channel = chptr->nextch;
+      if (chptr->nextch)
+	chptr->nextch->prevch = chptr->prevch;
+      (void)del_from_channel_hash_table(chptr->chname, chptr);
+#ifdef FLUD
+      free_fluders(NULL, chptr);
+#endif
+      MyFree((char *)chptr);
+      Count.chan--;
     }
 }
 
@@ -1636,14 +1582,11 @@ int spam_num = MAX_JOIN_LEAVE_COUNT;
 	  */
 	  flags = (ChannelExists(name)) ? 0 : CHFL_CHANOP;
 #ifdef NO_CHANOPS_WHEN_SPLIT
-	  /* if its not a local channel, or isn't an oper
-	     and server has been split */
-
-	  if((*name != '&') && !IsAnOper(sptr)
-	     && server_was_split && server_split_recovery_time)
+	  if(!IsAnOper(sptr) && server_was_split && server_split_recovery_time)
 	    {
 	      if( (server_split_time + server_split_recovery_time) < NOW)
 		{
+		  /*  if(serv_fdlist.entry[1] > serv_fdlist.last_entry) */
 		  if(Count.myserver > 0)
 		    server_was_split = NO;
 		  else
@@ -1810,6 +1753,7 @@ int spam_num = MAX_JOIN_LEAVE_COUNT;
 	}
     }
 
+
 #ifdef ANTI_SPAMBOT
   if(MyConnect(sptr) && successful_join_count)
     sptr->last_join_time = NOW;
@@ -1917,19 +1861,6 @@ int	m_part(aClient *cptr,
 **	parv[2] = client to kick
 **	parv[3] = kick comment
 */
-/*
- * I've removed the multi channel kick, and the multi user kick
- * though, there are still remnants left ie..
- * "name = strtoken(&p, parv[1], ",");" in a normal kick
- * it will just be "KICK #channel nick"
- *
- * It appears the original code was supposed to support 
- * "kick #channel1,#channel2 nick1,nick2,nick3." For example, look at
- * the original code for m_topic(), where 
- * "topic #channel1,#channel2,#channel3... topic" was supported.
- *
- * -Dianora
- */
 int	m_kick(aClient *cptr,
 	       aClient *sptr,
 	       int parc,
@@ -1938,11 +1869,8 @@ int	m_kick(aClient *cptr,
   aClient *who;
   aChannel *chptr;
   int	chasing = 0;
-  char	*comment;
-  char  *name;
-  char  *p = (char *)NULL;
-  char  *user;
-  char  *p2 = (char *)NULL;
+  int   user_count;		/* count nicks being kicked, only allow 4 */
+  char	*comment, *name, *p = NULL, *user, *p2 = NULL;
 
   if (parc < 3 || *parv[1] == '\0')
     {
@@ -1957,104 +1885,116 @@ int	m_kick(aClient *cptr,
   if (strlen(comment) > (size_t) TOPICLEN)
     comment[TOPICLEN] = '\0';
 
-  *buf = '\0';
+  *nickbuf = *buf = '\0';
   name = strtoken(&p, parv[1], ",");
 
-  chptr = get_channel(sptr, name, !CREATE);
-  if (!chptr)
+  while(name)
     {
-      sendto_one(sptr, err_str(ERR_NOSUCHCHANNEL),
-		 me.name, parv[0], name);
-      return(0);
-    }
-
-  /* You either have chan op privs, or you don't -Dianora */
-  /* orabidoo and I discussed this one for a while...
-   * I hope he approves of this code, (he did) users can get quite confused...
-   *    -Dianora
-   */
-
-  if (!IsServer(sptr) && !is_chan_op(sptr, chptr) ) 
-    { 
-      /* was a user, not a server, and user isn't seen as a chanop here */
-      
-      if(MyConnect(sptr))
+      chptr = get_channel(sptr, name, !CREATE);
+      if (!chptr)
 	{
-	  /* user on _my_ server, with no chanops.. so go away */
-	  
-	  sendto_one(sptr, err_str(ERR_CHANOPRIVSNEEDED),
-		     me.name, parv[0], chptr->chname);
-	  return(0);
+	  sendto_one(sptr, err_str(ERR_NOSUCHCHANNEL),
+		     me.name, parv[0], name);
+	  name = strtoken(&p, (char*)NULL, ",");
+	  continue;
 	}
 
-      if(chptr->channelts == 0)
-	{
-	  /* If its a TS 0 channel, do it the old way */
-	  
-	  sendto_one(sptr, err_str(ERR_CHANOPRIVSNEEDED),
+      /* You either have chan op privs, or you don't -Dianora */
+      /* orabidoo and I discussed this one for a while...
+	 I hope he approves of this code, users can get quite confused...
+         -Dianora
+      */
+
+      if (!IsServer(sptr) && !is_chan_op(sptr, chptr) ) 
+	{ 
+	  /* was a user, not a server, and user isn't seen as a chanop here */
+
+	  if(MyConnect(sptr))
+	    {
+	      /* user on _my_ server, with no chanops.. so go away */
+
+	      sendto_one(sptr, err_str(ERR_CHANOPRIVSNEEDED),
+			 me.name, parv[0], chptr->chname);
+	      name = strtoken(&p, (char*)NULL, ",");
+	      continue;
+	    }
+
+	  if(chptr->channelts == 0)
+	    {
+	      /* If its a TS 0 channel, do it the old way */
+
+	      sendto_one(sptr, err_str(ERR_CHANOPRIVSNEEDED),
+			 me.name, parv[0], chptr->chname);
+	      name = strtoken(&p, (char*)NULL, ",");
+	      continue;
+	    }
+
+	  /* Its a user doing a kick, but is not showing as chanop locally
+	     its also not a user ON -my- server, and the channel has a TS.
+	     There are two cases we can get to this point then...
+
+	     1) connect burst is happening, and for some reason a legit
+	        op has sent a KICK, but the SJOIN hasn't happened yet or 
+	        been seen. (who knows.. due to lag...)
+
+	     2) The channel is desynced. That can STILL happen with TS
+		
+	     Now, the old code roger wrote, would allow the KICK to 
+	     go through. Thats quite legit, but lets weird things like
+	     KICKS by users who appear not to be chanopped happen,
+	     or even neater, they appear not to be on the channel.
+	     This fits every definition of a desync, doesn't it? ;-)
+	     So I will allow the KICK, otherwise, things are MUCH worse.
+	     But I will warn it as a possible desync.
+
+	     -Dianora
+	     */
+
+	  /*	  sendto_one(sptr, err_str(ERR_DESYNC),
 		     me.name, parv[0], chptr->chname);
-	  return(0);
+		     */
+	  /*
+	    After more discussion with orabidoo...
+
+	    The code was sound, however, what happens if we have +h (TS4)
+	    and some servers don't understand it yet? 
+	    we will be seeing servers with users who appear to have
+	    no chanops at all, merrily kicking users....
+	    -Dianora
+
+		     */
 	}
 
-      /* Its a user doing a kick, but is not showing as chanop locally
-       * its also not a user ON -my- server, and the channel has a TS.
-       * There are two cases we can get to this point then...
-       *
-       *     1) connect burst is happening, and for some reason a legit
-       *        op has sent a KICK, but the SJOIN hasn't happened yet or 
-       *        been seen. (who knows.. due to lag...)
-       *
-       *     2) The channel is desynced. That can STILL happen with TS
-       *	
-       *     Now, the old code roger wrote, would allow the KICK to 
-       *     go through. Thats quite legit, but lets weird things like
-       *     KICKS by users who appear not to be chanopped happen,
-       *     or even neater, they appear not to be on the channel.
-       *     This fits every definition of a desync, doesn't it? ;-)
-       *     So I will allow the KICK, otherwise, things are MUCH worse.
-       *     But I will warn it as a possible desync.
-       *
-       *     -Dianora
-       */
+      user = strtoken(&p2, parv[2], ",");
+      user_count = 4;
+      while (user && user_count)
+	{
+	  user_count--;
+	  if (!(who = find_chasing(sptr, user, &chasing)))
+	    {
+	      user = strtoken(&p2, (char *)NULL, ",");
+	      continue; /* No such user left! */
+	    }
 
-      /*	  sendto_one(sptr, err_str(ERR_DESYNC),
-       * 	   me.name, parv[0], chptr->chname);
-       */
+	  if (IsMember(who, chptr))
+	    {
+	      sendto_channel_butserv(chptr, sptr,
+				     ":%s KICK %s %s :%s", parv[0],
+				     name, who->name, comment);
+	      sendto_match_servs(chptr, cptr,
+				 ":%s KICK %s %s :%s",
+				 parv[0], name,
+				 who->name, comment);
+	      remove_user_from_channel(who, chptr);
+	    }
+	  else
+	    sendto_one(sptr, err_str(ERR_USERNOTINCHANNEL),
+		       me.name, parv[0], user, name);
+	  user = strtoken(&p2, (char *)NULL, ",");
+	} /* loop on parv[2] */
 
-      /*
-       * After more discussion with orabidoo...
-       *
-       * The code was sound, however, what happens if we have +h (TS4)
-       * and some servers don't understand it yet? 
-       * we will be seeing servers with users who appear to have
-       * no chanops at all, merrily kicking users....
-       * -Dianora
-       */
-    }
-
-  user = strtoken(&p2, parv[2], ",");
-
-  if (!(who = find_chasing(sptr, user, &chasing)))
-    {
-      sendto_one(sptr, err_str(ERR_NOSUCHNICK),
-		 me.name, parv[0], user, name);
-      return(0);
-    }
-
-  if (IsMember(who, chptr))
-    {
-      sendto_channel_butserv(chptr, sptr,
-			     ":%s KICK %s %s :%s", parv[0],
-			     name, who->name, comment);
-      sendto_match_servs(chptr, cptr,
-			 ":%s KICK %s %s :%s",
-			 parv[0], name,
-			 who->name, comment);
-      remove_user_from_channel(who, chptr);
-    }
-  else
-    sendto_one(sptr, err_str(ERR_USERNOTINCHANNEL),
-	       me.name, parv[0], user, name);
+      name = strtoken(&p, (char*)NULL, ",");
+    } /* loop on parv[1] */
 
   return (0);
 }
@@ -2091,13 +2031,7 @@ int	m_topic(aClient *cptr,
 
   name = strtoken(&p, parv[1], ",");
 
-  /* multi channel topic's are known now to be used by cloners
-   * trying to flood off servers.. so disable it *sigh* - Dianora
-   */
-
-  /* disabled multi channel topic */
-  /*  while(name) */
-
+  while(name)
     {
       if (parc > 1 && IsChannelName(name))
 	{
@@ -2107,9 +2041,7 @@ int	m_topic(aClient *cptr,
 	      sendto_one(sptr, err_str(ERR_NOTONCHANNEL),
 			 me.name, parv[0], name);
 	      name = strtoken(&p, (char *)NULL, ",");
-	      /* disabled multi channel topic */
-	      /*	      continue; */
-	      return 0;
+	      continue;
 	    }
 	  if (parc > 2)
 	    topic = parv[2];
@@ -2160,8 +2092,7 @@ int	m_topic(aClient *cptr,
 	sendto_one(sptr, err_str(ERR_CHANOPRIVSNEEDED),
 		   me.name, parv[0], chptr->chname);
 
-      /* disabled multi channel topics */
-      /*      name = strtoken(&p, (char *)NULL, ","); */
+      name = strtoken(&p, (char *)NULL, ",");
     }
   return 0;
 }
@@ -2601,31 +2532,7 @@ int	m_sjoin(aClient *cptr,
 
   isnew = ChannelExists(parv[2]) ? 0 : 1;
   chptr = get_channel(sptr, parv[2], CREATE);
-  /* locally created channels do not get created from SJOIN's
-   * any SJOIN destroys the locally_created flag
-   *
-   * -Dianora
-   */
-
-
-  chptr->locally_created = NO;
   oldts = chptr->channelts;
-
-  /* If the TS goes to 0 for whatever reason, flag it
-   * ya, I know its an invasion of privacy for those channels that
-   * want to keep TS 0 *shrug* sorry
-   * -Dianora
-   */
-
-  if(!newts && oldts)
-    {
-      sendto_channel_butserv(chptr, &me,
-	     ":%s NOTICE %s :*** Notice -- TS for %s changed from %ld to 0",
-	      me.name, chptr->chname, chptr->chname, oldts);
-      sendto_realops("Server %s changing TS on %s from %ld to 0",
-		     sptr->name,parv[2],oldts);
-    }
-
   doesop = (parv[4+args][0] == '@' || parv[4+args][1] == '@');
 
   for (l = chptr->members; l && l->value.cptr; l = l->next)
@@ -2909,34 +2816,3 @@ int	m_sjoin(aClient *cptr,
 
 
 
-/*
- * Only called from ircd.c if the clock is discovered to be running forwards
- * The clock can be running forwards for a number of reasons
- * the most likely one, being a reset of the system time.
- * in these cases, its a legit reset of the clock time, but all the channels
- * locally created now have a bogus channel timestamp
- * so, I scan all the current channels, looking for channels I locally
- * created... and reset their creation time...
- * I can only do this =before= I have joined any servers... 
- * Channels that existed =before= this server split from the rest of the net
- * will not have the locally_created flag set, and hence will not be
- * affected. 
- * Remember, the server will not link with a very bogus TS so all that
- * is necessary is to make sure any locally created channel TS's are fixed.
- *
- * -Dianora
- */
-
-void sync_channels()
-{
-  Reg	aChannel	*chptr;
-
-  for (chptr = channel; chptr; chptr = chptr->nextch)
-    {
-      if(chptr->locally_created)
-	{
-	  chptr->channelts = timeofday;
-	}
-    }
- 
-}

@@ -251,8 +251,12 @@ static	char *	replies[] = {
 /* 212 RPL_STATSCOMMANDS, */	":%s 212 %s %s %u %u",
 /* 213 RPL_STATSCLINE, */	":%s 213 %s %c %s * %s %d %d",
 /* 214 RPL_STATSNLINE, */	":%s 214 %s %c %s * %s %d %d",
-/* 215 RPL_STATSILINE, */	":%s 215 %s %c %s %s@%s * %d %d",
+/* 215 RPL_STATSILINE, */	":%s 215 %s %c %s * %s %d %d",
+#ifdef K_COMMENT_ONLY
 /* 216 RPL_STATSKLINE, */	":%s 216 %s %c %s * %s %s",
+#else
+/* 216 RPL_STATSKLINE, */	":%s 216 %s %c %s %s %s %d %d",
+#endif
 /* 217 RPL_STATSQLINE, */	":%s 217 %s %c %s * %s %d %d",
 /* 218 RPL_STATSYLINE, */	":%s 218 %s %c %d %d %d %d %ld",
 /* 219 RPL_ENDOFSTATS, */	":%s 219 %s %c :End of /STATS report",
@@ -345,7 +349,7 @@ static	char *	replies[] = {
 /* 299 */	(char *)NULL,
 /* 300 RPL_NONE, */	 (char *)NULL,
 /* 301 RPL_AWAY, */	 ":%s 301 %s %s :%s",
-/* 302 RPL_USERHOST, */	 ":%s 302 %s :",
+/* 302 RPL_USERHOST, */	 ":%s 302 %s :%s 302 %s :",
 /* 303 RPL_ISON, */	":%s 303 %s :",
 /* 304 RPL_TEXT, */	 (char *)NULL,
 /* 305 RPL_UNAWAY, */	":%s 305 %s :You are no longer marked as being away",
@@ -443,10 +447,17 @@ static	char *	replies[] = {
 /* 389 */	(char *)NULL,
 /* 390 */	(char *)NULL,
 /* 391 RPL_TIME, */		":%s 391 %s %s :%s",
+#ifdef	ENABLE_USERS
+/* 392 RPL_USERSSTART, */	":%s 392 %s :UserID   Terminal  Host",
+/* 393 RPL_USERS, */		":%s 393 %s :%-8s %-9s %-8s",
+/* 394 RPL_ENDOFUSERS, */	":%s 394 %s :End of Users",
+/* 395 RPL_NOUSERS, */		":%s 395 %s :Nobody logged in.",
+#else
 /* 392 */	(char *)NULL,
 /* 393 */	(char *)NULL,
 /* 394 */	(char *)NULL,
 /* 395 */	(char *)NULL,
+#endif
 /* 396 */	(char *)NULL,
 /* 397 */	(char *)NULL,
 /* 398 */	(char *)NULL,
@@ -530,11 +541,7 @@ static	char *	replies[] = {
 /* 474 ERR_BANNEDFROMCHAN, */	":%s 474 %s %s :Cannot join channel (+b)",
 /* 475 ERR_BADCHANNELKEY, */	":%s 475 %s %s :Cannot join channel (+k)",
 /* 476 ERR_BADCHANMASK, */	":%s 476 %s %s :Bad Channel Mask",
-#ifdef NO_JOIN_ON_SPLIT
-/* 477 ERR_NOJOINSPLIT */	":%s 477 %s %s :Cannot join channel on split",
-#else
 /* 477 */	(char *)NULL,
-#endif
 /* 478 ERR_BANLISTFULL, */	":%s 478 %s :Channel ban list is full",
 /* 479 */	(char *)NULL,
 /* 480 */	(char *)NULL,

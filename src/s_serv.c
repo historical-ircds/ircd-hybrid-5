@@ -54,25 +54,26 @@ static char *rcs_version = "$Id$";
 #undef strchr
 #define strchr index
 #endif
-#include "mtrie_conf.h"
-
+#include "dich_conf.h"
+#include "fdlist.h"
 
 /* internal variables */
 static	char	buf[BUFSIZE]; 
 
 /* external variables */
+/* FDLIST */
+extern fdlist serv_fdlist;
 
+#ifdef USE_LINKLIST
 /* LINKLIST */
 extern aClient *local_cptr_list;
 extern aClient *oper_cptr_list;
 extern aClient *serv_cptr_list;
+#endif
 
-
-extern int lifesux;		/* defined in ircd.c */
-extern int rehashed;		/* defined in ircd.c */
-extern int dline_in_progress;	/* defined in ircd.c */
-extern int autoconn;		/* defined in ircd.c */
-
+extern int lifesux;
+extern int rehashed;
+extern int dline_in_progress;
 #ifdef HIGHEST_CONNECTION
 int     max_connection_count = 1, max_client_count = 1;
 #endif
@@ -114,7 +115,7 @@ extern char *oper_privs(aClient *,int);	/* defined in s_conf.c */
 extern void outofmemory(void);		/* defined in list.c */
 extern void s_die(void);		/* defined in ircd.c as VOIDSIG */
 extern int match(char *,char *);	/* defined in match.c */
-extern int host_is_legal_ip(char *);	/* defined in s_conf.c */
+extern void report_conf_links(aClient *, aConfList *, int, char);
 extern void show_opers(aClient *,char *);
 extern void show_servers(aClient *,char *);
 extern void count_memory(aClient *,char *);
@@ -122,26 +123,16 @@ extern void count_memory(aClient *,char *);
 /* Local function prototypes */
 static int isnumber(char *);	/* return 0 if not, else return number */
 static char *cluster(char *);
-static void set_autoconn(aClient *,char *,char *,int);
-
-int send_motd(aClient *,aClient *,int, char **,aMessageFile *); 
+static host_is_legal_dline(char *);	/* return 1 if host is legal IP 
+					   else 0 */
 static int safe_write(aClient *,char *,char *,int,char *);
 
-void read_motd(void);
-#ifdef AMOTD
-void read_amotd(void);
-#endif
-void read_help();
-void read_message_file(char *,aMessageFile **);
+void read_motd(char *);
 
 char motd_last_changed_date[MAX_DATE_STRING];	/* enough room for date */
 
-#ifdef AMOTD
-char amotd_last_changed_date[MAX_DATE_STRING];	/* enough room for date */
-#endif
-
 #ifdef UNKLINE
-static int flush_write(aClient *,int,char *,int,char *);
+static int flush_write(aClient *,char *,int,char *,int,char *);
 static int remove_tkline_match(char *,char *);
 #endif
 
@@ -227,60 +218,10 @@ int	m_version(aClient *cptr,
 		  char *parv[])
 {
   extern char serveropts[];
-  /* anti flooding code,
-   * I did have this in parse.c with a table lookup
-   * but I think this will be less inefficient doing it in each
-   * function that absolutely needs it
-   * -Dianora
-   */
 
-  static time_t last_used=0L;
-  static int last_count=0;
-
-  if(!IsAnOper(sptr))
-    {
-      if((last_used + MOTD_WAIT) > NOW)
-	{
-	  last_used = NOW;
-	  if(last_count >= MOTD_MAX)
-	    return 0;
-	  else
-	    {
-	      if(last_count < MOTD_MAX)
-		last_count++;
-	    }
-	}
-      else
-	{
-	  if(last_count > 0)
-	    {
-	      int dec_count;
-	      if( NOW <= last_used)	/* eek! clock is running
-					 * backwards or something!
-					 */
-		return 0;
-	      
-	      dec_count = (NOW - last_used) / MOTD_WAIT;
-	      
-	      if(dec_count > last_count)
-		last_count = 0;
-	      else
-		last_count -= dec_count;
-	    }
-	  last_used = NOW;
-	}
-    }
-
-  if(IsAnOper(sptr))
-     {
-       if (hunt_server(cptr,sptr,":%s VERSION :%s",1,parc,parv)==HUNTED_ISME)
-	 sendto_one(sptr, rpl_str(RPL_VERSION), me.name,
-		    parv[0], version, debugmode, me.name, serveropts);
-     }
-   else
-     sendto_one(sptr, rpl_str(RPL_VERSION), me.name,
-		parv[0], version, debugmode, me.name, serveropts);
-
+  if (hunt_server(cptr,sptr,":%s VERSION :%s",1,parc,parv)==HUNTED_ISME)
+    sendto_one(sptr, rpl_str(RPL_VERSION), me.name,
+	       parv[0], version, debugmode, me.name, serveropts);
   return 0;
 }
 
@@ -388,7 +329,7 @@ int	m_squit(aClient *cptr,
       return 0;
     }
 
-  if (MyClient(sptr) && !IsOperRemote(sptr) && !MyConnect(acptr))
+  if (IsOper(sptr) && !IsOperRemote(sptr) && !MyConnect(acptr))
     {
       sendto_one(sptr,":%s NOTICE %s :You have no R flag",me.name,parv[0]);
       return 0;
@@ -412,6 +353,22 @@ int	m_squit(aClient *cptr,
 	       acptr->name, get_client_name(sptr,FALSE), comment);
   
   return exit_client(cptr, acptr, sptr, comment);
+}
+
+/*
+** ts_servcount
+**	returns the number of TS servers that are connected to us
+*/
+int	ts_servcount()
+{
+  Reg	int	i;
+  Reg	aClient	*acptr;
+  Reg	int	r = 0;
+
+  for (i = 0; i <= highest_fd; i++)
+    if ((acptr = local[i]) && IsServer(acptr) && DoesTS(acptr))
+      r++;
+  return r;
 }
 
 /*
@@ -481,7 +438,6 @@ int	m_server(aClient *cptr,
   aClient *acptr, *bcptr;
   aConfItem *aconf;
   int	hop;
-  char clean_host[(2*HOSTLEN)+1];
 
   info[0] = '\0';
   inpath = get_client_name(cptr,FALSE);
@@ -544,6 +500,7 @@ int	m_server(aClient *cptr,
 
       int bogus_server = 0;
       int found_dot = 0;
+      char clean_host[(2*HOSTLEN)+1];
       char *s;
       char *d;
 
@@ -601,18 +558,11 @@ int	m_server(aClient *cptr,
       if(find_conf_name(host,CONF_NOCONNECT_SERVER) == NULL)
 	{
 #ifdef WARN_NO_NLINE
-	  sendto_realops("Link %s Server %s dropped, no N: line",
-			 get_client_name(cptr, TRUE),clean_host);
+	  sendto_realops("Link %s dropped, no N: line",
+			 get_client_name(cptr, TRUE));
 #endif
 	  return exit_client(cptr, cptr, cptr, "NO N line");
 	}
-    }
-
-  if (MyConnect(cptr) && (autoconn == 0))
-    {
-      sendto_ops("WARNING AUTOCONN is 0, Closing %s",
-		 get_client_name(cptr, TRUE));
-      return exit_client(cptr, cptr, cptr, "AUTOCONNS off");
     }
 
   if ((acptr = find_name(host, NULL)))
@@ -652,13 +602,13 @@ int	m_server(aClient *cptr,
     }
 
   /* The following if statement would be nice to remove
-   * since user nicks never have '.' in them and servers
-   * must always have '.' in them. There should never be a 
-   * server/nick name collision, but it is possible a capricious
-   * server admin could deliberately do something strange.
-   *
-   * -Dianora
-   */
+     since user nicks never have '.' in them and servers
+     must always have '.' in them. There should never be a 
+     server/nick name collision, but it is possible a capricious
+     server admin could deliberately do something strange.
+
+     -Dianora
+  */
 
   if ((acptr = find_client(host, NULL)) && acptr != cptr)
     {
@@ -740,9 +690,10 @@ int	m_server(aClient *cptr,
       ** need to send different names to different servers
       ** (domain name matching)
       */
-      for(bcptr=serv_cptr_list;bcptr;bcptr=bcptr->next_server_client)
+      for (i = 0; i <= highest_fd; i++)
 	{
-	  if (bcptr == cptr)
+	  if (!(bcptr = local[i]) || !IsServer(bcptr) ||
+	      bcptr == cptr || IsMe(bcptr))
 	    continue;
 	  if (!(aconf = bcptr->serv->nline))
 	    {
@@ -875,21 +826,14 @@ int	m_server_estab(aClient *cptr)
     }
   bzero(cptr->passwd, sizeof(cptr->passwd));
 
-  /* Its got identd , since its a server */
-  cptr->flags |= FLAGS_GOTID;
-
 #ifndef	HUB
-  /* Its easy now, if there is a server in my link list
-   * and I'm not a HUB, I can't grow the linklist more than 1
-   *
-   * -Dianora
-   */
-  if (serv_cptr_list)	
-    {
-      ircstp->is_ref++;
-      sendto_one(cptr, "ERROR :I'm a leaf not a hub");
-      return exit_client(cptr, cptr, cptr, "I'm a leaf");
-    }
+  for (i = 0; i <= highest_fd; i++)
+    if (local[i] && IsServer(local[i]))
+      {
+	ircstp->is_ref++;
+	sendto_one(cptr, "ERROR :I'm a leaf not a hub");
+	return exit_client(cptr, cptr, cptr, "I'm a leaf");
+      }
 #endif
   if (IsUnknown(cptr))
     {
@@ -949,16 +893,25 @@ int	m_server_estab(aClient *cptr)
  */
   reset_sock_opts(cptr->fd, 1);
 #endif /* MAXBUFFERS */
+  /* FDLIST */
+  /* adds to fdlist */
+  addto_fdlist(cptr->fd,&serv_fdlist);
 
+#ifdef USE_LINKLIST
   /* LINKLIST */
   /* add to server link list -Dianora */
   cptr->next_server_client = serv_cptr_list;
   serv_cptr_list = cptr;
+#endif
  
-  nextping = timeofday;
-  /* ircd-hybrid can only do TS links */
-  sendto_ops("Link with %s established: TS link", inpath);
+#ifndef NO_PRIORITY
+  /* this causes the server to be marked as "busy" */
+  check_fdlists(timeofday);
+#endif
 
+  nextping = timeofday;
+  sendto_ops("Link with %s established: %s", inpath, DoesTS(cptr) ?
+	     "TS link" : "Non-TS link!");
   (void)add_to_client_hash_table(cptr->name, cptr);
   /* doesnt duplicate cptr->serv if allocated this struct already */
   (void)make_server(cptr);
@@ -972,9 +925,10 @@ int	m_server_estab(aClient *cptr)
   ** need to send different names to different servers
   ** (domain name matching) Send new server to other servers.
   */
-  for(acptr=serv_cptr_list;acptr;acptr=acptr->next_server_client)
+  for (i = 0; i <= highest_fd; i++) 
     {
-      if (acptr == cptr)
+      if (!(acptr = local[i]) || !IsServer(acptr) ||
+	  acptr == cptr || IsMe(acptr))
 	continue;
       if ((aconf = acptr->serv->nline) &&
 	  !matches(my_name_for_link(me.name, aconf), cptr->name))
@@ -1094,53 +1048,6 @@ int	m_info(aClient *cptr,
 {
   char **text = infotext;
   char outstr[241];
-  /* anti flooding code,
-   * I did have this in parse.c with a table lookup
-   * but I think this will be less inefficient doing it in each
-   * function that absolutely needs it
-   * -Dianora
-   */
-
-  static time_t last_used=0L;
-  static int last_count=0;
-
-  if(!IsAnOper(sptr))
-    {
-      if((last_used + MOTD_WAIT) > NOW)
-	{
-	  last_used = NOW;
-	  if(last_count >= MOTD_MAX)
-	    return 0;
-	  else
-	    {
-	      if(last_count < MOTD_MAX)
-		last_count++;
-	    }
-	}
-      else
-	{
-	  if(last_count > 0)
-	    {
-	      int dec_count;
-	      if( NOW <= last_used)	/* eek! clock is running
-					 * backwards or something!
-					 */
-		return 0;
-	      
-	      dec_count = (NOW - last_used) / MOTD_WAIT;
-	      
-	      if(dec_count > last_count)
-		last_count = 0;
-	      else
-		last_count -= dec_count;
-	    }
-	  last_used = NOW;
-	}
-    }
-
-  sendto_realops_lev(SPY_LEV, "info requested by %s (%s@%s) [%s]",
-		     sptr->name, sptr->user->username, sptr->user->host,
-		     sptr->user->server);
 
   if (hunt_server(cptr,sptr,":%s INFO :%s",1,parc,parv) == HUNTED_ISME)
     {
@@ -1150,7 +1057,7 @@ int	m_info(aClient *cptr,
       
       sendto_one(sptr, rpl_str(RPL_INFO), me.name, parv[0], "");
 
-      if (IsAnOper(sptr))
+      if (IsAnOper(cptr))
       {
 #ifdef ANTI_NICK_FLOOD
 #define OUT1	"ANTI_NICK_FLOOD=1"
@@ -1375,9 +1282,13 @@ int	m_info(aClient *cptr,
 #else
 #define OUT2 " KPATH=0"
 #endif
-
+#ifdef K_COMMENT_ONLY
+#define OUT3 " K_COMMENT_ONLY=1"
+#else
+#define OUT3 " K_COMMENT_ONLY=0"
+#endif
         sendto_one(sptr, rpl_str(RPL_INFO),
-                me.name, parv[0], OUT1 OUT2);
+                me.name, parv[0], OUT1 OUT2 OUT3);
 
 #undef OUT1
 #undef OUT2
@@ -1463,18 +1374,23 @@ int	m_info(aClient *cptr,
 #else
 #define OUT1 "NO_OPER_FLOOD=0"
 #endif
-#ifdef NO_SPECIAL
-#define OUT2 " NO_SPECIAL=1"
+#ifdef NO_PRIORITY
+#define OUT2 " NO_PRIORITY=1"
 #else
-#define OUT2 " NO_SPECIAL=0"
+#define OUT2 " NO_PRIORITY=0"
+#endif
+#ifdef NO_SPECIAL
+#define OUT3 " NO_SPECIAL=1"
+#else
+#define OUT3 " NO_SPECIAL=0"
 #endif
 #ifdef OLD_Y_LIMIT
-#define OUT3 " OLD_Y_LIMIT=1"
+#define OUT4 " OLD_Y_LIMIT=1"
 #else
-#define OUT3 " OLD_Y_LIMIT=0"
+#define OUT4 " OLD_Y_LIMIT=0"
 #endif
 	sendto_one(sptr, rpl_str(RPL_INFO),
-		me.name, parv[0], OUT1 OUT2 OUT3 );
+		me.name, parv[0], OUT1 OUT2 OUT3 OUT4 );
 
 #undef OUT1
 #undef OUT2
@@ -1629,18 +1545,23 @@ int	m_info(aClient *cptr,
 #else
 #define OUT1 "USE_FAST_FD_ISSET=0"
 #endif
-#ifdef USE_SYSLOG
-#define OUT2 " USE_SYSLOG=1"
+#ifdef USE_LINKLIST
+#define OUT2 " USE_LINKLIST=1"
 #else
-#define OUT2 " USE_SYSLOG=0"
+#define OUT2 " USE_LINKLIST=0"
+#endif
+#ifdef USE_SYSLOG
+#define OUT3 " USE_SYSLOG=1"
+#else
+#define OUT3 " USE_SYSLOG=0"
 #endif
 #ifdef USE_UH
-#define OUT3 " USE_UH=1"
+#define OUT4 " USE_UH=1"
 #else
-#define OUT3 " USE_UH=0"
+#define OUT4 " USE_UH=0"
 #endif
 	sendto_one(sptr, rpl_str(RPL_INFO),
-		me.name, parv[0], OUT1 OUT2 OUT3);
+		me.name, parv[0], OUT1 OUT2 OUT3 OUT4);
 
 #undef OUT1
 #undef OUT2
@@ -1679,7 +1600,7 @@ int	m_info(aClient *cptr,
 	ircsprintf(outstr,"HARD_FDLIMIT_=%d HYBRID_SOMAXCONN=%d",HARD_FDLIMIT_,HYBRID_SOMAXCONN);
 	sendto_one(sptr, rpl_str(RPL_INFO),
 		me.name, parv[0], outstr);
-	ircsprintf(outstr,"MOTD_WAIT=%d MAXIMUM_LINKS=%d",MOTD_WAIT,MAXIMUM_LINKS);
+	ircsprintf(outstr,"LINK_WAIT=%d MAXIMUM_LINKS=%d",LINK_WAIT,MAXIMUM_LINKS);
 	sendto_one(sptr, rpl_str(RPL_INFO),
                 me.name, parv[0], outstr);
 	ircsprintf(outstr,"MAX_NICK_CHANGES=%d MAX_NICK_TIME=%d",MAX_NICK_CHANGES,MAX_NICK_TIME);
@@ -1722,69 +1643,31 @@ int	m_links(aClient *cptr,
 {
   char *mask;
   aClient *acptr;
+  static  time_t last_links=0;
   char clean_mask[(2*HOSTLEN)+1];
   char *s;
   char *d;
   int  n;
-  /* anti flooding code,
-   * I did have this in parse.c with a table lookup
-   * but I think this will be less inefficient doing it in each
-   * function that absolutely needs it
-   * -Dianora
-   */
 
-  static time_t last_used=0L;
-  static int last_count=0;
-
-  if(!IsAnOper(sptr))
+  if ( ( (last_links + LINK_WAIT) < NOW) || IsAnOper(sptr) )
     {
-      if((last_used + MOTD_WAIT) > NOW)
+      last_links = NOW;
+
+      if (parc > 2)
 	{
-	  last_used = NOW;
-	  if(last_count >= MOTD_MAX)
+	  if (hunt_server(cptr, sptr, ":%s LINKS %s :%s", 1, parc, parv)
+	      != HUNTED_ISME)
 	    return 0;
-	  else
-	    {
-	      if(last_count < MOTD_MAX)
-		last_count++;
-	    }
+	  mask = parv[2];
 	}
       else
-	{
-	  if(last_count > 0)
-	    {
-	      int dec_count;
-	      if( NOW <= last_used)	/* eek! clock is running
-					 * backwards or something!
-					 */
-		return 0;
-	      
-	      dec_count = (NOW - last_used) / MOTD_WAIT;
-	      
-	      if(dec_count > last_count)
-		last_count = 0;
-	      else
-		last_count -= dec_count;
-	    }
-	  last_used = NOW;
-	}
-    }
-
-  if (parc > 2)
-    {
-      if (hunt_server(cptr, sptr, ":%s LINKS %s :%s", 1, parc, parv)
-	  != HUNTED_ISME)
-	return 0;
-      mask = parv[2];
-    }
-  else
-    mask = parc < 2 ? NULL : parv[1];
+	mask = parc < 2 ? NULL : parv[1];
 
 /*
- * *sigh* Before the kiddies find this new and exciting way of 
- * annoying opers, lets clean up what is sent to all opers
- * -Dianora
- */
+  *sigh* Before the kiddies find this new and exciting way of 
+  annoying opers, lets clean up what is sent to all opers
+  -Dianora
+*/
 
   if(mask)	/* only necessary if there is a mask */
     {
@@ -1815,28 +1698,31 @@ int	m_links(aClient *cptr,
       *d = '\0';
     }
 
-  if (MyConnect(sptr))
-    sendto_realops_lev(SPY_LEV,
-		       "LINKS '%s' requested by %s (%s@%s) [%s]",
-		       mask?clean_mask:"",
-		       sptr->name, sptr->user->username,
-		       sptr->user->host, sptr->user->server);
+      if (MyConnect(sptr))
+	sendto_realops_lev(SPY_LEV,
+			   "LINKS '%s' requested by %s (%s@%s) [%s]",
+			   mask?clean_mask:"",
+			   sptr->name, sptr->user->username,
+			   sptr->user->host, sptr->user->server);
   
-  for (acptr = client, (void)collapse(mask); acptr; acptr = acptr->next) 
-    {
-      if (!IsServer(acptr) && !IsMe(acptr))
-	continue;
-      if (!BadPtr(mask) && matches(mask, acptr->name))
-	continue;
-      sendto_one(sptr, rpl_str(RPL_LINKS),
-		 me.name, parv[0], acptr->name, acptr->serv->up,
-		 acptr->hopcount, (acptr->info[0] ? acptr->info :
-				   "(Unknown Location)"));
+      for (acptr = client, (void)collapse(mask); acptr; acptr = acptr->next) 
+	{
+	  if (!IsServer(acptr) && !IsMe(acptr))
+	    continue;
+	  if (!BadPtr(mask) && matches(mask, acptr->name))
+	    continue;
+	  sendto_one(sptr, rpl_str(RPL_LINKS),
+		     me.name, parv[0], acptr->name, acptr->serv->up,
+		     acptr->hopcount, (acptr->info[0] ? acptr->info :
+				       "(Unknown Location)"));
+	}
+
+      sendto_one(sptr, rpl_str(RPL_ENDOFLINKS), me.name, parv[0],
+		 BadPtr(mask) ? "*" : clean_mask);
+      return 0;
     }
-  
-  sendto_one(sptr, rpl_str(RPL_ENDOFLINKS), me.name, parv[0],
-	     BadPtr(mask) ? "*" : clean_mask);
-  return 0;
+  else
+    return 0;
 }
 
 /*
@@ -1853,6 +1739,8 @@ typedef struct
 static REPORT_STRUCT report_array[] = {
   { CONF_CONNECT_SERVER,    RPL_STATSCLINE, 'C'},
   { CONF_NOCONNECT_SERVER,  RPL_STATSNLINE, 'N'},
+  { CONF_CLIENT,            RPL_STATSILINE, 'I'},
+  { CONF_KILL,              RPL_STATSKLINE, 'K'},
   { CONF_LEAF,		  RPL_STATSLLINE, 'L'},
   { CONF_OPERATOR,	  RPL_STATSOLINE, 'O'},
   { CONF_HUB,		  RPL_STATSHLINE, 'H'},
@@ -1860,7 +1748,7 @@ static REPORT_STRUCT report_array[] = {
   { 0, 0, '\0' }
 };
 
-
+#define MAXPREFIX (HOSTLEN+USERLEN+10)
 
 static	void	report_configured_links(aClient *sptr,int mask)
 {
@@ -1868,7 +1756,10 @@ static	void	report_configured_links(aClient *sptr,int mask)
   aConfItem *tmp;
   REPORT_STRUCT *p;
   int   port;
+  char c;		/* conf char used for CONF_CLIENT only */
   char	*host, *pass, *name;
+  char prefix_of_host[MAXPREFIX];
+  char *prefix_ptr;
 
   for (tmp = conf; tmp; tmp = tmp->next)
     if (tmp->status & mask)
@@ -1883,24 +1774,69 @@ static	void	report_configured_links(aClient *sptr,int mask)
 	name = BadPtr(tmp->name) ? null : tmp->name;
 	port = (int)tmp->port;
 
-	if(mask & (CONF_CONNECT_SERVER|CONF_NOCONNECT_SERVER))
+	/*
+	 * On K line the passwd contents can be
+	 * displayed on STATS reply. 	-Vesa
+	 * If K_COMMENT_ONLY is defined, then
+	 * do it differently.
+	 */
+#ifdef K_COMMENT_ONLY
+	if (tmp->status == CONF_KILL)
+	  sendto_one(sptr, rpl_str(p->rpl_stats), me.name,
+		     sptr->name, p->conf_char, host,
+		     name, pass);
+#else
+	if (tmp->status == CONF_KILL)
+	  sendto_one(sptr, rpl_str(p->rpl_stats), me.name,
+		     sptr->name, p->conf_char, host,
+		     pass, name, port,
+		     get_conf_class(tmp));
+#endif
+	else if (mask == CONF_CLIENT)
 	  {
-	    /* Don't allow non opers to see actual ips */
-	    if(IsAnOper(sptr))
-	      sendto_one(sptr, rpl_str(p->rpl_stats), me.name,
-			 sptr->name, p->conf_char,
-			 host,
-			 name,
-			 port,
-			 get_conf_class(tmp));
-	    else
-	      sendto_one(sptr, rpl_str(p->rpl_stats), me.name,
-			 sptr->name, p->conf_char,
-			 "*@127.0.0.1",
-			 name,
-			 port,
-			 get_conf_class(tmp));
+            prefix_ptr = prefix_of_host;
+ 
+            if (IsNoTilde(tmp))
+              *prefix_ptr++ = '-';
+            if (IsLimitIp(tmp))
+              *prefix_ptr++ = '!';
+            if (IsNeedIdentd(tmp))
+              *prefix_ptr++ = '+';
+            if (IsPassIdentd(tmp))
+              *prefix_ptr++ = '$';
+            if (IsNoMatchIp(tmp))
+              *prefix_ptr++ = '%';
 
+#ifdef E_LINES_OPER_ONLY
+	    if(IsAnOper(sptr))
+#endif
+	      if (IsConfElined(tmp))
+		*prefix_ptr++ = '^';
+
+#ifdef B_LINES_OPER_ONLY
+	    if(IsAnOper(sptr))
+#endif
+	      if (IsConfBlined(tmp))
+		*prefix_ptr++ = '&';
+
+#ifdef F_LINES_OPER_ONLY
+	    if(IsAnOper(sptr))
+#endif
+	      if (IsConfFlined(tmp))
+		*prefix_ptr++ = '>';
+            *prefix_ptr = '\0';
+
+	    strncat(prefix_of_host,name,MAXPREFIX);
+            c = 'I';
+#ifdef LITTLE_I_LINES
+            if(IsConfLittleI(tmp))
+              c = 'i';
+#endif
+	    sendto_one(sptr, rpl_str(p->rpl_stats), me.name,
+		     sptr->name,
+		     c,
+		     host, prefix_of_host, port,
+		     get_conf_class(tmp));
 	  }
 	else if(mask & (CONF_OPERATOR|CONF_LOCOP))
 	  {
@@ -1952,6 +1888,7 @@ int	m_stats(aClient *cptr,
 		char *parv[])
 {
   static	char	Lformat[]  = ":%s %d %s %s %u %u %u %u %u :%u %u %s";
+  static	time_t	last = 0;
   static	int	num = 0;
   struct	Message	*mptr;
   aClient	*acptr;
@@ -1959,49 +1896,6 @@ int	m_stats(aClient *cptr,
   Reg	int	i;
   int	doall = 0, wilds = 0;
   char	*name;
-  /* anti flooding code,
-   * I did have this in parse.c with a table lookup
-   * but I think this will be less inefficient doing it in each
-   * function that absolutely needs it
-   * -Dianora
-   */
-
-  static time_t last_used=0L;
-  static int last_count=0;
-
-  if(!IsAnOper(sptr))
-    {
-      if((last_used + MOTD_WAIT) > NOW)
-	{
-	  last_used = NOW;
-	  if(last_count >= MOTD_MAX)
-	    return 0;
-	  else
-	    {
-	      if(last_count < MOTD_MAX)
-		last_count++;
-	    }
-	}
-      else
-	{
-	  if(last_count > 0)
-	    {
-	      int dec_count;
-	      if( NOW <= last_used)	/* eek! clock is running
-					 * backwards or something!
-					 */
-		return 0;
-	      
-	      dec_count = (NOW - last_used) / MOTD_WAIT;
-	      
-	      if(dec_count > last_count)
-		last_count = 0;
-	      else
-		last_count -= dec_count;
-	    }
-	  last_used = NOW;
-	}
-    }
 
   if (hunt_server(cptr,sptr,":%s STATS %s :%s",2,parc,parv)!=HUNTED_ISME)
     return 0;
@@ -2019,6 +1913,40 @@ int	m_stats(aClient *cptr,
   else
     name = me.name;
 
+
+  /*
+   * If a normal client does a /stats, increase the counter, and
+   * check to see if there have been more than 5 /stats in the last
+   * 15s
+   */
+  if (!IsAnOper(sptr)) num++;
+  if ((num > 5) && !IsAnOper(sptr))
+    {
+      sendto_one(sptr, rpl_str(RPL_LOAD2HI), me.name, parv[0]);
+
+      if (stat != (char)0)
+	sendto_realops_lev(SPY_LEV, 
+			   "STATS %c DENIED to %s (%s@%s) [%s] (%d in 15s)",
+			   stat,sptr->name, sptr->user->username,
+			   sptr->user->host, sptr->user->server, num);
+
+    /*
+     * After 15s has passed, reset the counter time, and if we were already
+     * in "defensive" mode, allow only 1 /stats in the next 15s
+     */
+    if (timeofday > (last + 15))
+      {
+	last = timeofday;
+	num = (num > 5) ? 4 : 0;
+      }
+    return 0;
+    }
+  if (timeofday > (last + 15))
+    {
+      last = timeofday;
+      num = (num > 5) ? 4 : 0;
+    }
+
   if (stat != (char)0)
     sendto_realops_lev(SPY_LEV, "STATS %c requested by %s (%s@%s) [%s]", stat,
 		       sptr->name, sptr->user->username, sptr->user->host,
@@ -2033,8 +1961,11 @@ int	m_stats(aClient *cptr,
        * are invisible not being visible to 'foreigners' who use
        * a wild card based search to list it.
        */
-      for(acptr=local_cptr_list;acptr;acptr=acptr->next_local_client)
+      for (i = 0; i <= highest_fd; i++)
 	{
+	  if (!(acptr = local[i]))
+	    continue;
+
           if (IsPerson(acptr) &&
               !IsAnOper(acptr) && !IsAnOper(sptr) &&
               (acptr != sptr))
@@ -2047,16 +1978,6 @@ int	m_stats(aClient *cptr,
 	    continue;
 	  if (!(doall || wilds) && mycmp(name, acptr->name))
 	    continue;
-
-	  /* I've added a sanity test to the "timeofday - acptr->since"
-	   * occasionally, acptr->since is larger than timeofday.
-	   * The code in parse.c "randomly" increases the "since",
-	   * which means acptr->since is larger then timeofday at times,
-	   * this gives us very high odd number.. 
-	   * So, I am going to return 0 for ->since if this happens.
-	   * - Dianora
-	   */
-
           if(IsAnOper(sptr))
 	    {
 	      sendto_one(sptr, Lformat, me.name,
@@ -2068,7 +1989,7 @@ int	m_stats(aClient *cptr,
 		     (int)acptr->sendM, (int)acptr->sendK,
 		     (int)acptr->receiveM, (int)acptr->receiveK,
 		     timeofday - acptr->firsttime,
-		     (timeofday > acptr->since) ? (timeofday - acptr->since):0,
+		     timeofday - acptr->since,
 		     IsServer(acptr) ? (DoesTS(acptr) ?
 					"TS" : "NoTS") : "-");
               }
@@ -2082,7 +2003,7 @@ int	m_stats(aClient *cptr,
                      (int)acptr->sendM, (int)acptr->sendK,
                      (int)acptr->receiveM, (int)acptr->receiveK,
                      timeofday - acptr->firsttime,
-                     (timeofday > acptr->since) ? (timeofday - acptr->since):0,
+                     timeofday - acptr->since,
                      IsServer(acptr) ? (DoesTS(acptr) ?
                                         "TS" : "NoTS") : "-");
                  else
@@ -2095,7 +2016,7 @@ int	m_stats(aClient *cptr,
                      (int)acptr->sendM, (int)acptr->sendK,
                      (int)acptr->receiveM, (int)acptr->receiveK,
                      timeofday - acptr->firsttime,
-                     (timeofday > acptr->since) ? (timeofday - acptr->since):0,
+                     timeofday - acptr->since,
                      IsServer(acptr) ? (DoesTS(acptr) ?
                                         "TS" : "NoTS") : "-");
               }
@@ -2116,7 +2037,7 @@ int	m_stats(aClient *cptr,
 	  sendto_one(sptr, err_str(ERR_NOPRIVILEGES), me.name, parv[0]);
 	  break;
 	}
-      report_dline_hash(sptr, CONF_DLINE);
+      report_dline_hash(sptr, RPL_STATSDLINE);
       break;
 
     case 'E' : case 'e' :
@@ -2141,7 +2062,7 @@ int	m_stats(aClient *cptr,
       break;
 
     case 'I' : case 'i' :
-      report_mtrie_conf_links(sptr, CONF_CLIENT);
+      report_configured_links(sptr, CONF_CLIENT);
       break;
 
     case 'k' :
@@ -2154,7 +2075,11 @@ int	m_stats(aClient *cptr,
 	report_matching_host_klines(sptr,parv[3]);
       else
 	if (IsAnOper(sptr))
-	  report_mtrie_conf_links(sptr, CONF_KILL);
+	  {
+	    report_conf_links(sptr, &KList1, RPL_STATSKLINE, 'K');
+	    report_conf_links(sptr, &KList2, RPL_STATSKLINE, 'K');
+	    report_conf_links(sptr, &KList3, RPL_STATSKLINE, 'K');
+	  }
 	else
 	  report_matching_host_klines(sptr,sptr->sockhost);
       break;
@@ -2315,52 +2240,9 @@ int	m_help(aClient *cptr,
 	       char *parv[])
 {
   int i;
-  register aMessageFile *helpfile_ptr;
-  /* anti flooding code,
-   * I did have this in parse.c with a table lookup
-   * but I think this will be less inefficient doing it in each
-   * function that absolutely needs it
-   * -Dianora
-   */
+  register aMotd *helpfile_ptr;
 
-  static time_t last_used=0L;
-  static int last_count=0;
-
-  if(!IsAnOper(sptr))
-    {
-      if((last_used + MOTD_WAIT) > NOW)
-	{
-	  last_used = NOW;
-	  if(last_count >= MOTD_MAX)
-	    return 0;
-	  else
-	    {
-	      if(last_count < MOTD_MAX)
-		last_count++;
-	    }
-	}
-      else
-	{
-	  if(last_count > 0)
-	    {
-	      int dec_count;
-	      if( NOW <= last_used)	/* eek! clock is running
-					 * backwards or something!
-					 */
-		return 0;
-	      
-	      dec_count = (NOW - last_used) / MOTD_WAIT;
-	      
-	      if(dec_count > last_count)
-		last_count = 0;
-	      else
-		last_count -= dec_count;
-	    }
-	  last_used = NOW;
-	}
-    }
-
-  if ( !IsAnOper(sptr) || (helpfile == (aMessageFile *)NULL))
+  if ( !IsAnOper(sptr) || (helpfile == (aMotd *)NULL))
     {
       for (i = 0; msgtab[i].cmd; i++)
 	sendto_one(sptr,":%s NOTICE %s :%s",
@@ -2840,50 +2722,6 @@ int	m_time(aClient *cptr,
 	       int parc,
 	       char *parv[])
 {
-  /* anti flooding code,
-   * I did have this in parse.c with a table lookup
-   * but I think this will be less inefficient doing it in each
-   * function that absolutely needs it
-   * -Dianora
-   */
-
-  static time_t last_used=0L;
-  static int last_count=0;
-
-  if(!IsAnOper(sptr))
-    {
-      if((last_used + MOTD_WAIT) > NOW)
-	{
-	  last_used = NOW;
-	  if(last_count >= MOTD_MAX)
-	    return 0;
-	  else
-	    {
-	      if(last_count < MOTD_MAX)
-		last_count++;
-	    }
-	}
-      else
-	{
-	  if(last_count > 0)
-	    {
-	      int dec_count;
-	      if( NOW <= last_used)	/* eek! clock is running
-					 * backwards or something!
-					 */
-		return 0;
-	      
-	      dec_count = (NOW - last_used) / MOTD_WAIT;
-	      
-	      if(dec_count > last_count)
-		last_count = 0;
-	      else
-		last_count -= dec_count;
-	    }
-	  last_used = NOW;
-	}
-    }
-
   if (hunt_server(cptr,sptr,":%s TIME :%s",1,parc,parv) == HUNTED_ISME)
     sendto_one(sptr, rpl_str(RPL_TIME), me.name,
 	       parv[0], me.name, date((long)0));
@@ -2902,49 +2740,6 @@ int	m_admin(aClient *cptr,
 		char *parv[])
 {
   aConfItem *aconf;
-  /* anti flooding code,
-   * I did have this in parse.c with a table lookup
-   * but I think this will be less inefficient doing it in each
-   * function that absolutely needs it
-   * -Dianora
-   */
-
-  static time_t last_used=0L;
-  static int last_count=0;
-
-  if(!IsAnOper(sptr))
-    {
-      if((last_used + MOTD_WAIT) > NOW)
-	{
-	  last_used = NOW;
-	  if(last_count >= MOTD_MAX)
-	    return 0;
-	  else
-	    {
-	      if(last_count < MOTD_MAX)
-		last_count++;
-	    }
-	}
-      else
-	{
-	  if(last_count > 0)
-	    {
-	      int dec_count;
-	      if( NOW <= last_used)	/* eek! clock is running
-					 * backwards or something!
-					 */
-		return 0;
-	      
-	      dec_count = (NOW - last_used) / MOTD_WAIT;
-	      
-	      if(dec_count > last_count)
-		last_count = 0;
-	      else
-		last_count -= dec_count;
-	    }
-	  last_used = NOW;
-	}
-    }
 
   if (hunt_server(cptr,sptr,":%s ADMIN :%s",1,parc,parv) != HUNTED_ISME)
     return 0;
@@ -2981,8 +2776,7 @@ extern int spam_num;
 extern int spam_time;
 #endif
 
-#if defined(NO_CHANOPS_WHEN_SPLIT) || defined(PRESERVE_CHANNEL_ON_SPLIT) || \
-	defined(NO_JOIN_ON_SPLIT)
+#ifdef NO_CHANOPS_WHEN_SPLIT
 extern int server_split_recovery_time;
 #endif
 
@@ -2995,11 +2789,8 @@ int   m_set(aClient *cptr,
 	    char *parv[])
 {
   char *command;
-#ifdef DEBUG_LINKLIST
-  aClient *acptr;
-#endif
 
-  if (!MyClient(sptr) || !IsAnOper(sptr))
+  if (!MyClient(sptr) || !IsOper(sptr))
     {
       sendto_one(sptr, err_str(ERR_NOPRIVILEGES), me.name, parv[0]);
       return 0;
@@ -3036,55 +2827,34 @@ int   m_set(aClient *cptr,
 		     me.name, parv[0], MAXCLIENTS, Count.local);
           return 0;
         }
-      else if(!strncasecmp(command,"AUTOCONN",8))
-	{
-	  if(parc > 3)
-	    {
-	      int newval = atoi(parv[3]);
-
-	      if(!strcasecmp(parv[2],"ALL"))
-		 {
-		   sendto_ops(
-			      "%s has changed AUTOCONN ALL to %i",
-			      parv[0], newval);
-		   sendto_one(sptr,
-			      ":%s NOTICE %s :AUTOCONN ALL is now set to %i",
-			 me.name, parv[0], newval);
-		   autoconn = newval;
-		   return 0;
-		 }
-	      else
-		set_autoconn(sptr,parv[0],parv[2],newval);
-	    }
-	  else
-	    {
-	      sendto_one(sptr, ":%s NOTICE %s :AUTOCONN ALL is currently %i",
-			 me.name, parv[0], autoconn);
-	      return 0;
-	    }
-	}
       /* DEBUG*/
-#ifdef DEBUG_LINKLIST
+#if defined(USE_LINKLIST) && defined(DEBUG_LINKLIST)
       else if(!strncasecmp(command,"LINKLIST",7))
 	{
+	  aClient *sptr;
+
 	  sendto_realops("local_cptr_list");
-	  for(acptr=local_cptr_list;acptr;acptr=acptr->next_local_client)
+	  sptr = local_cptr_list;
+	  while(sptr)
 	    {
-	      sendto_realops("local client>%s",
-			     get_client_name(acptr,FALSE));
+	      sendto_realops("local client>%s!%s@%s",
+			     sptr->name,sptr->user->username,sptr->user->host);
+	      sptr=sptr->next_local_client;
 	    }
 	  sendto_realops("oper_cptr_list");
-
-	  for(acptr=oper_cptr_list;acptr;acptr=acptr->next_oper_client)
+	  sptr = oper_cptr_list;
+	  while(sptr)
 	    {
-	      sendto_realops("oper>%s",
-			     get_client_name(acptr,FALSE));
+	      sendto_realops("oper>%s!%s@%s",
+			     sptr->name,sptr->user->username,sptr->user->host);
+	      sptr=sptr->next_oper_client;
 	    }
 	  sendto_realops("serv_cptr_list");
-	  acptr = serv_cptr_list;
-	  for(acptr=serv_cptr_list;acptr;acptr=acptr->next_server_client)
+	  sptr = serv_cptr_list;
+	  while(sptr)
 	    {
-	      sendto_realops("server name >%s",acptr->name);
+	      sendto_realops("server name >%s",sptr->name);
+	      sptr=sptr->next_server_client;
 	    }
 	}
 #endif
@@ -3203,8 +2973,7 @@ int   m_set(aClient *cptr,
 	    }
 	}
 #endif
-#if defined(NO_CHANOPS_WHEN_SPLIT) || defined(PRESERVE_CHANNEL_ON_SPLIT) || \
-	defined(NO_JOIN_ON_SPLIT)
+#ifdef NO_CHANOPS_WHEN_SPLIT
       else if(!strncasecmp(command, "SPLITDELAY",10))
 	{
           if(parc > 2)
@@ -3218,10 +2987,7 @@ int   m_set(aClient *cptr,
                   return 0;
                 }
 	      if(newval > MAX_SERVER_SPLIT_RECOVERY_TIME)
-		{
-		  sendto_one(sptr, ":%s NOTICE %s :Cannot set SPLIT RECOVERY TIME over %d", parv[0], MAX_SERVER_SPLIT_RECOVERY_TIME);
-		  newval = MAX_SERVER_SPLIT_RECOVERY_TIME;
-		}
+		newval = MAX_SERVER_SPLIT_RECOVERY_TIME;
               sendto_ops("%s has changed spam SERVER SPLIT RECOVERY TIME  to %i", parv[0], newval);
               sendto_one(sptr, ":%s NOTICE %s :SERVER SPLIT RECOVERY TIME is now set to %i",
                          me.name, parv[0], newval );
@@ -3303,7 +3069,7 @@ int spam_num = MAX_JOIN_LEAVE_COUNT;
       }
   else
     {
-      sendto_one(sptr, ":%s NOTICE %s :Options: MAX AUTOCONN",
+      sendto_one(sptr, ":%s NOTICE %s :Options: MAX",
 		 me.name, parv[0]);
 #ifdef FLUD
       sendto_one(sptr, ":%s NOTICE %s :Options: FLUDNUM, FLUDTIME, FLUDBLOCK",
@@ -3313,8 +3079,7 @@ int spam_num = MAX_JOIN_LEAVE_COUNT;
       sendto_one(sptr, ":%s NOTICE %s :Options: SPAMNUM, SPAMTIME",
 		 me.name, parv[0]);
 #endif
-#if defined(NO_CHANOPS_WHEN_SPLIT) || defined(PRESERVE_CHANNEL_ON_SPLIT) || \
-	defined(NO_JOIN_ON_SPLIT)
+#ifdef NO_CHANOPS_WHEN_SPLIT
 	sendto_one(sptr, ":%s NOTICE %s :Options: SPLITDELAY",
 		me.name, parv[0]);
 #endif
@@ -3787,7 +3552,6 @@ static void log_gline_request(
   (void)sprintf(filenamebuf, "%s.%s", glinefile, small_file_date((time_t)0));
   if ((out = open(filenamebuf, O_RDWR|O_APPEND|O_CREAT,0644))==-1)
     {
-      sendto_realops("*** Problem opening %s",filenamebuf);
       return;
     }
 
@@ -3890,13 +3654,13 @@ void log_gline(
 #endif /* GLINES */
 
 /*
- * m_kline()
- *
- * re-worked a tad ... -Dianora
- *
- * Added comstuds SEPARATE_QUOTE_KLINES_BY_DATE code
- * -Dianora
- */
+m_kline()
+
+re-worked a tad ... -Dianora
+
+Added comstuds SEPARATE_QUOTE_KLINES_BY_DATE code
+ -Dianora
+*/
 
 int     m_kline(aClient *cptr,
 		aClient *sptr,
@@ -3909,8 +3673,6 @@ int     m_kline(aClient *cptr,
   int out;
 #endif
   char buffer[512];
-  char *p;
-  char cidr_form_host[64];
 
 #ifdef SEPARATE_QUOTE_KLINES_BY_DATE
   char filenamebuf[1024];
@@ -3920,7 +3682,6 @@ int     m_kline(aClient *cptr,
   char *user, *host;
   char *reason;
   char *current_date;
-  int  ip_kline = NO;
   aClient *acptr;
   char tempuser[USERLEN+2];
   char temphost[HOSTLEN+1];
@@ -4083,32 +3844,25 @@ int     m_kline(aClient *cptr,
   **
   */
 
-  /*
-   * what to do if host is a legal ip, and its a temporary kline ?
-   */
-
-  if(host_is_legal_ip(host))
-     {
-       ip_kline = YES;
-       strncpy(cidr_form_host,host,32);
-       p = strchr(cidr_form_host,'*');
-       if(p)
-	 {
-	   *p++ = '0';
-	   *p++ = '/';
-	   *p++ = '2';
-	   *p++ = '4';
-	   *p++ = '\0';
-	 }
-       host = cidr_form_host;
+  if((*user == '*' && *(user+1) == '\0') && host_is_legal_dline(host))
+    {
+      sendto_realops("%s added K-Line [%s@%s] [%s] but should be D-Line",
+                 parv[0], user, host, reason);
+      return place_dline(sptr,parv[0],host,reason); 
     }
 
+
 #ifdef NON_REDUNDANT_KLINES
-  if( (aconf = find_is_klined(host,user,0L)) )
+  if( (aconf = find_is_klined(host,user)) )
      {
        char *reason;
 
+#ifdef K_COMMENT_ONLY
        reason = aconf->passwd ? aconf->passwd : "<No Reason>";
+#else
+       reason = (BadPtr(aconf->passwd) || !is_comment(aconf->passwd)) ?
+	 "<No Reason>" : aconf->passwd;
+#endif
        sendto_one(sptr,
 		  ":%s NOTICE %s :[%s@%s] already K-lined by [%s@%s] - %s",
 		  me.name,
@@ -4130,7 +3884,11 @@ int     m_kline(aClient *cptr,
     (void)ircsprintf(buffer, "Temporary K-line %d min. for %s (%s)",
        temporary_kline_time,reason,current_date);
   else
+#ifdef K_COMMENT_ONLY
     (void)ircsprintf(buffer, "%s (%s)",reason,current_date);
+#else
+    (void)ircsprintf(buffer, "%s (%s)",reason,current_date);
+#endif
 
   DupString(aconf->passwd, buffer );
   DupString(aconf->name, user);
@@ -4151,15 +3909,21 @@ int     m_kline(aClient *cptr,
   Class(aconf) = find_class(0);
 
 /* when can aconf->host ever be a NULL pointer though?
- * or for that matter, when is aconf->status ever not going
- * to be CONF_KILL at this point? 
- * -Dianora
- */
+   or for that matter, when is aconf->status ever not going
+   to be CONF_KILL at this point?  -Dianora */
 
-  if(ip_kline)
-    add_to_dline_hash(aconf);
-  else
-    add_mtrie_conf_entry(aconf,CONF_KILL);
+    switch (sortable(host))
+      {
+	case 0 :
+	  l_addto_conf_list(&KList3, aconf, host_field);
+	  break;
+	case 1 :
+	  addto_conf_list(&KList1, aconf, host_field);
+	  break;
+	case -1 :
+	  addto_conf_list(&KList2, aconf, rev_host_field);
+	  break;
+      }
 
 /* comstud's SEPARATE_QUOTE_KLINES_BY_DATE code */
 /* Note, that if SEPARATE_QUOTE_KLINES_BY_DATE is defined,
@@ -4214,11 +3978,19 @@ int     m_kline(aClient *cptr,
       return(0);
     }
 
+#ifndef K_COMMENT_ONLY
+  (void)ircsprintf(buffer, "K:%s:%s (%s):%s\n",
+		   host,
+		   reason,
+		   current_date,
+		   user);
+#else
   (void)ircsprintf(buffer, "K:%s:%s (%s):%s\n",
 		   host,
 		   reason,
 		   current_date,
 		   user);
+#endif
 
   if((k->kline = strdup(buffer)) == NULL)
     {
@@ -4258,11 +4030,19 @@ int     m_kline(aClient *cptr,
   if (safe_write(sptr,parv[0],filename,out,buffer))
     return 0;
 
+#ifndef K_COMMENT_ONLY
+  (void)ircsprintf(buffer, "K:%s:%s (%s):%s\n",
+		   host,
+		   reason,
+		   current_date,
+		   user);
+#else
   (void)ircsprintf(buffer, "K:%s:%s (%s):%s\n",
 		   host,
 		   reason,
 		   current_date,
 		   user);
+#endif
 
   if (safe_write(sptr,parv[0],filename,out,buffer))
     return 0;
@@ -4281,13 +4061,57 @@ int     m_kline(aClient *cptr,
 #endif /* #ifdef LOCKFILE */
 }
 
+/*
+host_is_legal_dline
+
+inputs		- hostname
+output		- YES if hostname is ip# only NO if its not
+side effects	- NONE
+
+(If you think you've seen this somewhere else, you are right.
+ripped out of tcm-dianora basically)
+
+-Diaora
+*/
+
+static int host_is_legal_dline(char *host_name)
+{
+  int number_of_dots = 0;
+
+  if(*host_name == '.')return(NO);	/* degenerate case */
+  while(*host_name)
+    {
+      if( *host_name == '.' )
+	number_of_dots++;
+      else if(*host_name == '*')
+	{
+	  if(*(host_name+1) == '\0')
+	    {
+	      if(number_of_dots == 3)
+		return(YES);
+	      else
+		return(NO);
+	    }
+	  else
+	    return(NO);
+	}
+      else if(!isdigit(*host_name))
+	return(NO);
+      host_name++;
+    }
+
+  if(number_of_dots == 3 )
+    return(YES);
+  else
+    return(NO);
+}
 
 /*
- * isnumber()
- * 
- * inputs	- pointer to ascii string in
- * output	- 0 if not an integer number, else the number
- * side effects	- none
+isnumber()
+
+inputs		- pointer to ascii string in
+output		- 0 if not an integer number, else the number
+side effects	- none
 */
 
 static int isnumber(char *p)
@@ -4448,6 +4272,95 @@ int m_unkline (aClient *cptr,aClient *sptr,int parc,char *parv[])
   filename = klinefile;
 #endif			
 
+  if(configfile != klinefile)
+    {
+      sendto_one(sptr,":%s NOTICE %s :Rehashing in %s k-lines",
+		 me.name,parv[0],configfile);
+
+      if( (in = open(configfile, O_RDONLY)) == -1)
+	{
+	  sendto_one(sptr, ":%s NOTICE %s :Cannot open %s",
+		     me.name,parv[0],configfile);
+#if defined(LOCKFILE) && !defined(SEPARATE_QUOTE_KLINES_BY_DATE)
+	  (void)unlink(LOCKFILE);
+#endif
+	  return 0;
+	}
+
+      clear_conf_list(&KList1);
+      clear_conf_list(&KList2);
+      clear_conf_list(&KList3);
+
+      while((nread = dgets(in, buff, sizeof(buff)) ) > 0) 
+	{
+	  buff[nread] = '\0';
+
+	  if((buff[1] == ':') && ((buff[0] == 'k') || (buff[0] == 'K')))
+	    {
+	      /* its a K: line */
+	      char *found_host;
+	      char *found_user;
+	      char *found_comment;
+
+	      p = strchr(buff,'\n');
+	      if(p)
+		*p = '\0';
+	      p = strchr(buff,'\r');
+	      if(p)
+		*p = '\0';
+
+	      found_host = buff + 2;	/* point past the K: */
+	      p = strchr(found_host,':');
+	      if(p == (char *)NULL)
+		{
+		  sendto_one(sptr, ":%s NOTICE %s :K-Line file corrupted",
+			     me.name, parv[0]);
+		  sendto_one(sptr, ":%s NOTICE %s :Couldn't find host",
+			     me.name, parv[0]);
+		  continue;		/* This K line is corrupted ignore */
+		}
+	      *p = '\0';
+	      p++;
+ 
+	      found_comment = p;
+	      p = strchr(found_comment,':');
+	      if(p == (char *)NULL)
+		{
+		  sendto_one(sptr, ":%s NOTICE %s :K-Line file corrupted",
+			     me.name, parv[0]);
+		  sendto_one(sptr, ":%s NOTICE %s :Couldn't find comment",
+			     me.name, parv[0]);
+		  continue;		/* This K line is corrupted ignore */
+		}
+	      *p = '\0';
+	      p++;
+	      found_user = p;
+
+	      aconf = make_conf();
+	      aconf->status = CONF_KILL;
+	      DupString(aconf->host, found_host);
+	      DupString(aconf->name, found_user);
+	      DupString(aconf->passwd,found_comment);
+	      aconf->port = 0;
+	      Class(aconf) = find_class(0);
+      
+	      switch (sortable(found_host))
+		{
+		case 0 :
+		  l_addto_conf_list(&KList3, aconf, host_field);
+		  break;
+		case 1 :
+		  addto_conf_list(&KList1, aconf, host_field);
+		  break;
+		case -1 :
+		  addto_conf_list(&KList2, aconf, rev_host_field);
+		  break;
+		}
+	    }
+	}
+      (void)close(in);
+    }
+
   if( (in = open(filename, O_RDONLY)) == -1)
     {
       sendto_one(sptr, ":%s NOTICE %s :Cannot open %s",
@@ -4508,7 +4421,7 @@ K:bar:No reason (1997/08/30 14.56):foo
 	      sendto_one(sptr, ":%s NOTICE %s :Couldn't find host",
 			 me.name, parv[0]);
               if(!error_on_write)
-                error_on_write = flush_write(sptr,
+                error_on_write = flush_write(sptr,parv[0],
 		  out,buf,strlen(buf),temppath);
 	      continue;		/* This K line is corrupted ignore */
 	    }
@@ -4524,7 +4437,7 @@ K:bar:No reason (1997/08/30 14.56):foo
 	      sendto_one(sptr, ":%s NOTICE %s :Couldn't find comment",
 			 me.name, parv[0]);
               if(!error_on_write)
-                error_on_write = flush_write(sptr,
+                error_on_write = flush_write(sptr,parv[0],
 		  out,buf,strlen(buf),temppath);
 	      continue;		/* This K line is corrupted ignore */
 	    }
@@ -4533,19 +4446,38 @@ K:bar:No reason (1997/08/30 14.56):foo
 	  found_user = p;
 
 /*
- * Ok, if its not an exact match on either the user or the host
- * then, write the K: line out, and I add it back to the K line
- * tree
- */
+	Ok, if its not an exact match on either the user or the host
+	then, write the K: line out, and I add it back to the K line
+	tree
+*/
 	  if(strcasecmp(host,found_host) || strcasecmp(user,found_user))
             {
               if(!error_on_write)
-                error_on_write = flush_write(sptr,
+                error_on_write = flush_write(sptr,parv[0],
 		  out,buf,strlen(buf),temppath);
+	      aconf = make_conf();
+	      aconf->status = CONF_KILL;
+	      DupString(aconf->host, found_host);
+              DupString(aconf->name, found_user);
+              DupString(aconf->passwd,found_comment);
+              aconf->port = 0;
+              Class(aconf) = find_class(0);
+
+	      switch (sortable(found_host))
+		{
+		case 0 :
+		  l_addto_conf_list(&KList3, aconf, host_field);
+		  break;
+		case 1 :
+		  addto_conf_list(&KList1, aconf, host_field);
+		  break;
+		case -1 :
+		  addto_conf_list(&KList2, aconf, rev_host_field);
+		  break;
+		}
             }
           else
-	    pairme++;
-
+            pairme++;
 	}				
       else if(buf[0] == '#')
 	{
@@ -4566,7 +4498,7 @@ Then just ignore the line
 	  if(p == (char *)NULL)
 	    {
               if(!error_on_write)
-                error_on_write = flush_write(sptr,
+                error_on_write = flush_write(sptr,parv[0],
 		  out,buf,strlen(buf),temppath);
 	      continue;
 	    }
@@ -4579,7 +4511,7 @@ Then just ignore the line
 	  if(p == (char *)NULL)
 	    {
               if(!error_on_write)
-                error_on_write = flush_write(sptr,
+                error_on_write = flush_write(sptr,parv[0],
 		  out,buf,strlen(buf),temppath);
 	      continue;
 	    }
@@ -4593,7 +4525,7 @@ Then just ignore the line
 	  if(p == (char *)NULL)
 	    {
               if(!error_on_write)
-                error_on_write = flush_write(sptr,
+                error_on_write = flush_write(sptr,parv[0],
 		  out,buf,strlen(buf),temppath);
 	      continue;
 	    }
@@ -4604,14 +4536,14 @@ Then just ignore the line
 	  if( (strcasecmp(found_host,host)) || (strcasecmp(found_user,user)) )
 	    {
               if(!error_on_write)
-                error_on_write = flush_write(sptr,
+                error_on_write = flush_write(sptr,parv[0],
 		  out,buf,strlen(buf),temppath);
             }
 	}
       else	/* its the ircd.conf file, and not a K line or comment */
         {
 	  if(!error_on_write)
-            error_on_write = flush_write(sptr,
+            error_on_write = flush_write(sptr,parv[0],
               out,buf,strlen(buf),temppath);
         }
     }
@@ -4620,14 +4552,11 @@ Then just ignore the line
 
 /* The result of the rename should be checked too... oh well */
 /* If there was an error on a write above, then its been reported
- * and I am not going to trash the original kline /conf file
- * -Dianora
- */
+   and I am not going to trash the original kline /conf file
+   -Dianora
+*/
   if( (!error_on_write) && (close(out) >= 0) )
-    {
-      (void)rename(temppath, filename);
-      rehash(cptr,sptr,0);
-    }
+    (void)rename(temppath, filename);
   else
     {
       sendto_one(sptr,":%s NOTICE %s :Couldn't write temp kline file, aborted",
@@ -4642,7 +4571,7 @@ Then just ignore the line
   (void)unlink(LOCKFILE);
 #endif
 	
-  if(!pairme)
+  if(pairme == NO)
     {
       sendto_one(sptr, ":%s NOTICE %s :No K-Line for %s@%s",
 		 me.name, parv[0],user,host);
@@ -4650,8 +4579,8 @@ Then just ignore the line
     }
   sendto_one(sptr, ":%s NOTICE %s :K-Line for [%s@%s] is removed", 
 	     me.name, parv[0], user,host);
-  sendto_ops("%s has removed the K-Line for: [%s@%s]",
-	     parv[0], user, host);
+  sendto_ops("%s has removed the K-Line for: [%s@%s] (%d matches)", 
+	     parv[0], user, host, pairme);
 
 #ifdef USE_SYSLOG
       syslog(LOG_NOTICE, "%s removed K-Line for [%s@%s]",
@@ -4663,26 +4592,29 @@ Then just ignore the line
 }
 
 /*
- * flush_write()
- *
- * inputs	- pointer to client structure of oper requesting unkline
- *              - out is the file descriptor
- *		- buf is the buffer to write
- *		- ntowrite is the expected number of character to be written
- *		- temppath is the temporary file name to be written
- * output	- YES for error on write
- *		- NO for success
- * side effects	- if successful, the buf is written to output file
- *                if a write failure happesn, and the file pointed to
- *		  by temppath, if its non NULL, is removed.
- *
- * The idea here is, to be as robust as possible when writing to the 
- * kline file.
- *
- * -Dianora
- */
+flush_write()
 
-static int flush_write(aClient *sptr,
+inputs		- pointer to client structure of oper requesting unkline
+                - out is the file descriptor
+		- buf is the buffer to write
+		- ntowrite is the expected number of character to be written
+		- temppath is the temporary file name to be written
+output		- YES for error on write
+		- NO for success
+side effects	- if successful, the buf is written to output file
+                  if a write failure happesn, and the file pointed to
+		  by temppath, if its non NULL, is removed.
+
+The idea here is, to be as robust as possible when writing to the 
+kline file.
+
+Yes, I could have dug the opernick out of sptr. I didn't feel like it.
+so sue me.
+
+-Dianora
+*/
+
+static int flush_write(aClient *sptr,char *opernick,
   int out,char *buf,int ntowrite,char *temppath)
 {
   int nwritten;
@@ -4692,7 +4624,7 @@ static int flush_write(aClient *sptr,
   if(nwritten != ntowrite)
     {
       sendto_one(sptr,":%s NOTICE %s :Unable to write to %s",
-        me.name, sptr->name, temppath );
+        me.name, opernick, temppath );
       error_on_write = YES;
       (void)close(out);
       if(temppath != (char *)NULL)
@@ -4743,19 +4675,19 @@ static int remove_tkline_match(char *host,char *user)
 #endif
 
 /*
- * re-worked a tad
- * added Rodders dated KLINE code
- * -Dianora
- *
- * BUGS:	There is a concern here with LOCKFILE handling
- * the LOCKFILE code only knows how to talk to the kline file.
- * Having an extra define allowing D lines to go into ircd.conf or
- * the kline file complicates life. LOCKFILE code should still respect
- * any lock placed.. The fix I believe is that we are going to have
- * to also pass along in the struct pkl struct, which file the entry
- * is to go into... or.. just remove the DLINES_IN_KPATH option.
- * -Dianora
- */
+re-worked a tad
+added Rodders dated KLINE code
+-Dianora
+
+BUGS:	There is a concern here with LOCKFILE handling
+the LOCKFILE code only knows how to talk to the kline file.
+Having an extra define allowing D lines to go into ircd.conf or
+the kline file complicates life. LOCKFILE code should still respect
+any lock placed.. The fix I believe is that we are going to have
+to also pass along in the struct pkl struct, which file the entry
+is to go into... or.. just remove the DLINES_IN_KPATH option.
+-Dianora
+*/
 
 int     m_dline(aClient *cptr,
 		aClient *sptr,
@@ -4765,9 +4697,7 @@ int     m_dline(aClient *cptr,
   char *user, *host, *reason;
   char *p;
   int number_of_dots=0;
-  int number_of_chars=0;
   aClient *acptr;
-  char cidr_form_host[64];
 
 #ifdef NO_LOCAL_KLINE
   if (!MyClient(sptr) || !IsOper(sptr))
@@ -4801,7 +4731,6 @@ int     m_dline(aClient *cptr,
 	{
 	  number_of_dots++;
 	  p++;
-	  number_of_chars++;
 	}
       else if(*p == '/')	/* I'm going to gamble
 				   that it is a legal ddd.ddd.ddd.ddd/mask */
@@ -4817,21 +4746,6 @@ int     m_dline(aClient *cptr,
           else
            {
 	     *(p+1) = '\0';
-	     /* I know its a dline old style of form nnn.nnn.nnn.*
-	      * convert to cidr style here *sigh* -Dianora
-	      */
-	     strncpy(cidr_form_host,host,32);
-	     p = strchr(cidr_form_host,'*');
-	     if(p)
-	       {
-		 *p++ = '0';
-		 *p++ = '/';
-		 *p++ = '2';
-		 *p++ = '4';
-		 *p++ = '\0';
-		 number_of_chars += 4;
-	       }
-	     host = cidr_form_host;
 	     break;
            }
 	}
@@ -4862,29 +4776,9 @@ int     m_dline(aClient *cptr,
 		}
 
 	      host = cluster(acptr->hostip);
-	      strncpy(cidr_form_host,host,32);
-	      p = strchr(cidr_form_host,'*');
-	      if(p)
-		{
-		  *p++ = '0';
-		  *p++ = '/';
-		  *p++ = '2';
-		  *p++ = '4';
-		  *p++ = '\0';
-		}
-	     host = cidr_form_host;
-	     break;
 	      break;
 	    }
 	  p++;
-	  number_of_chars++;
-	  /* ddd.ddd.ddd.ddd == 15 ddd.ddd.ddd.000/24 == 18 */
-	  if(number_of_chars > 18)
-	    {
-	      if (!(acptr = find_chasing(sptr, parv[1], NULL)))
-		return 0;
-	      break;
-	    }
 	}
     }
 
@@ -4946,11 +4840,8 @@ int     place_dline(aClient *sptr,
   unsigned long ip_mask;
   aConfItem *aconf;
 
-  ip_host = host_name_to_ip(host,&ip_mask); /* returns in =host= order */
-  ip_host_network_order = ntohl(ip_host);   /* get it in network order 
-					     * its used only for 
-					     * find_host_in_dline_hash
-					     */
+  ip_host = host_name_to_ip(host,&ip_mask);	/* =host= order */
+  ip_host_network_order = ntohl(ip_host);
 
   if((ip_mask & 0xFFFFFF00) ^ 0xFFFFFF00)
     {
@@ -4961,22 +4852,15 @@ int     place_dline(aClient *sptr,
     }
 
 #ifdef NON_REDUNDANT_KLINES
-  if( (aconf = find_host_in_dline_hash(ip_host_network_order,CONF_DLINE)) )
+  if( (aconf = find_host_in_dline_hash(ip_host_network_order)) )
      {
        char *reason;
        reason = aconf->passwd ? aconf->passwd : "<No Reason>";
-       if(aconf->status & CONF_ELINE)
-	 sendto_one(sptr, ":%s NOTICE %s :[%s] is (E)d-lined by [%s] - %s",
-		    me.name,
-		    parv0,
-		    host,
-		    aconf->host,reason);
-	 else
-	   sendto_one(sptr, ":%s NOTICE %s :[%s] already D-lined by [%s] - %s",
-		      me.name,
-		      parv0,
-		      host,
-		      aconf->host,reason);
+       sendto_one(sptr, ":%s NOTICE %s :[%s] already D-lined by [%s] - %s",
+		 me.name,
+		 parv0,
+		 host,
+		 aconf->host,reason);
       return 0;
        
      }
@@ -4986,12 +4870,11 @@ int     place_dline(aClient *sptr,
 
   (void)ircsprintf(buffer, "%s (%s)",reason,current_date);
 
-  aconf = make_conf();
-  aconf->status = CONF_DLINE;
-  DupString(aconf->host,host);
-  DupString(aconf->passwd,buffer);
+  ip_host = host_name_to_ip(host,&ip_mask);
 
-  add_to_dline_hash(aconf);
+  add_to_dline_hash(ip_host,
+		    ip_mask,host,buffer);
+
   sendto_realops("%s added D-Line for [%s] [%s]",
 		 parv0, host, reason);
 
@@ -5008,7 +4891,7 @@ int     place_dline(aClient *sptr,
   ** because we still want the server to
   ** hunt for 'targetted' clients even if
   ** there are problems adding the D-line
-  ** to the appropriate file. -ThemBones
+  ** the the appropriate file. -ThemBones
   */
   rehashed = YES;
   dline_in_progress = YES;
@@ -5156,16 +5039,7 @@ int	m_rehash(aClient *cptr,
       else if(mycmp(parv[1],"MOTD") == 0)
         {
 	  sendto_ops("%s is forcing re-reading of MOTD file",parv[0]);
-          read_motd();
-#ifdef AMOTD
-	  read_amotd();
-#endif
-	  return(0);
-        }
-      else if(mycmp(parv[1],"HELP") == 0)
-        {
-	  sendto_ops("%s is forcing re-reading of oper help file",parv[0]);
-          read_help();
+          read_motd(MOTD);
 	  return(0);
         }
       else if(mycmp(parv[1],"dump") == 0)
@@ -5249,65 +5123,7 @@ int	m_trace(aClient *cptr,
   char	*tname;
   int	doall, link_s[MAXCONNECTIONS], link_u[MAXCONNECTIONS];
   int	cnt = 0, wilds, dow;
-  static time_t last_trace=0L;
-  /* anti flooding code,
-   * I did have this in parse.c with a table lookup
-   * but I think this will be less inefficient doing it in each
-   * function that absolutely needs it
-   * -Dianora
-   */
-
-  static time_t last_used=0L;
-  static int last_count=0;
-
-  if(!IsAnOper(sptr))
-    {
-      if((last_used + MOTD_WAIT) > NOW)
-	{
-	  last_used = NOW;
-	  if(last_count >= MOTD_MAX)
-	    return 0;
-	  else
-	    {
-	      if(last_count < MOTD_MAX)
-		last_count++;
-	    }
-	}
-      else
-	{
-	  if(last_count > 0)
-	    {
-	      int dec_count;
-	      if( NOW <= last_used)	/* eek! clock is running
-					 * backwards or something!
-					 */
-		return 0;
-	      
-	      dec_count = (NOW - last_used) / MOTD_WAIT;
-	      
-	      if(dec_count > last_count)
-		last_count = 0;
-	      else
-		last_count -= dec_count;
-	    }
-	  last_used = NOW;
-	}
-    }
-
-  if(!IsAnOper(sptr))
-    {
-      if((last_trace + MOTD_WAIT) > NOW)
-	{
-	  return 0;
-	}
-      else
-	last_trace = NOW;
-    }
-
-  sendto_realops_lev(SPY_LEV, "trace requested by %s (%s@%s) [%s]",
-		     sptr->name, sptr->user->username, sptr->user->host,
-		     sptr->user->server);
-
+  
   if (parc > 2)
     if (hunt_server(cptr, sptr, ":%s TRACE %s :%s",
 		    2, parc, parv))
@@ -5495,69 +5311,36 @@ int	m_motd(aClient *cptr,
 	       int parc,
 	       char *parv[])
 {
-  aMessageFile *motd_ptr=motd;
-  /* anti flooding code,
-   * I did have this in parse.c with a table lookup
-   * but I think this will be less inefficient doing it in each
-   * function that absolutely needs it
-   * -Dianora
-   */
+  static time_t last_motd=0;
 
-  static time_t last_used=0L;
-  static int last_count=0;
-
-  if(!IsAnOper(sptr))
+  if(IsAnOper(sptr))	
     {
-      if((last_used + MOTD_WAIT) > NOW)
-	{
-	  last_used = NOW;
-	  if(last_count >= MOTD_MAX)
-	    return 0;
-	  else
-	    {
-	      if(last_count < MOTD_MAX)
-		last_count++;
-	    }
-	}
-      else
-	{
-	  if(last_count > 0)
-	    {
-	      int dec_count;
-	      if( NOW <= last_used)	/* eek! clock is running
-					 * backwards or something!
-					 */
-		return 0;
-	      
-	      dec_count = (NOW - last_used) / MOTD_WAIT;
-	      
-	      if(dec_count > last_count)
-		last_count = 0;
-	      else
-		last_count -= dec_count;
-	    }
-	  last_used = NOW;
-	}
+      /* Don't penalize non opers by setting last_motd here */
+
+      if (hunt_server(cptr, sptr, ":%s MOTD :%s", 1,parc,parv)!=HUNTED_ISME)
+	return 0;
+
+      sendto_realops_lev(SPY_LEV, "motd requested by %s (%s@%s) [%s]",
+			 sptr->name, sptr->user->username, sptr->user->host,
+			 sptr->user->server);
+
+      return(send_motd(cptr,sptr,parc,parv));
     }
-
-
-  /* Yes, its a kludge, but it works -Dianora */
-#ifdef AMOTD
-  if(IsLocal(sptr) && (parc > 1) && (*parv[1] == 'A'))
+  else if( ( (last_motd + MOTD_WAIT) < NOW))
     {
-      motd_ptr = amotd;
-      parc--;
-    }
-#endif
+      last_motd = NOW;
 
-  if (hunt_server(cptr, sptr, ":%s MOTD :%s", 1,parc,parv)!=HUNTED_ISME)
+      if (hunt_server(cptr, sptr, ":%s MOTD :%s", 1,parc,parv)!=HUNTED_ISME)
+	return 0;
+
+      sendto_realops_lev(SPY_LEV, "motd requested by %s (%s@%s) [%s]",
+			 sptr->name, sptr->user->username, sptr->user->host,
+			 sptr->user->server);
+
+      return(send_motd(cptr,sptr,parc,parv));
+    }
+  else
     return 0;
-
-  sendto_realops_lev(SPY_LEV, "motd requested by %s (%s@%s) [%s]",
-		     sptr->name, sptr->user->username, sptr->user->host,
-		     sptr->user->server);
-
-  return(send_motd(cptr,sptr,parc,parv,motd_ptr));
 }
 
 /*
@@ -5573,14 +5356,13 @@ int	m_motd(aClient *cptr,
 int send_motd(aClient *cptr,
 	  aClient *sptr,
 	  int parc,
-	  char *parv[],
-	      aMessageFile *motd)
+	  char *parv[])
 {
-  register aMessageFile *temp;
+  register aMotd	*temp;
   struct	tm	*tm;
 
   tm = motd_tm;
-  if (motd == (aMessageFile *)NULL)
+  if (motd == (aMotd *)NULL)
     {
       sendto_one(sptr, err_str(ERR_NOMOTD), me.name, parv[0]);
       return 0;
@@ -5606,17 +5388,48 @@ int send_motd(aClient *cptr,
 }
 
 /*
- * read_motd()
- *
+ * read_motd() - From CoMSTuD, added Aug 29, 1996
  */
-
-void read_motd()
+void	read_motd(char *filename)
 {
+  register aMotd	*temp, *last;
   struct stat	sb;
-
-  read_message_file(MOTD,&motd);
-  stat(MOTD, &sb);
+  char		buffer[MOTDLINELEN], *tmp;
+  int		fd;
+  
+  /*
+   * Clear out the old MOTD
+   */
+  while (motd)
+    {
+      temp = motd->next;
+      MyFree(motd);
+      motd = temp;
+    }
+  fd = open(filename, O_RDONLY);
+  if (fd == -1)
+    return;
+  fstat(fd, &sb);
   motd_tm = localtime(&sb.st_mtime);
+  last = (aMotd *)NULL;
+
+  while (dgets(fd, buffer, MOTDLINELEN-1) > 0)
+    {
+      if ((tmp = (char *)index(buffer, '\n')))
+	*tmp = '\0';
+      if ((tmp = (char *)index(buffer, '\r')))
+	*tmp = '\0';
+      temp = (aMotd *) MyMalloc(sizeof(aMotd));
+
+      strncpyzt(temp->line, buffer,MOTDLINELEN);
+      temp->next = (aMotd *)NULL;
+      if (!motd)
+	motd = temp;
+      else
+	last->next = temp;
+      last = temp;
+    }
+  close(fd);
 
   if (motd_tm)
     (void)sprintf(motd_last_changed_date,
@@ -5628,87 +5441,51 @@ void read_motd()
 		  motd_tm->tm_min);
 }
 
-#ifdef AMOTD
-/*
- * read_amotd()
- *
- */
-
-void read_amotd()
-{
-  struct stat	sb;
-
-  read_message_file(AMOTD,&amotd);
-  stat(AMOTD, &sb);
-  motd_tm = localtime(&sb.st_mtime);
-
-  if (motd_tm)
-    (void)sprintf(amotd_last_changed_date,
-		  "%d/%d/%d %d:%02d",
-		  motd_tm->tm_mday,
-		  motd_tm->tm_mon + 1,
-		  1900 + motd_tm->tm_year,
-		  motd_tm->tm_hour,
-		  motd_tm->tm_min);
-}
-#endif
-
-/*
- * read_motd() - From CoMSTuD, added Aug 29, 1996
- * modified by -Dianora
- */
-void	read_message_file(char *filename,aMessageFile **ptr)
-{
-  register aMessageFile *mptr;
-  register aMessageFile	*temp, *last;
-  char		buffer[MESSAGELINELEN], *tmp;
-  int		fd;
-  
-  mptr = *ptr;
-
-  /*
-   * Clear out the old MOTD
-   */
-  while (mptr)
-    {
-      temp = mptr->next;
-      MyFree(mptr);
-      mptr = temp;
-    }
-  *ptr = ((aMessageFile *)NULL);
-  fd = open(filename, O_RDONLY);
-  if (fd == -1)
-    return;
-  last = (aMessageFile *)NULL;
-
-  while (dgets(fd, buffer, MESSAGELINELEN-1) > 0)
-    {
-      if ((tmp = (char *)index(buffer, '\n')))
-	*tmp = '\0';
-      if ((tmp = (char *)index(buffer, '\r')))
-	*tmp = '\0';
-      temp = (aMessageFile*) MyMalloc(sizeof(aMessageFile));
-
-      strncpyzt(temp->line, buffer,MESSAGELINELEN);
-      temp->next = (aMessageFile *)NULL;
-      if (!*ptr)
-	*ptr = temp;
-      else
-	last->next = temp;
-      last = temp;
-    }
-  close(fd);
-}
-
 /*
  * read_help() - modified from from CoMSTuD's read_motd
  * added Aug 29, 1996 modifed  Aug 31 1997 - Dianora
  *
  * Use the same idea for the oper helpfile
  */
-void	read_help()
+void	read_help(char *filename)
 {
-  read_message_file(HELPFILE,&helpfile);
+  register aMotd	*temp, *last;
+  char		buffer[MOTDLINELEN], *tmp;
+  int		fd;
+  
+  /*
+   * Clear out the old HELPFILE
+   */
+  while (helpfile)
+    {
+      temp = helpfile->next;
+      MyFree(helpfile);
+      helpfile = temp;
+    }
+
+  fd = open(filename, O_RDONLY);
+  if (fd == -1)
+    return;
+
+  last = (aMotd *)NULL;
+
+  while (dgets(fd, buffer, MOTDLINELEN-1) > 0)
+    {
+      if ((tmp = (char *)index(buffer, '\n')))
+	*tmp = '\0';
+      if ((tmp = (char *)index(buffer, '\r')))
+	*tmp = '\0';
+      temp = (aMotd *) MyMalloc(sizeof(aMotd));
+
+      strncpyzt(temp->line, buffer,MOTDLINELEN);
+      temp->next = (aMotd *)NULL;
+      if (!helpfile)
+	helpfile = temp;
+      else
+	last->next = temp;
+      last = temp;
+    }
+  close(fd);
 }
 
 /*
@@ -5766,22 +5543,6 @@ int	m_die(aClient *cptr,
     {
       sendto_one(sptr, err_str(ERR_NOPRIVILEGES), me.name, parv[0]);
       return 0;
-    }
-
-  if(parc < 2)
-    {
-      sendto_one(sptr,":%s NOTICE %s :Need server name /die %s",
-		 me.name,sptr->name,me.name);
-      return 0;
-    }
-  else
-    {
-      if(strcasecmp(parv[1],me.name))
-	{
-	  sendto_one(sptr,":%s NOTICE %s :Mismatch on /die %s",
-		     me.name,sptr->name,me.name);
-	  return 0;
-	}
     }
 
   for (i = 0; i <= highest_fd; i++)
@@ -5884,31 +5645,4 @@ static int safe_write(aClient *sptr,
 }
 
 
-/*
- */
 
-static void set_autoconn(aClient *sptr,char *parv0,char *hostname,int newval)
-{
-  aConfItem *aconf;
-
-  if(aconf= find_conf_name(hostname,CONF_CONNECT_SERVER))
-    {
-      if(newval)
-	aconf->flags |= CONF_FLAGS_ALLOW_AUTO_CONN;
-      else
-	aconf->flags &= ~CONF_FLAGS_ALLOW_AUTO_CONN;
-
-      sendto_ops(
-		 "%s has changed AUTOCONN for %s to %i",
-		 parv0, hostname, newval);
-      sendto_one(sptr,
-		 ":%s NOTICE %s :AUTOCONN for %s is now set to %i",
-		 me.name, parv0, hostname, newval);
-    }
-  else
-    {
-      sendto_one(sptr,
-		 ":%s NOTICE %s :Can't find %s",
-		 me.name, parv0,hostname);
-    }
-}

@@ -36,28 +36,26 @@ static char *rcs_version="$Id$";
 #include <pwd.h>
 #include <signal.h>
 #include <fcntl.h>
-/* DEBUG */
-#include <sys/time.h>
-#include <sys/resource.h>
-
-#define RUSAGE_SELF 0
-#define RUSAGE_CHILDREN -1
-
 #include "inet.h"
 #include "h.h"
 
-#include "mtrie_conf.h"
+#include "dich_conf.h"
 
 #ifdef  IDLE_CHECK
 int	idle_time = MIN_IDLETIME;
 #endif
 
-aMessageFile *motd;
-#ifdef AMOTD
-aMessageFile *amotd;
-#endif
-aMessageFile *helpfile;	
+/* Lists to do K: line matching -Sol */
+aConfList	KList1 = { 0, NULL };	/* ordered */
+aConfList	KList2 = { 0, NULL };	/* ordered, reversed */
+aConfList	KList3 = { 0, NULL };	/* what we can't sort */
+
+aMotd		*motd;
+aMotd		*helpfile;	/* misnomer, aMotd could be generalized */
 struct tm	*motd_tm;
+
+/* this stuff by mnystrom@mit.edu */
+#include "fdlist.h"
 
 #ifdef SETUID_ROOT
 #include <sys/lock.h>
@@ -65,13 +63,25 @@ struct tm	*motd_tm;
 #include <unistd.h>
 #endif /* SETUID_ROOT */
 
+fdlist serv_fdlist;
+fdlist oper_fdlist;
+fdlist listen_fdlist;
+
+#ifdef USE_LINKLIST
+/* LINKLIST */
 /* client pointer lists -Dianora */ 
   
 aClient *local_cptr_list=(aClient *)NULL;
 aClient *oper_cptr_list=(aClient *)NULL;
 aClient *serv_cptr_list=(aClient *)NULL;
+#endif
 
+#ifndef NO_PRIORITY
+fdlist busycli_fdlist;	/* high-priority clients */
+#endif
 
+fdlist default_fdlist;	/* just the number of the entry */
+/*    */
 
 int	MAXCLIENTS = MAX_CLIENTS;	/* semi-configurable if QUOTE_SET is def*/
 struct	Counter	Count;
@@ -87,9 +97,6 @@ extern	struct pkl *pending_klines;
 extern  void do_pending_klines(void);
 #endif
 
-/* DEBUG */
-extern int max_read_so_far;
-
 void	server_reboot();
 void	restart (char *);
 static	void	open_debugfile(), setup_signals();
@@ -97,9 +104,10 @@ static  time_t	io_loop(time_t);
 
 /* externally needed functions */
 
+extern  void init_fdlist(fdlist *);	/* defined in fdlist.c */
 extern	void dbuf_init();		/* defined in dbuf.c */
-extern  void   read_motd();		/* defined in s_serv.c */
-extern  void   read_help();		/* defined in s_serv.c */
+extern  void   read_motd(char *);	/* defined in s_serv.c */
+extern  void   read_help(char *);	/* defined in s_serv.c */
 
 char	**myargv;
 int	portnum = -1;		    /* Server port number, listening this */
@@ -137,7 +145,10 @@ time_t	nextconnect = 1;	/* time for next try_connections call */
 time_t	nextping = 1;		/* same as above for check_pings() */
 time_t	nextdnscheck = 0;	/* next time to poll dns to force timeouts */
 time_t	nextexpire = 1;		/* next expire run on the dns cache */
-int	autoconn = 1;		/* allow auto conns or not */
+
+#ifndef K_COMMENT_ONLY
+extern int is_comment(char *);
+#endif
 
 #ifdef	PROFIL
 extern	etext();
@@ -199,7 +210,7 @@ void	restart(char *mesg)
 
 #ifdef	USE_SYSLOG
   (void)syslog(LOG_WARNING, "Restarting Server because: %s, sbrk(0)-etext: %d",
-     mesg,(u_long)sbrk((size_t)0)-(u_long)sbrk0);
+     mesg,(u_int)sbrk((size_t)0)-(u_int)sbrk0);
 #endif
   server_reboot();
 }
@@ -225,7 +236,7 @@ void	server_reboot()
   Reg	int	i;
   
   sendto_ops("Aieeeee!!!  Restarting server... sbrk(0)-etext: %d",
-	(u_long)sbrk((size_t)0)-(u_long)sbrk0);
+	(u_int)sbrk((size_t)0)-(u_int)sbrk0);
 
   Debug((DEBUG_NOTICE,"Restarting server..."));
   flush_connections(me.fd);
@@ -320,18 +331,6 @@ static	time_t	try_connections(time_t currenttime)
       if ((next > aconf->hold) || (next == 0))
 	next = aconf->hold;
     }
-
-  if(autoconn == 0)
-    {
-      if(connecting)
-	sendto_ops("Connection to %s[%s] activated.",
-		 con_conf->name, con_conf->host);
-      sendto_ops("WARNING AUTOCONN is 0, autoconns are disabled");
-      Debug((DEBUG_NOTICE,"Next connection check : %s", myctime(next)));
-      return (next);
-    }
-
-
   if (connecting)
     {
       if (con_conf->next)  /* are we already last? */
@@ -345,21 +344,10 @@ static	time_t	try_connections(time_t currenttime)
 	      *pconf = aconf->next;
 	  (*pconf = con_conf)->next = 0;
 	}
-
-      if(!(con_conf->flags & CONF_FLAGS_ALLOW_AUTO_CONN))
-	{
-	  sendto_ops("Connection to %s[%s] activated but autoconn is off.",
-		     con_conf->name, con_conf->host);
-	  sendto_ops("WARNING AUTOCONN on %s[%s] is disabled",
-		     con_conf->name, con_conf->host);
-	}
-      else
-	{
-	  if (connect_server(con_conf, (aClient *)NULL,
-			     (struct hostent *)NULL) == 0)
-	    sendto_ops("Connection to %s[%s] activated.",
-		       con_conf->name, con_conf->host);
-	}
+      if (connect_server(con_conf, (aClient *)NULL,
+			 (struct hostent *)NULL) == 0)
+	sendto_ops("Connection to %s[%s] activated.",
+		   con_conf->name, con_conf->host);
     }
   Debug((DEBUG_NOTICE,"Next connection check : %s", myctime(next)));
   return (next);
@@ -410,7 +398,6 @@ static	time_t	check_pings(time_t currenttime)
 					/* of dying clients */
   dying_clients[0] = (aClient *)NULL;	/* mark first one empty */
 
-
   /*
    * I re-wrote the way klines are handled. Instead of rescanning
    * the local[] array and calling exit_client() right away, I
@@ -458,7 +445,7 @@ static	time_t	check_pings(time_t currenttime)
 		  if( (aconf = find_dkill(cptr)) ) /* if there is a returned 
 						      aConfItem then kill it */
 		    {
-		      sendto_realops("D-line active for %s",
+		      sendto_ops("D-line active for %s",
 				 get_client_name(cptr, FALSE));
 
 		      dying_clients[die_index] = cptr;
@@ -482,14 +469,7 @@ static	time_t	check_pings(time_t currenttime)
 #ifdef GLINES
 		  if( (aconf = find_gkill(cptr)) )
 		    {
-		      if(IsElined(cptr))
-			{
-			  sendto_realops("G-line over-ruled for %s client is E-lined",
-				     get_client_name(cptr,FALSE));
-				     continue;
-			}
-
-		      sendto_realops("G-line active for %s",
+		      sendto_ops("G-line active for %s",
 				 get_client_name(cptr, FALSE));
 
 		      dying_clients[die_index] = cptr;
@@ -509,19 +489,18 @@ static	time_t	check_pings(time_t currenttime)
 		  if((aconf = find_kill(cptr)))	/* if there is a returned
 						   aConfItem.. then kill it */
 		    {
-		      if(IsElined(cptr))
-			{
-			  sendto_realops("K-line over-ruled for %s client is E-lined",
-				     get_client_name(cptr,FALSE));
-				     continue;
-			}
-
-		      sendto_realops("K-line active for %s",
+		      sendto_ops("K-line active for %s",
 				 get_client_name(cptr, FALSE));
 		      dying_clients[die_index] = cptr;
 
 #ifdef KLINE_WITH_REASON
+#ifdef K_COMMENT_ONLY
 		      reason = aconf->passwd ? aconf->passwd : "K-lined";
+#else
+		      reason = (BadPtr(aconf->passwd) || 
+				!is_comment(aconf->passwd)) ?
+			"K-lined" : aconf->passwd;
+#endif
 		      dying_clients_reason[die_index++] = reason;
 #else
 		      dying_clients_reason[die_index++] = "K-lined";
@@ -554,7 +533,7 @@ static	time_t	check_pings(time_t currenttime)
 	      aconf->port = 0;
 	      aconf->hold = timeofday + 60;
 	      add_temp_kline(aconf);
-	      sendto_realops("Idle exceeder %s temp k-lining",
+	      sendto_ops("Idle exceeder %s temp k-lining",
 			 get_client_name(cptr,FALSE));
 	      continue;		/* and go examine next fd/cptr */
 	    }
@@ -1003,15 +982,12 @@ normal user.\n");
   if (argc > 0)
     return bad_command(); /* This should exit out */
  
-  motd = (aMessageFile *)NULL;
-  helpfile = (aMessageFile *)NULL;
+  motd = (aMotd *)NULL;
+  helpfile = (aMotd *)NULL;
   motd_tm = NULL;
 
-  read_motd();
-#ifdef AMOTD
-  read_amotd();
-#endif
-  read_help();
+  read_motd(MOTD);
+  read_help(HELPFILE);
 
   clear_client_hash_table();
   clear_channel_hash_table();
@@ -1026,7 +1002,22 @@ normal user.\n");
   NOW = time(NULL);
   open_debugfile();
   NOW = time(NULL);
+  init_fdlist(&serv_fdlist);
+  init_fdlist(&oper_fdlist);
+  init_fdlist(&listen_fdlist);
 
+#ifndef NO_PRIORITY
+  init_fdlist(&busycli_fdlist);
+#endif
+
+  init_fdlist(&default_fdlist);
+  {
+    register int i;
+    for (i=MAXCONNECTIONS+1 ; i>0 ; i--)
+      {
+	default_fdlist.entry[i] = i-1;
+      }
+  }
   if((timeofday = time(NULL)) == -1)
     {
 #ifdef USE_SYSLOG
@@ -1162,6 +1153,9 @@ normal user.\n");
 #endif
   NOW = time(NULL);
 
+#ifndef NO_PRIORITY
+  check_fdlists(time(NULL));
+#endif
 
   if((timeofday = time(NULL)) == -1)
     {
@@ -1181,7 +1175,6 @@ time_t io_loop(time_t delay)
   static long	lastrecvK	= 0;
   static int	lrv		= 0;
   time_t lasttimeofday;
-  static int read_count = 0;
 
   lasttimeofday = timeofday;
   if((timeofday = time(NULL)) == -1)
@@ -1199,14 +1192,6 @@ time_t io_loop(time_t delay)
 		timeofday, lasttimeofday);
 	report_error(to_send, &me);
   }
-  else if((lasttimeofday + 60) < timeofday)
-    {
-      (void)ircsprintf(to_send,
-		       "System clock was reset into the future - (%d+60 > %d)",
-		       timeofday, lasttimeofday);
-      report_error(to_send, &me);
-      /*      sync_channels(); */
-    }
 
   NOW = timeofday;
 
@@ -1330,6 +1315,19 @@ time_t io_loop(time_t delay)
    *	-Taner
    */
 
+#ifndef NO_PRIORITY
+  (void)read_message(0, &serv_fdlist);
+  (void)read_message(1, &busycli_fdlist);
+  if (lifesux)
+    {
+      (void)read_message(1, &serv_fdlist);
+      if (lifesux & 0x4)
+	{	/* life really sucks */
+	  (void)read_message(1, &busycli_fdlist);
+	  (void)read_message(1, &serv_fdlist);
+	}
+      (void)flush_fdlist_connections(&serv_fdlist);      
+    }
   if((timeofday = time(NULL)) == -1)
     {
 #ifdef USE_SYSLOG
@@ -1338,11 +1336,33 @@ time_t io_loop(time_t delay)
       sendto_ops("Clock Failure (%d), TS can be corrupted", errno);
     }
 
-  Debug((DEBUG_DEBUG,"read_message call at: %s %d",
-	 myctime(NOW), NOW));
+  /*
+   * CLIENT_SERVER = TRUE:
+   * 	If we're in normal mode, or if "lifesux" and a few
+   *	seconds have passed, then read everything.
+   * CLIENT_SERVER = FALSE:
+   *	If it's been more than lifesux*2 seconds (that is, 
+   *	at most 1 second, or at least 2s when lifesux is
+   *	!= 0) check everything.
+   *	-Taner
+   */
+  {
+    static time_t lasttime=0;
+#ifdef CLIENT_SERVER
+    if (!lifesux || (lasttime + lifesux) < timeofday)
+      {
+#else
+    if ((lasttime + (lifesux + 1)) < timeofday)
+      {
+#endif /* CLIENT_SERVER */
+	(void)read_message(delay, NULL); /*  check everything! */
+	lasttime = timeofday;
+      }
+   }
+#else
+  (void)read_message(delay, NULL); /*  check everything! */
+#endif /* NO_PRIORITY */
 
-  (void)read_message(delay); /* check everything! */
-	
   /*
   ** ...perhaps should not do these loops every time,
   ** but only if there is some chance of something
@@ -1410,7 +1430,7 @@ static	void	open_debugfile()
       (void)strcpy(cptr->sockhost, me.sockhost);
 
       (void)printf("isatty = %d ttyname = %#x\n",
-		   isatty(2), (u_long)ttyname(2));
+		   isatty(2), (u_int)ttyname(2));
       if (!(bootopt & BOOT_TTY)) /* leave debugging output on fd 2 */
 	{
 	  (void)truncate(LOGFILE, 0);
@@ -1508,4 +1528,55 @@ report_error_on_tty(char *error_message)
     }
 }
 
+#ifndef NO_PRIORITY
+/*
+ * This is a pretty expensive routine -- it loops through
+ * all the fd's, and finds the active clients (and servers
+ * and opers) and places them on the "busy client" list
+ */
+time_t check_fdlists(now)
+time_t now;
+{
+#ifdef CLIENT_SERVER
+#define BUSY_CLIENT(x)	(((x)->priority < 55) || (!lifesux && ((x)->priority < 75)))
+#else
+#define BUSY_CLIENT(x)	(((x)->priority < 40) || (!lifesux && ((x)->priority < 60)))
+#endif
+#define FDLISTCHKFREQ  2
+
+  register aClient *cptr;
+  register int i,j;
+
+  j = 0;
+  for (i=highest_fd; i >=0; i--)
+    {
+      if (!(cptr=local[i])) continue;
+      if (IsServer(cptr) || IsListening(cptr) || IsOper(cptr))
+	{
+	  busycli_fdlist.entry[++j] = i;
+	  continue;
+	}
+      if (cptr->receiveM == cptr->lastrecvM)
+	{
+	  cptr->priority += 2;	/* lower a bit */
+	  if (cptr->priority > 90) cptr->priority = 90;
+	  else if (BUSY_CLIENT(cptr)) busycli_fdlist.entry[++j] = i;
+	  continue;
+	}
+      else
+	{
+	  cptr->lastrecvM = cptr->receiveM;
+	  cptr->priority -= 30;	/* active client */
+	  if (cptr->priority < 0)
+	    {
+	      cptr->priority = 0;
+	      busycli_fdlist.entry[++j] = i;
+	    }
+	  else if (BUSY_CLIENT(cptr)) busycli_fdlist.entry[++j] = i;
+	}
+    }
+  busycli_fdlist.last_entry = j; /* rest of the fdlist is garbage */
+  return (now + FDLISTCHKFREQ + (lifesux + 1));
+}
+#endif
 

@@ -31,8 +31,6 @@ static char *rcs_version = "$Id$";
 #include "numeric.h"
 #include "patchlevel.h"
 #include <sys/types.h>
-/* DEBUG */
-#include <sys/stat.h>
 #include <sys/socket.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>
@@ -52,25 +50,11 @@ static char *rcs_version = "$Id$";
 /*
  * Stuff for poll()
  */
-
 #ifdef USE_POLL
 #include <stropts.h>
 #include <poll.h>
-#else
-
-/*
- * Stuff for select()
- */
-
-fd_set  *default_read_set,*default_write_set; 
-fd_set  *read_set,*write_set;
-
-#ifndef HAVE_FD_ALLOC
-fd_set  default_readset,default_writeset;
-fd_set  readset,writeset;
-#endif
-
 #endif /* USE_POLL_ */
+
 
 #ifdef	AIX
 # include <time.h>
@@ -83,7 +67,14 @@ fd_set  readset,writeset;
 #include "sock.h"*/	/* If FD_ZERO isn't define up to this point,  */
 			/* define it (BSD4.2 needs this) */
 #include "h.h"
+#include "fdlist.h"
+extern fdlist serv_fdlist;
 
+#ifndef NO_PRIORITY
+extern fdlist busycli_fdlist;
+#endif
+
+extern fdlist default_fdlist;
 #ifndef IN_LOOPBACKNET
 #define IN_LOOPBACKNET	0x7f
 #endif
@@ -96,7 +87,6 @@ void	reset_sock_opts (int, int);
 #endif
 
 aClient	*local[MAXCONNECTIONS];
-
 int	highest_fd = 0, resfd = -1;
 time_t	timeofday;
 static	struct	sockaddr_in	mysk;
@@ -401,6 +391,10 @@ void	close_listeners()
     }
 }
 
+#ifdef HAVE_FD_ALLOC
+fd_set *write_set,*read_set;
+#endif
+
 /*
  * init_sys
  */
@@ -445,8 +439,6 @@ void	init_sys()
         }
 #endif
 
-#ifndef USE_POLL
-
 #ifndef HAVE_FD_ALLOC
       printf("Value of FD_SETSIZE is %d\n", FD_SETSIZE);
 #else
@@ -454,20 +446,9 @@ void	init_sys()
       write_set = FD_ALLOC(MAXCONNECTIONS);
       printf("Value of read_set is %lX\n", read_set);
       printf("Value of write_set is %lX\n", write_set);
-      default_read_set = FD_ALLOC(MAXCONNECTIONS);
-      default_write_set = FD_ALLOC(MAXCONNECTIONS);
-      printf("Value of default_readset is %lX\n", default_read_set);
-      printf("Value of default_writeset is %lX\n", default_write_set);
 #endif
-      read_set = &readset;
-      write_set = &writeset;
-      default_read_set = &default_readset;
-      default_write_set = &default_writeset;
-
-#endif /* USE_POLL */
-
       printf("Value of NOFILE is %d\n", NOFILE);
-#endif
+# endif
     }
 #endif
 #ifdef sequent
@@ -520,7 +501,6 @@ void	init_sys()
       !(bootopt & BOOT_STDERR))
     {
       int pid;
-#ifndef DEBUG_NO_FORK
       if( (pid = fork()) < 0)
 	{
 	  if ((fd = open("/dev/tty", O_RDWR)) >= 0)
@@ -529,7 +509,6 @@ void	init_sys()
 	}
       else if(pid > 0)
 	exit(0);
-#endif
 #ifdef TIOCNOTTY
       if ((fd = open("/dev/tty", O_RDWR)) >= 0)
 	{
@@ -607,18 +586,11 @@ static	int	check_init(aClient *cptr,char *sockn)
 /*
  * Ordinary client access check. Look for conf lines which have the same
  * status as the flags passed.
- *
- * outputs
  *  0 = Success
- * -1 = Access denied (no I line match)
+ * -1 = Access denied
  * -2 = Bad socket.
- * -3 = I-line is full
- * -4 = Too many connections from hostname
- * -5 = K-lined
- * also updates reason if a K-line
- *
  */
-int	check_client(aClient *cptr,char *username,char **reason)
+int	check_client(aClient *cptr)
 {
   static	char	sockname[HOSTLEN+1];
   Reg	struct	hostent *hp = NULL;
@@ -651,7 +623,7 @@ int	check_client(aClient *cptr,char *username,char **reason)
 	}
     }
 
-  if ((i = attach_Iline(cptr, hp, sockname,username, reason)))
+  if ((i = attach_Iline(cptr, hp, sockname)))
     {
       Debug((DEBUG_DNS,"ch_cl: access denied: %s[%s]",
 	     cptr->name, sockname));
@@ -661,6 +633,12 @@ int	check_client(aClient *cptr,char *username,char **reason)
   Debug((DEBUG_DNS, "ch_cl: access ok: %s[%s]",
 	 cptr->name, sockname));
 
+  if (inet_netof(cptr->ip) == IN_LOOPBACKNET || 
+      inet_netof(cptr->ip) == inet_netof(mysk.sin_addr))
+    {
+      ircstp->is_loc++;
+      cptr->flags |= FLAGS_LOCAL;
+    }
   return 0;
 }
 
@@ -925,22 +903,10 @@ static	int completed_connection(aClient *cptr)
     }
   sendto_one(cptr, "SERVER %s 1 :%s",
 	     my_name_for_link(me.name, aconf), me.info);
-
-#ifdef DO_IDENTD 
-
+#ifdef DO_IDENTD
 /* Is this the right place to do this?  dunno... -Taner */
-  /* uh, identd on a server???? I know... its stupid -Dianora */
-#ifdef 0
   if (!IsDead(cptr))
-    {
-      start_auth(cptr);
-
-      FD_SET(cptr->authfd, read_set);
-      if (IsWriteAuth(cptr))
-	FD_SET(cptr->authfd, write_set);
-    }
-#endif
-
+    start_auth(cptr);
 #endif
 
   return (IsDead(cptr)) ? -1 : 0;
@@ -1023,10 +989,7 @@ void	close_connection(aClient *cptr)
     }
   
   if (cptr->authfd >= 0)
-    {
-      (void)close(cptr->authfd);
-      cptr->authfd = -1;
-    }
+    (void)close(cptr->authfd);
 
   if (cptr->fd >= 0)
     {
@@ -1057,6 +1020,50 @@ void	close_connection(aClient *cptr)
   det_confs_butmask(cptr, 0);
   cptr->from = NULL; /* ...this should catch them! >:) --msa */
 
+  /*
+   * fd remap to keep local[i] filled at the bottom.
+   */
+  if (empty > 0)
+    /*
+     * We don't dup listening fds (IsMe())... - CS
+     */
+    if ((j = highest_fd) > (i = empty) &&
+	!IsLog(local[j]) && !IsMe(local[j]))
+      {
+	if (dup2(j,i) == -1)
+	  return;
+	local[i] = local[j];
+	local[i]->fd = i;
+	local[j] = NULL;
+	/* update server list */
+	if (IsServer(local[i])) {
+
+#ifndef NO_PRIORITY
+	  delfrom_fdlist(j,&busycli_fdlist);
+#endif
+	  delfrom_fdlist(j,&serv_fdlist);
+#ifndef NO_PRIORITY
+	  addto_fdlist(i,&busycli_fdlist);
+#endif
+	  addto_fdlist(i,&serv_fdlist);
+	}
+	/* update oper list */
+	if (IsAnOper(local[i]))
+	  {
+#ifndef NO_PRIORITY
+ 	    delfrom_fdlist(j, &busycli_fdlist);
+#endif
+	    delfrom_fdlist(j, &oper_fdlist);
+#ifndef NO_PRIORITY
+ 	    addto_fdlist(i, &busycli_fdlist);
+#endif
+	    addto_fdlist(i, &oper_fdlist);
+	  }
+	(void)close(j);
+	while (!local[highest_fd])
+	  highest_fd--;
+      }
+  return;
 }
 #ifdef MAXBUFFERS
 /*
@@ -1083,46 +1090,11 @@ void	reset_sock_opts(int fd,int type)
 static	void	set_sock_opts(int fd, aClient *cptr)
 {
   int	opt;
-  /* DEBUG */
-  struct timeval send_timeout;
-  struct timeval receive_timeout;
-
 #ifdef SO_REUSEADDR
   opt = 1;
   if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (char *)&opt, sizeof(opt)) < 0)
     report_error("setsockopt(SO_REUSEADDR) %s:%s", cptr);
 #endif
-
-#undef TRY_LOW_WATER
-#ifdef TRY_LOW_WATER
-  /* DEBUG */
-  opt = 1024;
-  if (setsockopt(fd, SOL_SOCKET, SO_SNDLOWAT, (char *)&opt, sizeof(opt)) < 0)
-    report_error("setsockopt(SO_SNDLOWAT) %s:%s", cptr);
-
-  /* DEBUG */
-  send_timeout.tv_sec = 0;
-  send_timeout.tv_usec = 1;
-
-  if (setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, (char *)&send_timeout,
-		 sizeof(send_timeout)) < 0)
-    report_error("setsockopt(SO_SNDLOWAT) %s:%s", cptr);
- 
- opt = 32;
-  if (setsockopt(fd, SOL_SOCKET, SO_RCVLOWAT, (char *)&opt, sizeof(opt)) < 0)
-    report_error("setsockopt(SO_RCVLOWAT) %s:%s", cptr);
-
-  /* DEBUG */
-  receive_timeout.tv_sec = 3;
-  receive_timeout.tv_usec = 0;
-
-  if (setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, (char *)&receive_timeout,
-                 sizeof(receive_timeout)) < 0)
-    report_error("setsockopt(SO_RCVLOWAT) %s:%s", cptr);
-
-
-#endif
-
 #if  defined(SO_DEBUG) && defined(DEBUGMODE) && 0
 /* Solaris with SO_DEBUG writes to syslog by default */
 #if !defined(SOL20) || defined(USE_SYSLOG)
@@ -1287,6 +1259,14 @@ aClient	*add_connection(aClient *cptr, int fd)
    * get rid of unwanted connections.
    */
 
+  /* Why is this isatty even here? everything is a socket no? */
+
+/*
+  if (isatty(fd)) / * If descriptor is a tty, special checking... * /
+    get_sockhost(acptr, cptr->sockhost);
+  else
+  
+*/
     {
       Reg	char	*s, *t;
       struct	sockaddr_in addr;
@@ -1361,18 +1341,14 @@ aClient	*add_connection(aClient *cptr, int fd)
   acptr->fd = fd;
   if (fd > highest_fd)
     highest_fd = fd;
-
   local[fd] = acptr;
-
   acptr->acpt = cptr;
   add_client_to_list(acptr);
   set_non_blocking(acptr->fd, acptr);
   set_sock_opts(acptr->fd, acptr);
-
 #ifdef DO_IDENTD
   start_auth(acptr);
 #endif
-
   return acptr;
 }
 
@@ -1411,7 +1387,6 @@ int read_packet(aClient *cptr, int msg_ready)
 	length = recv(cptr->fd, readbuf, sizeof(readbuf), 0);
 #endif
 
-	
 #ifdef REJECT_HOLD
 
 	/* If client has been marked as rejected i.e. it is a client
@@ -1557,6 +1532,9 @@ int read_packet(aClient *cptr, int msg_ready)
        i.e. basically, we now have carnal knowledge of the internals
        of what happens in an FD_ISSET()
 
+    3) the fd list has to be scanned in a linear order, not as it was
+       using the fdlist.
+
        -Dianora
    */
 
@@ -1566,7 +1544,13 @@ int read_packet(aClient *cptr, int msg_ready)
  * write it out.
  */
 #ifndef USE_POLL
-  int	read_message(time_t delay)
+  int	read_message(time_t delay,
+
+		     /* Don't ever use ZERO here, unless you mean to poll
+			and then you have to have sleep/wait somewhere 
+			else in the code.--msa
+			*/
+		     fdlist *listp)	/* mika */
 {
   Reg	aClient	*cptr;
   Reg	int	nfds;
@@ -1575,17 +1559,33 @@ int read_packet(aClient *cptr, int msg_ready)
   struct	timeval	nowt;
   u_long	us;
 #endif
+#ifndef HAVE_FD_ALLOC
+  fd_set  readset,writeset;
+  fd_set  *read_set,*write_set;
+#endif
   time_t	delay2 = delay, now;
   u_long	usec = 0;
-  int  auth = 0;
   int	res, length, fd;
+  int	auth = 0;
   register int i,j;
 #ifdef USE_FAST_FD_ISSET
-  int fd_mask;
-  int fd_offset;
+  int fd_read_mask;
+  int fd_read_offset;
+  int fd_write_mask;
+  int fd_write_offset;
+#endif
+#ifndef HAVE_FD_ALLOC
+  read_set = &readset;
+  write_set = &writeset;
 #endif
 
 
+  /* if it is called with NULL we check all active fd's */
+  if (!listp)
+    {
+      listp = &default_fdlist;
+      listp->last_entry = highest_fd+1; /* remember the 0th entry isnt used */
+    }
 #ifdef	pyr
   (void) gettimeofday(&nowt, NULL);
   now = nowt.tv_sec;
@@ -1593,149 +1593,69 @@ int read_packet(aClient *cptr, int msg_ready)
   now = timeofday;
 #endif
 
-  FD_ZERO(default_read_set);
-  FD_ZERO(default_write_set);
-
-#ifdef USE_FAST_FD_ISSET
-  fd_mask = 1;
-  fd_offset = 0;
-#endif
-
-  for(i=0;i<=highest_fd;i++)
+  for (res = 0;;)
     {
-      if (!(cptr = local[i]))
+      FD_ZERO(read_set);
+      FD_ZERO(write_set);
+      for (i=listp->entry[j=1]; j<=listp->last_entry; i=listp->entry[++j])
 	{
-#ifdef USE_FAST_FD_ISSET
-	  fd_mask <<= 1;
-	  if(!fd_mask)
+	  if (!(cptr = local[i]))
+	    continue;
+	  if (IsLog(cptr))
+	    continue;
+	  if (DoingAuth(cptr))
 	    {
-	      fd_offset++;
-	      fd_mask = 1;
+	      auth++;
+	      Debug((DEBUG_NOTICE,"auth on %x %d", cptr, i));
+	      FD_SET(cptr->authfd, read_set);
+	      if (cptr->flags & FLAGS_WRAUTH)
+		FD_SET(cptr->authfd, write_set);
 	    }
-#endif
-	  continue;
-	}
-
-      if (IsLog(cptr))
-	{
-#ifdef USE_FAST_FD_ISSET
-	  fd_mask <<= 1;
-	  if(!fd_mask)
+	  if (DoingDNS(cptr) || DoingAuth(cptr))
+	    continue;
+	  if (IsMe(cptr) && IsListening(cptr))
 	    {
-	      fd_offset++;
-	      fd_mask = 1;
+	      FD_SET(i, read_set);
 	    }
-#endif
-	  continue;
-	}
-
-      if (DoingAuth(cptr))
-	{
-	  auth++;
-	  Debug((DEBUG_NOTICE,"auth on %x %d", cptr, i));
-	  FD_SET(cptr->authfd, default_read_set);
-	  if (cptr->flags & FLAGS_WRAUTH)
-	    FD_SET(cptr->authfd, default_write_set);
-	}
-
-      if (DoingDNS(cptr) || DoingAuth(cptr))
-	{
-#ifdef USE_FAST_FD_ISSET
-	  fd_mask <<= 1;
-	  if(!fd_mask)
+	  else if (!IsMe(cptr))
 	    {
-	      fd_offset++;
-	      fd_mask = 1;
+	      if (DBufLength(&cptr->recvQ) && delay2 > 2)
+		delay2 = 1;
+	      if (DBufLength(&cptr->recvQ) < 4088)	
+		{
+		  FD_SET(i, read_set);
+		}
 	    }
-#endif
-	  continue;
-	}
 
-      if (IsMe(cptr) && IsListening(cptr))
-	{
-#ifdef USE_FAST_FD_ISSET
-	  default_read_set->fds_bits[fd_offset] |= fd_mask;
-#else
-	  FD_SET(i, default_read_set);
-#endif
-	}
-      else if (!IsMe(cptr))
-	{
-	  if (DBufLength(&cptr->recvQ) && delay2 > 2)
-	    delay2 = 1;
-	  if (DBufLength(&cptr->recvQ) < 4088)	
-	    {
-#ifdef USE_FAST_FD_ISSET
-	      default_read_set->fds_bits[fd_offset] |= fd_mask;
-#else
-	      FD_SET(i, default_read_set);
-#endif
-	    }
-	}
-
-      if (DBufLength(&cptr->sendQ) || IsConnecting(cptr))
+	  if (DBufLength(&cptr->sendQ) || IsConnecting(cptr))
 #ifndef	pyr
-#ifdef USE_FAST_FD_ISSET
-	default_write_set->fds_bits[fd_offset] |= fd_mask;
+	    FD_SET(i, write_set);
 #else
-        FD_SET(i, default_write_set);
-#endif
-#else
-      {
-	if (!(cptr->flags & FLAGS_BLOCKED))
 	  {
-#ifdef USE_FAST_FD_ISSET
-	    default_write_set->fds_bits[fd_offset] |= fd_mask;
-#else
-	    FD_SET(i, default_write_set);
-#endif
+	    if (!(cptr->flags & FLAGS_BLOCKED))
+	      {
+		FD_SET(i, write_set);
+	      }
+	    else
+	      delay2 = 0, usec = 500000;
 	  }
-	else
-	  delay2 = 0, usec = 500000;
-      }
-      if (now - cptr->lw.tv_sec &&
-	  nowt.tv_usec - cptr->lw.tv_usec < 0)
-	us = 1000000;
-      else
-	us = 0;
-      us += nowt.tv_usec;
-      if (us - cptr->lw.tv_usec > 500000)
-	cptr->flags &= ~FLAGS_BLOCKED;
+	  if (now - cptr->lw.tv_sec &&
+	      nowt.tv_usec - cptr->lw.tv_usec < 0)
+	    us = 1000000;
+	  else
+	    us = 0;
+	  us += nowt.tv_usec;
+	  if (us - cptr->lw.tv_usec > 500000)
+	    cptr->flags &= ~FLAGS_BLOCKED;
 #endif
-
-#ifdef USE_FAST_FD_ISSET
-      fd_mask <<= 1;
-      if(!fd_mask)
-	{
-	  fd_offset++;
-	  fd_mask = 1;
 	}
-#endif
-    }
       
-  if (resfd >= 0)
-    {
-      FD_SET(resfd, default_read_set);
-    }
-  wait.tv_sec = MIN(delay2, delay);
-  wait.tv_usec = usec;
-  
-  for(res=0;;)
-    {
-#ifdef HAVE_FD_ALLOC
-      /* FD_SETSIZE/sizeof(fd_mask) is OS dependent, but I've only 
-       * seen fd_alloc in bsd/os
-       * -Dianora
-       */
-
-      memcpy(read_set,default_read_set,FD_SETSIZE/sizeof(fd_mask));
-      memcpy(write_set,default_write_set,FD_SETSIZE/sizeof(fd_mask));
-#else
-      memcpy(read_set,default_read_set,sizeof(default_readset));
-      memcpy(write_set,default_write_set,sizeof(default_writeset));
-#endif
-
-
+      if (resfd >= 0)
+	{
+	  FD_SET(resfd, read_set);
+	}
+      wait.tv_sec = MIN(delay2, delay);
+      wait.tv_usec = usec;
 #ifdef	HPUX
       nfds = select(FD_SETSIZE, (fd_set *)read_set, (fd_set *)write_set,
 		    (fd_set *)0, &wait);
@@ -1743,7 +1663,6 @@ int read_packet(aClient *cptr, int msg_ready)
       nfds = select(MAXCONNECTIONS, read_set, write_set,
 		    0, &wait);
 #endif
-
       if((timeofday = time(NULL)) == -1)
         {
 #ifdef USE_SYSLOG
@@ -1754,37 +1673,8 @@ int read_packet(aClient *cptr, int msg_ready)
 
       if (nfds == -1 && errno == EINTR)
 	{	
-         return -1;
+	  return -1;
 	}
-      /* DEBUG */
-      else if(nfds == -1 && errno == EBADF)
-	{
-	  int i;
-	  int j;
-	  int result;
-	  struct stat file_stat;
-	  aClient *acptr;
-
-	  for(i=0;i<FD_SETSIZE;i++)
-	    {
-	      if(FD_ISSET(i,default_read_set))
-		{
-		  /* check to see if its an open fd */
-		  result = fstat(i,&file_stat);
-		  if(result < 0)
-		    {
-		      /* bleah. its not an open fd, so pull it */
-		      FD_CLR(i,default_read_set);
-		      FD_CLR(i,default_write_set);
-		      FD_CLR(i,read_set);
-		      FD_CLR(i,write_set);
-		      Debug((DEBUG_DEBUG,"EBADF on fd %d",i));
-		      sendto_realops("EBADF on fd %d",i);
-		    }
-		}
-	    }
-	}
-      /* DEBUG */
       else if (nfds >= 0)
 	break;
       report_error("select %s:%s", &me);
@@ -1793,6 +1683,7 @@ int read_packet(aClient *cptr, int msg_ready)
 	restart("too many select errors");
       sleep(10);
     }
+
   /*
    * Check the name resolver
    */
@@ -1805,20 +1696,31 @@ int read_packet(aClient *cptr, int msg_ready)
     }
 
 #ifdef USE_FAST_FD_ISSET
-  fd_mask = 1;
-  fd_offset = 0;
-#endif
+  fd_read_mask = 1;
+  fd_read_offset = 0;
+  fd_write_mask = 1;
+  fd_write_offset = 0;
 
   for ( i = 0; i <= highest_fd; i++ )
+#else
+  for (i=listp->entry[j=1]; j<=listp->last_entry; i=listp->entry[++j])
+#endif
     {
       if (!(cptr = local[i]))
 	{
 #ifdef USE_FAST_FD_ISSET
-	  fd_mask <<= 1;
-	  if(!fd_mask)
+	  fd_read_mask <<= 1;
+	  if(!fd_read_mask)
 	    {
-	      fd_offset++;
-	      fd_mask = 1;
+	      fd_read_offset++;
+	      fd_read_mask = 1;
+	    }
+
+	  fd_write_mask <<= 1;
+	  if(!fd_write_mask)
+	    {
+	      fd_write_offset++;
+	      fd_write_mask = 1;
 	    }
 #endif
 	  continue;
@@ -1827,8 +1729,9 @@ int read_packet(aClient *cptr, int msg_ready)
       /*
        * Check the auth fd's first...
        */
-      if (DoingAuth(cptr) && (cptr->authfd >= 0))
+      if ((auth>0) && (cptr->authfd >= 0))
 	{
+	  auth--;
 	  if ((nfds > 0) && FD_ISSET(cptr->authfd, write_set))
 	    {
 	      nfds--;
@@ -1839,17 +1742,13 @@ int read_packet(aClient *cptr, int msg_ready)
 	      nfds--;
 	      read_authports(cptr);
 	    }
-          continue;
 	}
-
-
       /*
        * Now see if there's a connection pending...
        */
-
 #ifdef USE_FAST_FD_ISSET
       if (IsListening(cptr) &&
-	  (read_set->fds_bits[fd_offset] & fd_mask))
+	  (read_set->fds_bits[fd_read_offset] & fd_read_mask))
 #else
       if (IsListening(cptr) && FD_ISSET(i, read_set))
 #endif
@@ -1857,9 +1756,9 @@ int read_packet(aClient *cptr, int msg_ready)
 	  static struct sockaddr_in	addr;
 	  int addrlen = sizeof(struct sockaddr_in);
 	  char host[HOSTLEN+2];
-
+	    
 #ifdef USE_FAST_FD_ISSET
-	  read_set->fds_bits[fd_offset] &= ~fd_mask;
+	  read_set->fds_bits[fd_read_offset] &= ~fd_read_mask;
 #else
 	  FD_CLR(i, read_set);
 #endif
@@ -1892,19 +1791,24 @@ int read_packet(aClient *cptr, int msg_ready)
 #ifdef REPORT_DLINE_TO_USER
 	      send(fd, REPORT_DLINED, strlen(REPORT_DLINED), 0);
 #endif
-
 	      (void)close(fd);
 #ifdef USE_FAST_FD_ISSET
-	      fd_mask <<= 1;
-	      if(!fd_mask)
+	      fd_read_mask <<= 1;
+	      if(!fd_read_mask)
 		{
-		  fd_offset++;
-		  fd_mask = 1;
+		  fd_read_offset++;
+		  fd_read_mask = 1;
+		}
+
+	      fd_write_mask <<= 1;
+	      if(!fd_write_mask)
+		{
+		  fd_write_offset++;
+		  fd_write_mask = 1;
 		}
 #endif
 	      continue;
 	    }
-
 	    if (fd >= (HARD_FDLIMIT - 10))
 	      {
 		ircstp->is_ref++;
@@ -1929,11 +1833,18 @@ int read_packet(aClient *cptr, int msg_ready)
 #ifdef USE_FAST_FD_ISSET
       if (IsMe(cptr))
 	{
-	  fd_mask <<= 1;
-	  if(!fd_mask)
+	  fd_read_mask <<= 1;
+	  if(!fd_read_mask)
 	    {
-	      fd_offset++;
-	      fd_mask = 1;
+	      fd_read_offset++;
+	      fd_read_mask = 1;
+	    }
+
+	  fd_write_mask <<= 1;
+	  if(!fd_write_mask)
+	    {
+	      fd_write_offset++;
+	      fd_write_mask = 1;
 	    }
 	  continue;
 	}
@@ -1946,15 +1857,14 @@ int read_packet(aClient *cptr, int msg_ready)
        * See if we can write...
        */
 #ifdef USE_FAST_FD_ISSET
-      if (write_set->fds_bits[fd_offset] & fd_mask)
+      if (write_set->fds_bits[fd_write_offset] & fd_write_mask)
 #else
       if (FD_ISSET(i, write_set))
 #endif
 	{
 	  int	write_err = 0;
 	  nfds--;
-
-          /*
+	  /*
 	  ** ...room for writing, empty some queue then...
 	  */
 	  if (IsConnecting(cptr))
@@ -1964,10 +1874,10 @@ int read_packet(aClient *cptr, int msg_ready)
 	  if (IsDead(cptr) || write_err)
 	    {
 #ifdef USE_FAST_FD_ISSET
-	      if( read_set->fds_bits[fd_offset] & fd_mask)
+	      if( read_set->fds_bits[fd_read_offset] & fd_read_mask)
 		{
 		  nfds--;
-		  read_set->fds_bits[fd_offset] &= ~fd_mask;
+		  read_set->fds_bits[fd_read_offset] &= ~fd_read_mask;
 		}
 #else
 	      if (FD_ISSET(i, read_set))
@@ -1981,11 +1891,18 @@ int read_packet(aClient *cptr, int msg_ready)
 				"SendQ Exceeded" :
 				strerror(get_sockerr(cptr)));
 #ifdef USE_FAST_FD_ISSET
-	      fd_mask <<= 1;
-	      if(!fd_mask)
+	      fd_read_mask <<= 1;
+	      if(!fd_read_mask)
 		{
-		  fd_offset++;
-		  fd_mask = 1;
+		  fd_read_offset++;
+		  fd_read_mask = 1;
+		}
+	      
+	      fd_write_mask <<= 1;
+	      if(!fd_write_mask)
+		{
+		  fd_write_offset++;
+		  fd_write_mask = 1;
 		}
 #endif
 	      continue;
@@ -1994,7 +1911,7 @@ int read_packet(aClient *cptr, int msg_ready)
       length = 1;	/* for fall through case */
 #ifdef USE_FAST_FD_ISSET
       if (!NoNewLine(cptr) || 
-	  (read_set->fds_bits[fd_offset] & fd_mask))
+	  (read_set->fds_bits[fd_read_offset] & fd_read_mask))
 	  length = read_packet(cptr, read_set);
 #else
       if (!NoNewLine(cptr) || FD_ISSET(i, read_set))
@@ -2007,10 +1924,10 @@ int read_packet(aClient *cptr, int msg_ready)
       if ((length != FLUSH_BUFFER) && IsDead(cptr))
 	{
 #ifdef USE_FAST_FD_ISSET
-	  if( read_set->fds_bits[fd_offset] & fd_mask)
+	  if( read_set->fds_bits[fd_read_offset] & fd_read_mask)
 	    {
 	      nfds--;
-	      read_set->fds_bits[fd_offset] &= ~fd_mask;
+	      read_set->fds_bits[fd_read_offset] &= ~fd_read_mask;
 	    }
 #else
 	  if (FD_ISSET(i, read_set))
@@ -2023,17 +1940,24 @@ int read_packet(aClient *cptr, int msg_ready)
 			    (cptr->flags & FLAGS_SENDQEX) ? "SendQ Exceeded" :
 			    strerror(get_sockerr(cptr)));
 #ifdef USE_FAST_FD_ISSET
-	  fd_mask <<= 1;
-	  if(!fd_mask)
+	  fd_read_mask <<= 1;
+	  if(!fd_read_mask)
 	    {
-	      fd_offset++;
-	      fd_mask = 1;
+	      fd_read_offset++;
+	      fd_read_mask = 1;
+	    }
+
+	  fd_write_mask <<= 1;
+	  if(!fd_write_mask)
+	    {
+	      fd_write_offset++;
+	      fd_write_mask = 1;
 	    }
 #endif
 	  continue;
 	}
 #ifdef USE_FAST_FD_ISSET
-      if((read_set->fds_bits[fd_offset] & fd_mask) && length > 0)
+      if((read_set->fds_bits[fd_read_offset] & fd_read_mask) && length > 0)
 #else
       if (!FD_ISSET(i, read_set) && length > 0)
 	continue;
@@ -2042,12 +1966,20 @@ int read_packet(aClient *cptr, int msg_ready)
 #ifdef USE_FAST_FD_ISSET
       if (length > 0)
 	{
-	  fd_mask <<= 1;
-	  if(!fd_mask)
+	  fd_read_mask <<= 1;
+	  if(!fd_read_mask)
 	    {
-	      fd_offset++;
-	      fd_mask = 1;
+	      fd_read_offset++;
+	      fd_read_mask = 1;
 	    }
+
+	  fd_write_mask <<= 1;
+	  if(!fd_write_mask)
+	    {
+	      fd_write_offset++;
+	      fd_write_mask = 1;
+	    }
+
 	  continue;
 	}
 #else
@@ -2084,15 +2016,25 @@ int read_packet(aClient *cptr, int msg_ready)
 	  (void)ircsprintf(errmsg,"Read error: %d (%s)",errno,strerror(errno));
 	  (void)exit_client(cptr, cptr, &me, errmsg);
 	}
-
 #ifdef USE_FAST_FD_ISSET
-      fd_mask <<= 1;
-      if(!fd_mask)
+
+      fd_read_mask <<= 1;
+      if(!fd_read_mask)
 	{
-	  fd_offset++;
-	  fd_mask = 1;
+	  fd_read_offset++;
+	  fd_read_mask = 1;
 	}
+
+      fd_write_mask <<= 1;
+      if(!fd_write_mask)
+	{
+	  fd_write_offset++;
+	  fd_write_mask = 1;
+	}
+
 #endif
+
+
     }
   return 0;
 }
@@ -2148,7 +2090,7 @@ int read_packet(aClient *cptr, int msg_ready)
 		pfd->events = 0;                \
 	}
 
-int	read_message(time_t delay)
+int	read_message(time_t delay, fdlist *listp)
 {
   Reg	aClient *cptr;
   Reg	int     nfds;
@@ -2166,6 +2108,12 @@ int	read_message(time_t delay)
   static aClient	*authclnts[MAXCONNECTIONS];
   char		errmsg[255];
   
+  /* if it is called with NULL we check all active fd's */
+  if (!listp)
+    {
+      listp = &default_fdlist;
+      listp->last_entry = highest_fd+1; /* remember the 0th entry isnt used */
+    }
 
   for (res = 0;;)
     {
@@ -2175,7 +2123,8 @@ int	read_message(time_t delay)
       res_pfd  = NULL;
       auth = 0;
 
-      for(i=0;i<=highest_fd;i++)
+      for (i=listp->entry[j=1]; j<=listp->last_entry;
+	   i=listp->entry[++j])
 	{
 	  if (!(cptr = local[i]))
 	    continue;
@@ -2188,7 +2137,7 @@ int	read_message(time_t delay)
 	      auth++;
 	      Debug((DEBUG_NOTICE,"auth on %x %d", cptr, i));
 	      PFD_SETR(cptr->authfd);
-	      if (IsWriteAuth(cptr))
+	      if (cptr->flags & FLAGS_WRAUTH)
 		PFD_SETW(cptr->authfd);
 	      authclnts[cptr->authfd] = cptr;
 	      continue;
@@ -2480,9 +2429,7 @@ int	connect_server(aConfItem *aconf,
   if (!svp)
     {
       if (cptr->fd != -1)
-	{
-	  (void)close(cptr->fd);
-	}
+	(void)close(cptr->fd);
       cptr->fd = -2;
       free_client(cptr);
       return -1;
@@ -2560,6 +2507,7 @@ int	connect_server(aConfItem *aconf,
   get_sockhost(cptr, aconf->host);
   add_client_to_list(cptr);
   nextping = timeofday;
+
   return 0;
 }
 
