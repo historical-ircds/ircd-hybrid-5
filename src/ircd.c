@@ -75,7 +75,11 @@ struct tm	*motd_tm;
 fdlist serv_fdlist;
 fdlist oper_fdlist;
 fdlist listen_fdlist;
+
+#ifndef NO_PRIORITY
 fdlist busycli_fdlist;	/* high-priority clients */
+#endif
+
 fdlist default_fdlist;	/* just the number of the entry */
 /*    */
 
@@ -364,7 +368,7 @@ static	time_t	check_pings(time_t currenttime)
   aConfItem *aconf = (aConfItem *)NULL;
   int	ping = 0, i, rflag = 0;
   time_t	oldest = 0, timeout;
-  int die_index;				/* index into list */
+  int die_index=0;				/* index into list */
 						/* of dying clients */
   dying_clients[0] = (aClient *)NULL;
 
@@ -937,7 +941,11 @@ normal user.\n");
   init_fdlist(&serv_fdlist);
   init_fdlist(&oper_fdlist);
   init_fdlist(&listen_fdlist);
+
+#ifndef NO_PRIORITY
   init_fdlist(&busycli_fdlist);
+#endif
+
   init_fdlist(&default_fdlist);
   {
     register int i;
@@ -1068,7 +1076,11 @@ normal user.\n");
   syslog(LOG_NOTICE, "Server Ready");
 #endif
   NOW = time(NULL);
+
+#ifndef NO_PRIORITY
   check_fdlists(time(NULL));
+#endif
+
   timeofday = time(NULL);
   while (1)
     delay = io_loop(delay);
@@ -1205,6 +1217,7 @@ time_t io_loop(time_t delay)
    *	-Taner
    */
 
+#ifndef NO_PRIORITY
   (void)read_message(0, &serv_fdlist);
   (void)read_message(1, &busycli_fdlist);
   if (lifesux)
@@ -1217,7 +1230,6 @@ time_t io_loop(time_t delay)
 	}
       (void)flush_fdlist_connections(&serv_fdlist);      
     }
-
   timeofday = time(NULL);
 
   /*
@@ -1243,48 +1255,47 @@ time_t io_loop(time_t delay)
 	lasttime = timeofday;
       }
    }
-
-    /*
-    ** ...perhaps should not do these loops every time,
-    ** but only if there is some chance of something
-    ** happening (but, note that conf->hold times may
-    ** be changed elsewhere--so precomputed next event
-    ** time might be too far away... (similarly with
-    ** ping times) --msa
-    */
-
-    if ((timeofday >= nextping) && !lifesux)
-      nextping = check_pings(timeofday);
-
-    if (dorehash && !lifesux)
-      {
-	(void)rehash(&me, &me, 1);
-	dorehash = 0;
-      }
-    /*
-    ** Flush output buffers on all connections now if they
-    ** have data in them (or at least try to flush)
-    ** -avalon
-    */
-    flush_connections(me.fd);
-
-    /* check which clients are active */
-    if (timeofday > nextfdlistcheck)
-      nextfdlistcheck = check_fdlists(timeofday);
-
-#ifdef	LOCKFILE
-    /*
-    ** If we have pending klines and
-    ** CHECK_PENDING_KLINES minutes
-    ** have passed, try writing them
-    ** out.  -ThemBones
-    */
-    if ((pending_klines) && ((timeofday - pending_kline_time)
-		>= (CHECK_PENDING_KLINES * 60)))
-        do_pending_klines();
+#else
+  (void)read_message(delay, NULL); /*  check everything! */
 #endif
 
-    return delay;
+  /*
+  ** ...perhaps should not do these loops every time,
+  ** but only if there is some chance of something
+  ** happening (but, note that conf->hold times may
+  ** be changed elsewhere--so precomputed next event
+  ** time might be too far away... (similarly with
+  ** ping times) --msa
+  */
+
+  if ((timeofday >= nextping) && !lifesux)
+    nextping = check_pings(timeofday);
+
+  if (dorehash && !lifesux)
+    {
+      (void)rehash(&me, &me, 1);
+      dorehash = 0;
+    }
+  /*
+  ** Flush output buffers on all connections now if they
+  ** have data in them (or at least try to flush)
+  ** -avalon
+  */
+  flush_connections(me.fd);
+
+#ifdef	LOCKFILE
+  /*
+  ** If we have pending klines and
+  ** CHECK_PENDING_KLINES minutes
+  ** have passed, try writing them
+  ** out.  -ThemBones
+  */
+  if ((pending_klines) && ((timeofday - pending_kline_time)
+			   >= (CHECK_PENDING_KLINES * 60)))
+    do_pending_klines();
+#endif
+
+  return delay;
 }
 
 /*
@@ -1398,6 +1409,7 @@ static	void	setup_signals()
 #endif
 }
 
+#ifndef NO_PRIORITY
 /*
  * This is a pretty expensive routine -- it loops through
  * all the fd's, and finds the active clients (and servers
@@ -1447,3 +1459,5 @@ time_t now;
   busycli_fdlist.last_entry = j; /* rest of the fdlist is garbage */
   return (now + FDLISTCHKFREQ + (lifesux + 1));
 }
+#endif
+

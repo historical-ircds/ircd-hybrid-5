@@ -874,13 +874,17 @@ int	m_server_estab(aClient *cptr)
 #endif /* MAXBUFFERS */
   /* adds to fdlist */
   addto_fdlist(cptr->fd,&serv_fdlist);
+
+#ifndef NO_PRIORITY
   /* this causes the server to be marked as "busy" */
   check_fdlists(timeofday);
+#endif
+
   nextping = timeofday;
   sendto_ops("Link with %s established: %s", inpath, DoesTS(cptr) ?
 	     "TS link" : "Non-TS link!");
   (void)add_to_client_hash_table(cptr->name, cptr);
-  /* doesnt duplicate cptr->serv if allocted this struct already */
+  /* doesnt duplicate cptr->serv if allocated this struct already */
   (void)make_server(cptr);
   cptr->serv->up = me.name;
   /* add it to scache */

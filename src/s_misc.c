@@ -558,7 +558,7 @@ static	void	exit_one_client(aClient *cptr,
   Reg	Link	*lp;
 
   /*
-  **  For a server or user quitting, propagage the information to
+  **  For a server or user quitting, propogate the information to
   **  other servers (except to the one where is came from (cptr))
   */
   if (IsMe(sptr))
