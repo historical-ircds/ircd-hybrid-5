@@ -2661,6 +2661,10 @@ static int majority_gline(char *oper_nick,
 
   while(gline_pending_ptr)
     {
+	/* Remember it might be *luser@*some.host.com 
+	   not luser@fix.some.host.com, so I have to use match
+	   -Dianora */
+
       if( (match(gline_pending_ptr->user,user) != 0) || 
 	  (match(gline_pending_ptr->host,host) != 0) )
 	{
