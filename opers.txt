@@ -118,8 +118,8 @@ COMMAND         - USAGE and DESCRIPTION
                               memory.
                     MOTD    - Re-reads MOTD file
 
-  RESTART        - RESTART
-                   Restarts the IRC server.
+  RESTART       - RESTART
+                  Restarts the IRC server.
 
   CLOSE         - CLOSE
                   Close any connections from clients who have not fully
@@ -132,58 +132,63 @@ COMMAND         - USAGE and DESCRIPTION
 + HASH          - HASH
                   Shows some stats about ircd's internal hashes.
 
-+ DNS            - DNS
-                   Shows some stats about ircd's asynchronous resolving
++ DNS           - DNS
+                  Shows some stats about ircd's asynchronous resolving
                    code
 
-+ KLINE          - KLINE <nick|user@host> :[reason]
-                   Adds a KLINE to the ircd.conf or klines.conf file which
-                   will ban the specified user from using that server.
-                   The banned client will receive a message saying he/she
-                   is banned with reason [reason]
++ KLINE         - KLINE <nick|user@host> :[reason]
+                  Adds a KLINE to the ircd.conf or klines.conf file which
+                  will ban the specified user from using that server.
+                  The banned client will receive a message saying he/she
+                  is banned with reason [reason]
 
-                   For a temporary KLINE, length of kline is given in
-                   minutes as the first parameter i.e.
-                   KLINE 10 <nick|user@host> :cool off for 10 minutes
+                  For a temporary KLINE, length of kline is given in
+                  minutes as the first parameter i.e.
+                  KLINE 10 <nick|user@host> :cool off for 10 minutes
 
-+ UNKLINE        - UNKLINE <user@host>
-                   -- If compiled with UNKLINE --
-                   Will attempt to unkline the given <user@host>
++ UNKLINE       - UNKLINE <user@host>
+                  -- If compiled with UNKLINE --
+                  Will attempt to unkline the given <user@host>
 
-+ DLINE          - DLINE <nick|ip> :[reason]
-                   Adds a DLINE to the ircd.conf or klines.conf file
-                   which will deny any connections from the IP address
-                   of the banned client.  The banned client will receive
-                   a message saying he/she is banned with reason [reason]
++ DLINE         - DLINE <nick|ip> :[reason]
+                  Adds a DLINE to the ircd.conf or klines.conf file
+                  which will deny any connections from the IP address
+                  of the banned client.  The banned client will receive
+                  a message saying he/she is banned with reason [reason]
 
-                   In order to use <nick> rather than <ip>, <nick> must
-                   be on your server.
+                  In order to use <nick> rather than <ip>, <nick> must
+                  be on your server.
 
-+ HTM            - HTM [option]
-                   When no [option] is given, HTM shows the current 
-                   High Traffic Mode rate and whether HTM is on or off.
++ HTM           - HTM [option]
+                  When no [option] is given, HTM shows the current 
+                  High Traffic Mode rate and whether HTM is on or off.
 
-                   [option] can be one of the following:
-                     ON        - Forces High Traffic Mode to be on.  With
-                                 this on, ircd is more efficient in
-                                 reading server-to-server traffic and
-                                 oper traffic, but will be less efficient
-                                 than normal with normal client traffic.
-                     OFF       - Forces High Traffic Mode to be off.
-                                 (see above)
-                     TO <rate> - Sets the High Traffic Mode rate to
-                                 <rate>.  Ircd will automatically go
-                                 into High Traffic Mode when <rate>
-                                 is reached, and will automatically turn
-                                 it off when things calm down.
+                  [option] can be one of the following:
+                    ON        - Forces High Traffic Mode to be on.  With
+                                this on, ircd is more efficient in
+                                reading server-to-server traffic and
+                                oper traffic, but will be less efficient
+                                than normal with normal client traffic.
+                    OFF       - Forces High Traffic Mode to be off.
+                                (see above)
+                    TO <rate> - Sets the High Traffic Mode rate to
+                                <rate>.  Ircd will automatically go
+                                into High Traffic Mode when <rate>
+                                is reached, and will automatically turn
+                                it off when things calm down.
+                    QUIET     - When set, ircd will not notify opers
+                                when it goes into and out of High
+                                Traffic Mode.
+                    NOISY     - When set, ircd will notify opers
+                                when it goes into and out of High
+                                Traffic Mode.
++ SET           - SET <option> <value>
+                  <option> can be one of the following:
+                    MAX       - Sets the number of max connections
+                                to <value>.  (This number cannot exceed
+                                HARD_FDLIMIT in config.h)
 
-+ SET            - SET <option> <value>
-                   <option> can be one of the following:
-                     MAX       - Sets the number of max connections
-                                 to <value>.  (This number cannot exceed
-                                 HARD_FDLIMIT in config.h)
-
-                     -- The following three are if compiled with FLUD --
+                    -- The following three are if compiled with FLUD --
                      FLUDNUM   - Sets the number of flud messages to 
                                  trip flud alarm to <value>
                      FLUDTIME  - Sets the number of seconds in which 
@@ -191,7 +196,7 @@ COMMAND         - USAGE and DESCRIPTION
                      FLUDBLOCK - Sets the number of seconds to block 
                                  fluds to <value>
 
-+ GLINE          - GLINE <user@host> :[reason]
++ GLINE         - GLINE <user@host> :[reason]
                    -- if compiled with GLINE --
                    Attempts to add a global IRC-network wide ban on
                    <user@host> for the reason [reason].

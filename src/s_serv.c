@@ -1360,11 +1360,10 @@ int	m_stats(aClient *cptr,
       break;
 
     case 'k' :
+    case 'K' :
       report_temp_klines(sptr);
-      break;
 
 /* sendto_one(sptr, err_str(ERR_NOPRIVILEGES), me.name, parv[0]); */
-    case 'K' :
       if(parc > 3)
 	report_matching_host_klines(sptr,parv[3]);
       else
@@ -2448,9 +2447,7 @@ int     m_gline(aClient *cptr,
 	  if (!*host)		/* duh. no host found, assume its '*' host */
 	    host = "*";
 
-/* strncpyzt is broken for this case -Dianora */
-	  strncpy(tempuser, user, USERLEN+1);	/* allow for '*' */
-	  tempuser[USERLEN+1] = '\0';
+	  strncpyzt(tempuser, user, USERLEN+2);	/* allow for '*' */
 	  strncpyzt(temphost, host, HOSTLEN);
 	  user = tempuser;
 	  host = temphost;
@@ -2664,8 +2661,8 @@ static int majority_gline(char *oper_nick,
 
   while(gline_pending_ptr)
     {
-      if( (strcasecmp(gline_pending_ptr->user,user) != 0) || 
-	  (strcasecmp(gline_pending_ptr->host,host) != 0) )
+      if( (match(gline_pending_ptr->user,user) != 0) || 
+	  (match(gline_pending_ptr->host,host) != 0) )
 	{
 	  /* Not a match for this user */
 	  gline_pending_ptr = gline_pending_ptr->next;
@@ -2693,9 +2690,9 @@ static int majority_gline(char *oper_nick,
 	      sendto_ops("oper or server has already voted");
 	      return NO;
 	    }
-	  /* expire it this way */
-	  gline_pending_ptr->last_gline_time = (time_t)0;
-	  expire_pending_glines();
+          /* expire it this way */
+          gline_pending_ptr->last_gline_time = (time_t)0;
+          expire_pending_glines();
 	  return YES;
 	}
       else
@@ -2851,8 +2848,7 @@ int     m_kline(aClient *cptr,
 
       if (!*host)		/* duh. no host found, assume its '*' host */
 	host = "*";
-/* strncpyzt is broken for this case -Dianora */
-      strncpy(tempuser, user, USERLEN+1); /* allow for '*' in front */
+      strncpyzt(tempuser, user, USERLEN+2); /* allow for '*' in front */
       tempuser[USERLEN+1] = '\0';
       strncpyzt(temphost, host, HOSTLEN);
       user = tempuser;

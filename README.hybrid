@@ -1,9 +1,10 @@
-+hybrid-5.1 (10/6/97)
++hybrid-5.1 (10/13/97)
 * The inevitable bug fix release
 -fixes
 * removed ident_fdlist it was never used anyway (comstud)
 * fixed quote kline for 10 character user names (Dianora)
 * obscure bug with KICK message in a desync channel situation (Dianora)
+* bug with max channel name fixed (comstud/Dianora)
 -feature adds
 * stop people from laming up the kline conf file with # in comment
 * added comstuds SEPARATE_QUOTE_KLINES_BY_DATE
