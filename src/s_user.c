@@ -3578,7 +3578,7 @@ int	m_umode(aClient *cptr,
       Count.oper++;
     }
 
-  if ((setflags & FLAGS_NCHANGE) && !IsSetOpertcm(sptr))
+  if ((sptr->flags & FLAGS_NCHANGE) && !IsSetOpertcm(sptr))
     {
       sendto_one(sptr,":%s NOTICE %s :*** You need oper and T flag for +n",
 		 me.name,parv[0]);
@@ -3597,6 +3597,12 @@ int	m_umode(aClient *cptr,
 #endif
 	  delfrom_fdlist(sptr->fd, &oper_fdlist);
 
+
+	  sptr->flags2 &= ~(FLAGS2_OPER_GLOBAL_KILL|
+			    FLAGS2_OPER_REMOTE|
+			    FLAGS2_OPER_UNKLINE|
+			    FLAGS2_OPER_GLINE|
+			    FLAGS2_OPER_TCM);
 #ifdef USE_LINKLIST         
           while(cur_cptr)
             {
