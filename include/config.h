@@ -858,7 +858,7 @@
  */
   
 #undef REJECT_HOLD
-#define REJECT_HOLD_TIME 60 
+#define REJECT_HOLD_TIME 30 
 
 /*
  * OLD_Y_LIMIT

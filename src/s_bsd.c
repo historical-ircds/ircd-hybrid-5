@@ -1401,12 +1401,7 @@ int read_packet(aClient *cptr, int msg_ready)
 
 	/* FLAGS_REJECT_HOLD should NEVER be set for non local client */
 	if(IsRejectHeld(cptr))
-	  {
-	    if( timeofday > (cptr->firsttime + REJECT_HOLD_TIME) )
-	      exit_client(cptr, cptr, cptr, "reject held client");
-	    else
-	      return 1;
-	  }
+	  return 1;
 #endif
 
 	cptr->lasttime = timeofday;

@@ -627,6 +627,7 @@ static	int	register_user(aClient *cptr,
 	  sendto_one(sptr, ":%s NOTICE %s :*** K-lined",
 		     me.name,cptr->name);
 #endif
+	  return(0);
 #else
 	  ircstp->is_ref++;
 
@@ -952,31 +953,23 @@ static	int	register_user(aClient *cptr,
 		  sendto_one(sptr,"NOTICE %s :*** Notice -- motd was last changed at %s",
 			     nick, motd_last_changed_date);
 #ifdef SHORT_MOTD
-#ifdef REJECT_HOLD
-		  if(!IsRejectHeld(sptr))
-#endif		  
-		    {
-		      sendto_one(sptr,
-       "NOTICE %s :*** Notice -- Please read the motd if you haven't read it",
+		  sendto_one(sptr,
+		  "NOTICE %s :*** Notice -- Please read the motd if you haven't read it",
 			     nick);
+		  
+		  sendto_one(sptr, rpl_str(RPL_MOTDSTART),
+			     me.name, parv[0], me.name);
+		  
+		  sendto_one(sptr,
+			     rpl_str(RPL_MOTD),
+			     me.name, parv[0],
+			     "*** This is the short motd ***"
+			     );
 
-		      sendto_one(sptr, rpl_str(RPL_MOTDSTART),
-				 me.name, parv[0], me.name);
-
-		      sendto_one(sptr,
-				 rpl_str(RPL_MOTD),
-				 me.name, parv[0],
-				 "*** This is the short motd ***"
-				 );
-
-		      sendto_one(sptr, rpl_str(RPL_ENDOFMOTD),
-				 me.name, parv[0]);
-		    }
+		  sendto_one(sptr, rpl_str(RPL_ENDOFMOTD),
+			     me.name, parv[0]);
 #else
-#ifdef REJECT_HOLD
-		  if(!IsRejectHeld(sptr))
-#endif
-		    (void)send_motd(sptr, sptr, 1, parv);
+		  (void)send_motd(sptr, sptr, 1, parv);
 #endif
 #ifdef LITTLE_I_LINES
 		  if(sptr->confs && sptr->confs->value.aconf &&
@@ -1743,11 +1736,6 @@ static	int	m_message(aClient *cptr,
     */
     if ((acptr = find_person(nick, NULL)))
       {
-#ifdef REJECT_HOLD
-	if(IsRejectHeld(acptr))
-	  return 0;
-#endif
-
 #ifdef FLUD
 	if(!notice && MyFludConnect(acptr))
 	  if(check_for_ctcp(parv[2]))
@@ -2054,7 +2042,7 @@ int	m_who(aClient *cptr,
     {
       aChannel *ch2ptr = NULL;
       int	showperson, isinvis;
-      
+
       if (!IsPerson(acptr))
 	continue;
       if (oper && !IsAnOper(acptr))

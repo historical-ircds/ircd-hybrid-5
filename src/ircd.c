@@ -511,6 +511,18 @@ static	time_t	check_pings(time_t currenttime)
 	    }
 	}
 
+#ifdef REJECT_HOLD
+      if (IsRejectHeld(cptr))
+	{
+	  if( timeofday > (cptr->firsttime + REJECT_HOLD_TIME) )
+	    {
+	      dying_clients[die_index] = cptr;
+	      dying_clients_reason[die_index++] = "reject held client";
+	      dying_clients[die_index] = (aClient *)NULL;
+	    }
+	}
+#endif
+
 #if defined(R_LINES) && defined(R_LINES_OFTEN)
       /*
        * this is used for KILL lines with time restrictions
@@ -633,10 +645,12 @@ static	time_t	check_pings(time_t currenttime)
 	timeout += ping;
       if (timeout < oldest || !oldest)
 	oldest = timeout;
+
       /*
        * Check UNKNOWN connections - if they have been in this state
        * for > 100s, close them.
        */
+
       if (IsUnknown(cptr))
 	{
 	  if (cptr->firsttime ? ((timeofday - cptr->firsttime) > 100) : 0)
