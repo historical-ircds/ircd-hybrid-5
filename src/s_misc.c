@@ -101,9 +101,9 @@ char	*date(time_t clock)
   if (minswest < 0)
     minswest = -minswest;
   
-  (void)ircsprintf(buf, "%s %s %d %04d -- %02d:%02d %c%02d:%02d",
+  (void)ircsprintf(buf, "%s %s %d %04d -- %02d:%02d:%02d %c%02d:%02d",
 		   weekdays[lt->tm_wday], months[lt->tm_mon],lt->tm_mday,
-		   lt->tm_year + 1900, lt->tm_hour, lt->tm_min,
+		   lt->tm_year + 1900, lt->tm_hour, lt->tm_min, lt->tm_sec,
 		   plus, minswest/60, minswest%60);
 
   return buf;
