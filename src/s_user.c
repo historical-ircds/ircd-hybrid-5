@@ -815,7 +815,7 @@ static	int	register_user(aClient *cptr,
 		   username);
 	return exit_client(cptr, sptr, sptr , tmpstr2);
       }
-    
+
     /*
      * First check user->username...
      */
@@ -834,7 +834,7 @@ static	int	register_user(aClient *cptr,
 #else
     tmpstr = (user->username[0] == '~' ? &user->username[1] :
 	      user->username);
-#endif /* IGNORE */
+#endif /* IGNORE_FIRST_CHAR */
 
     while(*tmpstr)
       {
@@ -894,7 +894,7 @@ static	int	register_user(aClient *cptr,
 		  special++;
 #else
                 tmpstr = (username[0] == '~' ? &username[1] : username);
-#endif /* IGNORE */
+#endif /* IGNORE_FIRST_CHAR */
                 while(*tmpstr)
                   {
                     c = *(tmpstr++);
@@ -938,21 +938,55 @@ static	int	register_user(aClient *cptr,
 #endif /* NO_MIXED_CASE || NO_SPECIAL */
 
   /* 
-   * reject single character usernames which aren't alphabetic 
-   * i.e. reject jokers who have '?@somehost' or '.@somehost'
-   *
-   * -Dianora
+   * Absolutely always reject any '*' '!' '?' in an user name
+   * reject any odd control characters names.
    */
 
-  if((user->username[1] == '\0') && !isalpha(user->username[0]))
-    {
-      sendto_realops_lev(REJ_LEV,"Invalid username: %s (%s@%s)",
-			 nick, user->username, user->host);
-      ircstp->is_ref++;
-      (void)ircsprintf(tmpstr2, "Invalid username [%s]",
-		       user->username);
-      return exit_client(cptr, sptr, &me, tmpstr2);
-    }
+  {
+    unsigned char *p;
+    p = user->username;
+
+    while(*p)
+      {
+	if( (*p > 127) || (*p < ' '))
+	  {
+	    sendto_realops_lev(REJ_LEV,"Invalid username: %s (%s@%s)",
+			       nick, user->username, user->host);
+	    ircstp->is_ref++;
+	    (void)ircsprintf(tmpstr2, "Invalid username [%s]",
+			     user->username);
+	    return exit_client(cptr, sptr, &me, tmpstr2);
+	  }
+
+	if((*p == '*') || (*p == '?') || (*p == '!'))
+	  {
+	    sendto_realops_lev(REJ_LEV,"Invalid username: %s (%s@%s)",
+			       nick, user->username, user->host);
+	    ircstp->is_ref++;
+	    (void)ircsprintf(tmpstr2, "Invalid username [%s]",
+			     user->username);
+	    return exit_client(cptr, sptr, &me, tmpstr2);
+	  }
+
+	p++;
+      }
+    /* 
+     * reject single character usernames which aren't alphabetic 
+     * i.e. reject jokers who have '-@somehost' or '.@somehost'
+     *
+     * -Dianora
+     */
+
+    if((user->username[1] == '\0') && !isalpha(user->username[0]))
+      {
+	sendto_realops_lev(REJ_LEV,"Invalid username: %s (%s@%s)",
+			   nick, user->username, user->host);
+	ircstp->is_ref++;
+	(void)ircsprintf(tmpstr2, "Invalid username [%s]",
+			 user->username);
+	return exit_client(cptr, sptr, &me, tmpstr2);
+      }
+  }
 
 #ifdef REJECT_IPHONE
                 if (!matches("* vc:*", sptr->info))
