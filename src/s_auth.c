@@ -39,10 +39,8 @@ static char *rcs_version = "$Id$";
 #include "sock.h"	/* If FD_ZERO isn't define up to this point,  */
 			/* define it (BSD4.2 needs this) */
 #include "h.h"
-#include "fdlist.h"
 
 static void authsenderr(aClient *);
-
 
 /*
  * start_auth
@@ -76,7 +74,9 @@ void	start_auth(aClient *cptr)
     {
       sendto_ops("Can't allocate fd for auth on %s",
 		 get_client_name(cptr, TRUE));
+
       (void)close(cptr->authfd);
+      cptr->authfd = -1;
       return;
     }
 #ifdef SHOW_HEADERS
@@ -100,6 +100,7 @@ void	start_auth(aClient *cptr)
     {
       report_error("binding auth stream socket %s:%s", cptr);
       (void)close(cptr->fd);
+      cptr->authfd = -1;
       return;
     }
 
@@ -118,8 +119,10 @@ void	start_auth(aClient *cptr)
        * No error report from this...
        */
       /*		(void)alarm((unsigned)0);*/
+
       (void)close(cptr->authfd);
       cptr->authfd = -1;
+
       if (!DoingDNS(cptr))
 	SetAccess(cptr);
 #ifdef SHOW_HEADERS
@@ -128,7 +131,7 @@ void	start_auth(aClient *cptr)
       return;
     }
   /*	(void)alarm((unsigned)0);*/
-  cptr->flags |= (FLAGS_WRAUTH|FLAGS_AUTH);
+  SetStartAuth(cptr);
   if (cptr->authfd > highest_fd)
     highest_fd = cptr->authfd;
   return;
@@ -161,8 +164,7 @@ void	send_authports(aClient *cptr)
 	     get_client_name(cptr, TRUE));
 #endif
       authsenderr(cptr);
-/*      cptr->flags &= ~FLAGS_WRAUTH; */
-	return;
+      return;
     }
 
       (void)ircsprintf(authbuf, "%u , %u\r\n",
@@ -178,8 +180,7 @@ void	send_authports(aClient *cptr)
 	return;
       }
 
-    cptr->flags &= ~FLAGS_WRAUTH;
-
+    ClearWriteAuth(cptr);
     return;
 }
 
@@ -197,11 +198,12 @@ static void authsenderr(aClient *cptr)
   ircstp->is_abad++;
   
   (void)close(cptr->authfd);
+
   if (cptr->authfd == highest_fd)
     while (!local[highest_fd])
       highest_fd--;
   cptr->authfd = -1;
-  cptr->flags &= ~(FLAGS_AUTH|FLAGS_WRAUTH);
+  ClearStartAuth(cptr);
 #ifdef SHOW_HEADERS
   send(cptr->fd, REPORT_FAIL_ID, R_fail_id, 0);
 #endif
@@ -261,11 +263,11 @@ void	read_authports(aClient *cptr)
     }
   else if(len != 0) /* then its < 0 an error */
     {
-      /* sendto_realops("This is the infamous fdlist.c bug. congrats."); */
       *ruser = '\0';
     }
 
   (void)close(cptr->authfd);
+
   if (cptr->authfd == highest_fd)
     while (!local[highest_fd])
       highest_fd--;
@@ -289,7 +291,7 @@ void	read_authports(aClient *cptr)
 
   ircstp->is_asuc++;
   strncpyzt(cptr->username, ruser, USERLEN+1);
-  cptr->flags |= FLAGS_GOTID;
+  SetGotId(cptr);
   Debug((DEBUG_INFO, "got username [%s]", ruser));
   return;
 }

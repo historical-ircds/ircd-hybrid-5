@@ -24,6 +24,26 @@
 
 #include "setup.h"
 
+/* PLEASE READ SECTION:
+ *
+ * I have commented out WHOIS_NOTICE and STATS_NOTICE
+ * Personally, I feel opers do not need to know the information
+ * returned by having those two defines defined, it is an invasion
+ * of privacy. The original need/use of showing STATS_NOTICE
+ * it seems to me, was to find stats flooders. They no longer
+ * can do much damage with stats flooding, so why show it?
+ * whois notice is just an invasion of privacy. Who cares?
+ * I personally hope you agree with me, and leave these undef'ed
+ * but at least you have been warned.
+ *
+ * I have also #undef'd LOCAL_KILL_ONLY, as you can now limit
+ * the ability of an oper to do global kills using oper flags in
+ * ircd.conf. Until client id code is introduced, global kill is still
+ * necessary to get rid of a ghost.
+ *
+ * -Dianora
+ */
+
 /***************** MAKE SURE THIS IS CORRECT!!!!!!!!! **************/
 /* ONLY EDIT "HARD_FDLIMIT_" and "INIT_MAXCLIENTS" */
 
@@ -73,6 +93,8 @@
  * CPATH = conf file,
  * MPATH = MOTD
  * KPATH = kline conf file 
+ * APATH = alternate MOTD for multi-lingual servers
+ * i.e. /motd A for second motd
  * 
  * For /restart to work, SPATH needs to be a full pathname
  * (unless "." is in your exec path). -Rodder
@@ -87,6 +109,7 @@
 #define	CPATH	"ircd.conf"
 #define KPATH   "kline.conf"
 #define	MPATH	"ircd.motd"
+#undef  APATH   "ircd.motd2"
 #define	LPATH	"ircd.log"
 #define	PPATH	"ircd.pid"
 #define HPATH	"opers.txt"
@@ -294,13 +317,6 @@
  */
 #define DO_IDENTD
 
-/* K_COMMENT_ONLY - 2nd field in K-line is ALWAYS a comment.
- * If you define this, ircd will NOT put ^O's in K: line comments.
- * Undef this if you think you might ever run a non-hybrid
- * or non-th ircd.
- */
-#define K_COMMENT_ONLY
-
 /* KLINE_WITH_REASON - show comment to client on exit
  * define this if you want users to exit with the kline/dline reason
  * (i.e. instead of "You have been K-lined" they will see the reason
@@ -363,7 +379,7 @@
 
 /* STATS_NOTICE - See a notice when a user does a /stats
  */
-#define STATS_NOTICE
+#undef STATS_NOTICE
 
 /* LINKS_NOTICE - See a notice when a user does a /links
  * its always defined now
@@ -398,7 +414,7 @@
 /* WHOIS_NOTICE - Shows a notice to an oper when a user does a
  * /whois on them
  */
-#define WHOIS_NOTICE
+#undef WHOIS_NOTICE
 
 /* SHOW_HEADERS - Shows messages like "looking up hostname" 
  */
@@ -629,12 +645,36 @@
  */
 #define NOISY_HTM YES
 
-/* NO_CHANOP_WHEN_SPLIT
+/*
+ * define ONE of NO_CHANOPS_ON_SPLIT, NO_JOIN_ON_SPLIT or
+ * PRESERVE_CHANNEL_ON_SPLIT
+ *
+ * choose =one= only
+ */
+
+/* NO_CHANOPS_WHEN_SPLIT
  * When this is defined, users will not be chanopped on empty channels
  * if there are no servers presently connected to this server
  * opers are not affected. 
  */
-#define NO_CHANOPS_WHEN_SPLIT
+#undef NO_CHANOPS_WHEN_SPLIT
+
+/*
+ * NO_JOIN_ON_SPLIT
+ *
+ * When this is defined, users will not be allowed to join channels
+ * that were present before a split.
+ */
+#undef NO_JOIN_ON_SPLIT
+
+/*
+ * PRESERVE_CHANNEL_ON_SPLIT
+ *
+ * When this is defined, channel modes are preserved when this
+ * server is split from net until rejoin. i.e. if the channel
+ * was +i before this server split, it remains +i during the split
+ */
+#define PRESERVE_CHANNEL_ON_SPLIT
 
 /*
  * comstud and I have both noted that solaris 2.5 at least, takes a hissy
@@ -650,18 +690,6 @@
  * -Dianora
  */
 
-#define NO_PRIORITY
-
-/* LIMIT_UH
- * If this is defined, Y line limit is made against the actual
- * username not the ip. i.e. if you limit the connect frequency line
- * to 1, that allows only 1 username to connect instead of 1 client per ip
- * i.e. you can have 10 clients all with different usernames, but each user
- * can only connect once. This is only useful if you only allow identd
- * from that host. (The code strips non identd '~' as it stands)
- * Its a tad slower then the ip limited code.
- *
- */
 #undef LIMIT_UH
 
 /* IDLE_CHECK
@@ -706,7 +734,7 @@
  *	 of KILL for non-local clients should be punished by removal of the
  *	 server's links (if only for ignoring this warning!).
  */
-#define	LOCAL_KILL_ONLY
+#undef	LOCAL_KILL_ONLY
 #endif
 
 /* PORTNUM - default port where ircd resides
@@ -1026,6 +1054,9 @@
 
 #define HELPFILE HPATH
 #define MOTD MPATH
+#ifdef  APATH
+#define AMOTD APATH
+#endif
 #define	MYNAME SPATH
 #define	CONFIGFILE CPATH
 #ifdef KPATH
@@ -1052,10 +1083,9 @@ error CLIENT_FLOOD undefined.
 #  define LOGFILE "/dev/null"
 #endif
 
-/* experimental LINKLIST */
+/* DEBUG_LINKLIST code or not */
 
 #define DEBUG_LINKLIST
-#define USE_LINKLIST
 
 #define REPORT_DLINE_TO_USER
 

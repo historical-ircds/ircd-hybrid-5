@@ -71,7 +71,7 @@ typedef	struct	SLink	Link;
 typedef	struct	SMode	Mode;
 typedef	long	ts_val;
 
-typedef struct	MotdItem aMotd;
+typedef struct	MessageFileItem aMessageFile;
 
 #include "class.h"
 #include "dbuf.h"	/* THIS REALLY SHOULDN'T BE HERE!!! --msa */
@@ -102,7 +102,7 @@ typedef struct	MotdItem aMotd;
 
 #define OPERWALL_LEN    400		/* can be truncated on other servers */
 
-#define MOTDLINELEN	90
+#define MESSAGELINELEN	90
 
 #define	USERHOST_REPLYLEN	(NICKLEN+HOSTLEN+USERLEN+5)
 
@@ -262,6 +262,10 @@ typedef struct	MotdItem aMotd;
 #define	SetWallops(x)  		((x)->flags |= FLAGS_WALLOP)
 /* #define	SetUnixSock(x)		((x)->flags |= FLAGS_UNIX) */
 #define	SetDNS(x)		((x)->flags |= FLAGS_DOINGDNS)
+#define SetStartAuth(x)		((x)->flags |= (FLAGS_WRAUTH|FLAGS_AUTH))
+#define ClearStartAuth(x)	((x)->flags &= ~(FLAGS_WRAUTH|FLAGS_AUTH))
+#define ClearWriteAuth(x)	((x)->flags &= ~FLAGS_WRAUTH)
+#define IsWriteAuth(x)		((x)->flags & FLAGS_WRAUTH)
 #define	DoingDNS(x)		((x)->flags & FLAGS_DOINGDNS)
 #define	SetAccess(x)		((x)->flags |= FLAGS_CHKACCESS)
 #define	DoingAuth(x)		((x)->flags & FLAGS_AUTH)
@@ -273,12 +277,19 @@ typedef struct	MotdItem aMotd;
 #define	ClearDNS(x)		((x)->flags &= ~FLAGS_DOINGDNS)
 #define	ClearAuth(x)		((x)->flags &= ~FLAGS_AUTH)
 #define	ClearAccess(x)		((x)->flags &= ~FLAGS_CHKACCESS)
+#define SetGotId(x)		((x)->flags |= FLAGS_GOTID)
 
 #ifdef REJECT_HOLD
 #define IsRejectHeld(x)	        ((x)->flags & FLAGS_REJECT_HOLD)
 #define SetRejectHold(x)        ((x)->flags |= FLAGS_REJECT_HOLD)
 #endif
 
+#define SetIpHash		((x)->flags |= FLAGS_IPHASH)
+#define ClearIpHash		((x)->flags &= ~FLAGS_IPHASH)
+#define IsIpHash		((x)->flags & FLAGS_IPHASH)
+
+#define SetDoId(x)		((x)->flags |= FLAGS_DOID)
+#define IsGotId(x)		((x)->flags & FLAGS_GOTID)
 
 /*
  * flags2 macros.
@@ -339,9 +350,10 @@ struct	Counter	{
 	int	max_tot;	/* MAX global clients */
 };
 
-struct  MotdItem	{
-	char	line[MOTDLINELEN];
-	struct	MotdItem *next;
+struct  MessageFileItem
+{
+  char	line[MESSAGELINELEN];
+  struct MessageFileItem *next;
 };
 
 /*
@@ -374,6 +386,7 @@ struct	ConfItem
   char	*host;
   char	*passwd;
   char	*name;
+  char  *mask;		/* Only used for I lines */
   int	port;
   time_t hold;		/* Hold action until this time (calendar time) */
   aClass *class;	  /* Class of connection */
@@ -425,6 +438,8 @@ struct	ConfItem
 #define CONF_FLAGS_E_LINED		0x0020
 #define CONF_FLAGS_B_LINED		0x0040
 #define CONF_FLAGS_F_LINED		0x0080
+#define CONF_FLAGS_DO_IDENTD		0x0100
+#define CONF_FLAGS_ALLOW_AUTO_CONN	0x0200
 
 #ifdef LITTLE_I_LINES
 #define CONF_FLAGS_LITTLE_I_LINE	0x8000
@@ -440,6 +455,7 @@ struct	ConfItem
 #define IsConfElined(x)		((x)->flags & CONF_FLAGS_E_LINED)
 #define IsConfBlined(x)		((x)->flags & CONF_FLAGS_B_LINED)
 #define IsConfFlined(x)		((x)->flags & CONF_FLAGS_F_LINED)
+#define IsConfDoIdentd(x)	((x)->flags & CONF_FLAGS_DO_IDENTD)
 #ifdef LITTLE_I_LINES
 #define IsConfLittleI(x)	((x)->flags & CONF_FLAGS_LITTLE_I_LINE)
 #endif
@@ -490,13 +506,11 @@ struct Client
 {
   struct	Client *next,*prev, *hnext;
 
-#ifdef USE_LINKLIST
 /* LINKLIST */
 
   struct        Client *next_local_client;      /* keep track of these */
   struct        Client *next_server_client;
   struct        Client *next_oper_client;
-#endif
 
   anUser	*user;		/* ...defined, if this is a User */
   aServer	*serv;		/* ...defined, if this is a server */
@@ -715,6 +729,7 @@ struct Channel
   Link	*invites;
   Link	*banlist;
   ts_val channelts;
+  int locally_created;
 #ifdef FLUD
   time_t fludblock;
   struct fludbot *fluders;
@@ -751,8 +766,14 @@ struct Channel
 #define	MODE_NOPRIVMSGS 0x0100
 #define	MODE_KEY	0x0200
 #define	MODE_BAN	0x0400
-#define	MODE_LIMIT	0x0800
-#define	MODE_FLAGS	0x0fff
+
+#define	MODE_LIMIT	0x1000	/* was 0x0800 */
+#define	MODE_FLAGS	0x1fff	/* was 0x0fff */
+
+#if defined(PRESERVE_CHANNEL_ON_SPLIT) || defined(NO_JOIN_ON_SPLIT)
+#define MODE_SPLIT	0x1000
+#endif
+
 /*
  * mode flags which take another parameter (With PARAmeterS)
  */
@@ -853,13 +874,16 @@ extern unsigned long tsdms;
 #define TMPRINT
 #endif
 
-/* allow 5 minutes after server rejoins the network before allowing
-   chanops new channels */
+/* allow DEFAULT_SERVER_SPLIT_RECOVERY_TIME minutes after server rejoins
+ * the network before allowing chanops new channels,
+ *  but allow it to be set to a maximum of MAX_SERVER_SPLIT_RECOVERY_TIME 
+ */
 
-#ifdef NO_CHANOPS_WHEN_SPLIT
-#define MAX_SERVER_SPLIT_RECOVERY_TIME 5
+#if defined(NO_CHANOPS_WHEN_SPLIT) || defined(PRESERVE_CHANNEL_ON_SPLIT) || \
+	defined(NO_JOIN_ON_SPLIT)
+#define MAX_SERVER_SPLIT_RECOVERY_TIME 15
+#define DEFAULT_SERVER_SPLIT_RECOVERY_TIME 5
 #endif
-
 
 
 #ifdef FLUD
@@ -896,8 +920,9 @@ typedef struct gline_pending
 }GLINE_PENDING;
 
 /* how long a pending G line can be around
-   10 minutes should be plenty
-*/
+ *   10 minutes should be plenty
+ */
+
 #define GLINE_PENDING_EXPIRE 600
 #endif
 

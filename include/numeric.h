@@ -316,6 +316,9 @@
 #define ERR_BANNEDFROMCHAN   474
 #define	ERR_BADCHANNELKEY    475
 #define	ERR_BADCHANMASK      476
+#ifdef NO_JOIN_ON_SPLIT
+#define ERR_NOJOINSPLIT	     477
+#endif
 #define ERR_BANLISTFULL	     478	/* I stole the numeric from ircu -db */
 
 #define ERR_NOPRIVILEGES     481

@@ -55,13 +55,12 @@ int    do_user (char *, aClient *, aClient*, char *, char *, char *,
 int    botwarn (char *, char *, char *, char *);
 
 extern char motd_last_changed_date[];
+extern int send_motd(aClient *,aClient *,int, char **,aMessageFile *);
 
-#ifdef USE_LINKLIST
 /* LINKLIST */ 
 extern aClient *local_cptr_list;
 extern aClient *oper_cptr_list;
 extern aClient *serv_cptr_list;
-#endif
  
 extern void outofmemory(void);         /* defined in list.c */
 
@@ -448,6 +447,7 @@ static	int	register_user(aClient *cptr,
   anUser *user = sptr->user;
   int 	i, dots;
   int   bad_dns;	/* flag a bad dns name */
+  char *reason;
 #ifdef BOTCHECK
   int	isbot;
   char	bottemp[HOSTLEN + 1];
@@ -464,12 +464,14 @@ static	int	register_user(aClient *cptr,
   parv[0] = sptr->name;
   parv[1] = parv[2] = NULL;
 
+  reason = (char *)NULL;
+
   if (MyConnect(sptr))
     {
       p = inetntoa((char *)&sptr->ip);
       strncpyzt(sptr->hostip,p,HOSTIPLEN+1);
       
-      if ( (i = check_client(sptr)) )
+      if ( (i = check_client(sptr,username,&reason)) )
 	/*
 	 * -2 is a socket error, already reported.
 	 */
@@ -484,9 +486,64 @@ static	int	register_user(aClient *cptr,
 	    else if (i == -3)
 	      sendto_realops_lev(FULL_LEV, "%s for %s.",
 				 "I-line is full", get_client_host(sptr));
-            else
+            else if (i == -5)
+	      {
+		if(sptr->user)
+		  {
+		    if (sptr->flags & FLAGS_DOID &&
+			!(sptr->flags & FLAGS_GOTID))
+		      {
+			*user->username = '~';
+			(void)strncpy(&user->username[1], username, USERLEN);
+			user->username[USERLEN] = '\0';
+		      }
+		    else
+		      (void)strncpy(user->username, username, USERLEN);
+		  }
+		  
+		/* Ok... if we are using REJECT_HOLD, I'm not going to dump
+		 * the client immediately, but just mark the client for exit
+		 * at some future time, .. this marking also disables reads/
+		 * writes from the client. i.e. the client is "hanging" onto
+		 * an fd without actually being able to do anything with it
+		 * I still send the usual messages about the k line, but its
+		 * not exited immediately.
+		 * My concern would be, someone attempting to deny service
+		 * attack would load up a bunch of clients all on the same
+		 * user@host expecting to use up fd's
+		 * - Dianora
+		 */
+
+		reason = (reason) ? reason : "K-lined";
+#ifdef REJECT_HOLD
+		SetRejectHold(cptr);
+#ifdef KLINE_WITH_REASON
+		sendto_one(sptr, ":%s NOTICE %s :*** K-lined for %s",
+			   me.name,cptr->name,reason);
+#else
+		sendto_one(sptr, ":%s NOTICE %s :*** K-lined",
+			   me.name,cptr->name);
+#endif
+		return(0);
+#else
+		ircstp->is_ref++;
+
+#ifdef KLINE_WITH_REASON
+		return exit_client(cptr, sptr, &me, reason);
+#else
+		return exit_client(cptr, sptr, &me, "K-lined");
+#endif
+#endif
+#ifdef RK_NOTICES
+		if(sptr->user)
+		  sendto_realops("K-lined %s@%s. for %s",sptr->user->username,
+			       sptr->sockhost,reason);
+#endif
+	      }
+	    else
               sendto_realops_lev(CCONN_LEV, "%s from %s.",
-                "Unauthorized client connection", get_client_host(sptr));
+				 "Unauthorized client connection",
+				 get_client_host(sptr));
 #if 0
 #ifdef USE_SYSLOG
 	    syslog(LOG_INFO,"%s from %s.",i == -3 ? "Too many connections" :
@@ -498,8 +555,9 @@ static	int	register_user(aClient *cptr,
 			       "No more connections allowed in your connection class" :
 			       "You are not authorized to use this server");
 	    
-	  } else
-	    return exit_client(cptr, sptr, &me, "Socket Error");
+	  }
+	else
+	  return exit_client(cptr, sptr, &me, "Socket Error");
 
 #ifdef ANTI_SPAMBOT
       /* This appears to be broken */
@@ -631,70 +689,11 @@ static	int	register_user(aClient *cptr,
 		     me.name,parv[0]);
 	}
 
-      /*
-       * following block for the benefit of time-dependent K:-lines
-       */
-      if ( (aconf=find_kill(sptr)) )
-	{
-	  char *reason;
-
-#ifdef K_COMMENT_ONLY
-	  reason = aconf->passwd ? aconf->passwd : "K-lined";
-#else
-	  reason = (BadPtr(aconf->passwd) || !is_comment(aconf->passwd)) ?
-	    "K-lined" : aconf->passwd;
-#endif
-
-#ifdef RK_NOTICES
-	  sendto_realops("K-lined %s@%s. for %s",sptr->user->username,
-			 sptr->sockhost,reason);
-#endif
-
-	  /* Ok... if we are using REJECT_HOLD, I'm not going to dump
-	   * the client immediately, but just mark the client for exit
-	   * at some future time, .. this marking also disables reads/
-	   * writes from the client. i.e. the client is "hanging" onto an fd
-	   * without actually being able to do anything with it
-	   * I still send the usual messages about the k line, but its
-	   * not exited immediately.
-	   * My concern would be, someone attempting to deny service attack
-	   * would load up a bunch of clients all on the same user@host
-	   * expecting to use up fd's
-	   * - Dianora
-	   */
-
-#ifdef REJECT_HOLD
-	  SetRejectHold(cptr);
-#ifdef KLINE_WITH_REASON
-	  sendto_one(sptr, ":%s NOTICE %s :*** K-lined for %s",
-		     me.name,cptr->name,reason);
-#else
-	  sendto_one(sptr, ":%s NOTICE %s :*** K-lined",
-		     me.name,cptr->name);
-#endif
-	  return(0);
-#else
-	  ircstp->is_ref++;
-
-#ifdef KLINE_WITH_REASON
-	  return exit_client(cptr, sptr, &me, reason);
-#else
-	  return exit_client(cptr, sptr, &me, "K-lined");
-#endif
-#endif
-	}
-
 #ifdef GLINES
       if ( (aconf=find_gkill(sptr)) )
 	{
 	  char *reason;
-
-#ifdef K_COMMENT_ONLY
 	  reason = aconf->passwd ? aconf->passwd : "G-lined";
-#else
-	  reason = (BadPtr(aconf->passwd) || !is_comment(aconf->passwd)) ?
-	    "G-lined" : aconf->passwd;
-#endif
 
 #ifdef RK_NOTICES
 	  sendto_realops("G-lined %s@%s. for %s",sptr->user->username,
@@ -772,6 +771,20 @@ static	int	register_user(aClient *cptr,
       ircstp->is_ref++;
       return exit_client(cptr, sptr, &me,
 			 "Sorry, server is full - try later");
+    }
+
+
+      /* USER * xdfdx xdfjx :* */
+      /* anti clone.c catcher, it will have to be updated as they catch on
+      * *sigh* -Dianora
+      */
+
+  if(!strcmp(user->host,"xdfdx"))
+    {
+      sendto_realops_lev(REJ_LEV,"Rejecting clone.c Bot: %s",
+			 get_client_name(sptr,FALSE));
+      ircstp->is_ref++;
+      return exit_client(cptr, sptr, sptr, "clone.c detected, rejected.");
     }
 
 #ifdef ANTI_SPAMBOT
@@ -1088,7 +1101,7 @@ static	int	register_user(aClient *cptr,
 		  sendto_one(sptr, rpl_str(RPL_ENDOFMOTD),
 			     me.name, parv[0]);
 #else
-		  (void)send_motd(sptr, sptr, 1, parv);
+		  (void)send_motd(sptr, sptr, 1, parv,motd);
 #endif
 #ifdef LITTLE_I_LINES
 		  if(sptr->confs)
@@ -1182,7 +1195,6 @@ static	int	register_user(aClient *cptr,
 	    ubuf[1] = '\0';
 	  }
 
-#ifdef USE_LINKLIST
         /* LINKLIST */
         /* add to local client link list -Dianora */
 	/* I really want to move this add to link list
@@ -1196,7 +1208,6 @@ static	int	register_user(aClient *cptr,
 	    sptr->next_local_client = local_cptr_list;
 	    local_cptr_list = sptr;
 	  }
-#endif
  
 	sendto_serv_butone(cptr, "NICK %s %d %ld %s %s %s %s :%s",
 			   nick, sptr->hopcount+1, sptr->tsinfo, ubuf,
@@ -1806,6 +1817,7 @@ static	int	m_message(aClient *cptr,
   Reg	int	i;
   aChannel *chptr;
   char	*nick, *server, *p, *cmd, *host;
+  int type=0;
 
   cmd = notice ? MSG_NOTICE : MSG_PRIVATE;
 
@@ -1834,248 +1846,292 @@ static	int	m_message(aClient *cptr,
       parv[1] = canonize(parv[1]);
     }
 
-  for (p = NULL, nick = strtoken(&p, parv[1], ","), i = 0; nick;
-       nick = strtoken(&p, NULL, ",")) {
-    /*
-     * If someone is spamming via "/msg nick1,nick2,nick3,nick4 SPAM"
-     * (or even to channels) then subject them to flood control!
-     *	-Taner
-     */
-    if (i++ > 10)
-#ifdef NO_OPER_FLOOD
-      if (!IsAnOper(sptr))
-#endif
-	sptr->since += 4;
+  nick = strtoken(&p, parv[1], ",");
+
+  sptr->since += 4;
     
 #ifdef EXTRA_BOT_NOTICES
-    if (MyConnect(sptr)) /* don't check for remote bots */
-      {
-	/* ComBot */
-	if (strstr(nick, "blehdhfsddd"))
-	  sendto_realops_lev(REJ_LEV,
-			     "ComBot alarm activated: %s [%s@%s] : [/msg %s]",
-			     parv[0], sptr->user->username, 
-			     sptr->user->host, nick);
+  if (MyConnect(sptr)) /* don't check for remote bots */
+    {
+      /* ComBot */
+      if (strstr(nick, "blehdhfsddd"))
+	sendto_realops_lev(REJ_LEV,
+			   "ComBot alarm activated: %s [%s@%s] : [/msg %s]",
+			   parv[0], sptr->user->username, 
+			   sptr->user->host, nick);
+      
+      /* EggDrop finder by desynched */
+      if (!matches("h?4x0r?", nick))
+	sendto_realops_lev(REJ_LEV,
+			   "EggDrop alarm #2 activated: %s [%s@%s] : [/msg %s]",
+			   parv[0], sptr->user->username,
+			   sptr->user->host, nick);
 
-	/* EggDrop finder by desynched */
-	if (!matches("h?4x0r?", nick))
-	  sendto_realops_lev(REJ_LEV,
-		   "EggDrop alarm #2 activated: %s [%s@%s] : [/msg %s]",
-			     parv[0], sptr->user->username,
-			     sptr->user->host, nick);
+      /* HOFBot finder by desynched */
+      if (strstr(nick,"blahb1ah"))
+	sendto_realops_lev(REJ_LEV, "HOFBot alarm activated: %s [%s@%s] : [/msg %s]",
+			   parv[0], sptr->user->username, sptr->user->host, nick);
 
-	/* HOFBot finder by desynched */
-	if (strstr(nick,"blahb1ah"))
-	  sendto_realops_lev(REJ_LEV, "HOFBot alarm activated: %s [%s@%s] : [/msg %s]",
-			     parv[0], sptr->user->username, sptr->user->host, nick);
-
-	/* Stealth finder by desynched */
-	if (strstr(nick,"uthfgse"))
-	  sendto_realops_lev(REJ_LEV, "Stealth Eggdrop alarm activated: %s [%s@%s] : [/msg %s]",
-			     parv[0], sptr->user->username, sptr->user->host, nick);
-      }
+      /* Stealth finder by desynched */
+      if (strstr(nick,"uthfgse"))
+	sendto_realops_lev(REJ_LEV, "Stealth Eggdrop alarm activated: %s [%s@%s] : [/msg %s]",
+			   parv[0], sptr->user->username, sptr->user->host, nick);
+    }
 #endif
     
-    /*
-    ** nickname addressed?
-    */
-    if ((acptr = find_person(nick, NULL)))
-      {
+  /*
+  ** nickname addressed?
+  */
+  if ((acptr = find_person(nick, NULL)))
+    {
 #ifdef ANTI_SPAMBOT_EXTRA
-	if(MyConnect(sptr) && (acptr != sptr->last_client_messaged))
-	  {
-	    sptr->person_privmsgs++;
-	    sptr->last_client_messaged = acptr;
-	  }
+      if(MyConnect(sptr) && !IsElined(sptr) &&
+	 (acptr != sptr->last_client_messaged))
+	{
+	  sptr->person_privmsgs++;
+	  sptr->last_client_messaged = acptr;
+	}
 #endif
 #ifdef FLUD
-	if(!notice && MyFludConnect(acptr))
-	  if(check_for_ctcp(parv[2]))
-	    if(check_for_flud(sptr, acptr, NULL, 1))
-	      return 0;
+      if(!notice && MyFludConnect(acptr))
+	if(check_for_ctcp(parv[2]))
+	  if(check_for_flud(sptr, acptr, NULL, 1))
+	    return 0;
 #endif
-	if (!notice && MyConnect(sptr) &&
-	    acptr->user && acptr->user->away)
-	  sendto_one(sptr, rpl_str(RPL_AWAY), me.name,
-		     parv[0], acptr->name,
-		     acptr->user->away);
-	sendto_prefix_one(acptr, sptr, ":%s %s %s :%s",
-			  parv[0], cmd, nick, parv[2]);
+      if (!notice && MyConnect(sptr) &&
+	  acptr->user && acptr->user->away)
+	sendto_one(sptr, rpl_str(RPL_AWAY), me.name,
+		   parv[0], acptr->name,
+		   acptr->user->away);
+      sendto_prefix_one(acptr, sptr, ":%s %s %s :%s",
+			parv[0], cmd, nick, parv[2]);
 
 #ifdef	IDLE_CHECK
-	/* reset idle time for message only if its not to self */
-	if (sptr != acptr)
-	  {
-	    if(sptr->user)
-	      sptr->user->last = timeofday;
-	  }
+      /* reset idle time for message only if its not to self */
+      if (sptr != acptr)
+	{
+	  if(sptr->user)
+	    sptr->user->last = timeofday;
+	}
 #endif
 
 #ifdef        EXTRA_BOT_NOTICES
-	if (sptr == acptr)      /* msging self */
-	  {
-	    if (strstr(parv[2], "\001AWAKE\001"))
-	      sendto_realops_lev(REJ_LEV, "EggDrop alarm activated: %s [%s@%s] : [/ctcp %s AWAKE]",
-				 parv[0], acptr->user->username, acptr->user->host, parv[0]);
-	    if (strstr(parv[2], "-=Ping Check=-"))
-	      sendto_realops_lev(REJ_LEV,"JohBot alarm activated: %s [%s@%s] : [/msg %s %s]",
-				 parv[0], acptr->user->username, acptr->user->host, parv[0], parv[2]);
-	    if (strstr(parv[2], "\001PRVMSG blah\001"))
-	      sendto_realops_lev(REJ_LEV, "vlad 2.1+tb alarm activated: %s [%s@%s] : [/msg %s %s]",
-				 parv[0], acptr->user->username, acptr->user->host, parv[0], parv[2]);
-	  }
+      if (sptr == acptr)      /* msging self */
+	{
+	  if (strstr(parv[2], "\001AWAKE\001"))
+	    sendto_realops_lev(REJ_LEV, "EggDrop alarm activated: %s [%s@%s] : [/ctcp %s AWAKE]",
+			       parv[0], acptr->user->username, acptr->user->host, parv[0]);
+	  if (strstr(parv[2], "-=Ping Check=-"))
+	    sendto_realops_lev(REJ_LEV,"JohBot alarm activated: %s [%s@%s] : [/msg %s %s]",
+			       parv[0], acptr->user->username, acptr->user->host, parv[0], parv[2]);
+	  if (strstr(parv[2], "\001PRVMSG blah\001"))
+	    sendto_realops_lev(REJ_LEV, "vlad 2.1+tb alarm activated: %s [%s@%s] : [/msg %s %s]",
+			       parv[0], acptr->user->username, acptr->user->host, parv[0], parv[2]);
+	}
 #endif
 #ifdef ANTI_SPAMBOT_EXTRA
-	if( MyConnect(sptr) &&
-	    ((sptr->person_privmsgs - sptr->channel_privmsgs)
-	    > SPAMBOT_PRIVMSG_POSSIBLE_SPAMBOT_COUNT) )
-	  {
-	    sendto_realops("Possible spambot %s [%s@%s] : privmsgs to clients %d privmsgs to channels %d",
-			   sptr->name, sptr->user->username,
-			   sptr->user->host,
-			   sptr->person_privmsgs,sptr->channel_privmsgs);
-	    /* and report it if happens again */
-	    sptr->person_privmsgs = 0;
-	    sptr->channel_privmsgs = 0;
-	  }
+      if( MyConnect(sptr) &&
+	  ((sptr->person_privmsgs - sptr->channel_privmsgs)
+	   > SPAMBOT_PRIVMSG_POSSIBLE_SPAMBOT_COUNT) )
+	{
+	  sendto_realops("Possible spambot %s [%s@%s] : privmsgs to clients %d privmsgs to channels %d",
+			 sptr->name, sptr->user->username,
+			 sptr->user->host,
+			 sptr->person_privmsgs,sptr->channel_privmsgs);
+	  /* and report it if happens again */
+	  sptr->person_privmsgs = 0;
+	  sptr->channel_privmsgs = 0;
+	}
 #endif
-	continue;
-      }
+      return 0;
+    }
 #ifdef	IDLE_CHECK
-    else
-      {
-	/* reset idle time for message only if target exists */
-	if(sptr->user)
-	  sptr->user->last = timeofday;
-      }
+  else
+    {
+      /* reset idle time for message only if target exists */
+      if(sptr->user)
+	sptr->user->last = timeofday;
+      return 0;
+    }
 #endif
-    /*
-    ** channel msg?
-    */
-    if (IsPerson(sptr) && (chptr = find_channel(nick, NullChn)))
-      {
+
+  /*
+  ** channel msg?
+  */
+
+  if(*nick == '@')
+    type = MODE_CHANOP;
+  else if(*nick == '+')
+    type = MODE_CHANOP|MODE_VOICE;
+
+  if(type)
+    {
+      nick++;
+
+      if (IsPerson(sptr) && (chptr = find_channel(nick, NullChn)))
+	{
 #ifdef ANTI_SPAMBOT_EXTRA
-	if(MyConnect(sptr))
-	   sptr->channel_privmsgs++;
+	  if(MyConnect(sptr) && !IsElined(sptr))
+	    sptr->channel_privmsgs++;
 #endif
 #ifdef FLUD
-	if(!notice)
-	  if(check_for_ctcp(parv[2]))
+	  if(!notice)
+	    if(check_for_ctcp(parv[2]))
+	      check_for_flud(sptr, NULL, chptr, 1);
+#endif /* FLUD */
+
+	  if (can_send(sptr, chptr) != 0)
+	    {
+	      if (!notice)
+		{
+		  sendto_one(sptr, err_str(ERR_CANNOTSENDTOCHAN),
+			     me.name, parv[0], nick);
+		}
+	    }
+	  else
+	    sendto_channel_type(cptr, sptr, chptr, type,
+				":%s %s %s :[wallops/%s] %s",
+				parv[0], cmd, nick, nick,
+				parv[2]);
+
+#ifdef ANTI_SPAMBOT_EXTRA
+	  if( MyConnect(sptr) &&
+	      ((sptr->person_privmsgs - sptr->channel_privmsgs)
+	       > SPAMBOT_PRIVMSG_POSSIBLE_SPAMBOT_COUNT) )
+	    {
+	      sendto_realops("Possible spambot %s [%s@%s] : privmsgs to clients %d privmsgs to channels %d",
+			     sptr->name, sptr->user->username,
+			     sptr->user->host,
+			     sptr->person_privmsgs,sptr->channel_privmsgs);
+	      /* and report it if happens again */
+	      sptr->person_privmsgs = 0;
+	      sptr->channel_privmsgs = 0;
+	    }
+	}
+#endif
+      return 0;
+    }
+
+  if (IsPerson(sptr) && (chptr = find_channel(nick, NullChn)))
+    {
+#ifdef ANTI_SPAMBOT_EXTRA
+      if(MyConnect(sptr) && !IsElined(sptr))
+	sptr->channel_privmsgs++;
+#endif
+#ifdef FLUD
+      if(!notice)
+	if(check_for_ctcp(parv[2]))
 	    check_for_flud(sptr, NULL, chptr, 1);
 #endif /* FLUD */
 
-	if (can_send(sptr, chptr) == 0)
-	  sendto_channel_butone(cptr, sptr, chptr,
-				":%s %s %s :%s",
-				parv[0], cmd, nick,
-				parv[2]);
-	else if (!notice)
-	  sendto_one(sptr, err_str(ERR_CANNOTSENDTOCHAN),
-		     me.name, parv[0], nick);
+      if (can_send(sptr, chptr) == 0)
+	sendto_channel_butone(cptr, sptr, chptr,
+			      ":%s %s %s :%s",
+			      parv[0], cmd, nick,
+			      parv[2]);
+      else if (!notice)
+	sendto_one(sptr, err_str(ERR_CANNOTSENDTOCHAN),
+		   me.name, parv[0], nick);
 #ifdef ANTI_SPAMBOT_EXTRA
-	if( MyConnect(sptr) &&
-	    ((sptr->person_privmsgs - sptr->channel_privmsgs)
-	    > SPAMBOT_PRIVMSG_POSSIBLE_SPAMBOT_COUNT) )
-	  {
-	    sendto_realops("Possible spambot %s [%s@%s] : privmsgs to clients %d privmsgs to channels %d",
-			   sptr->name, sptr->user->username,
-			   sptr->user->host,
-			   sptr->person_privmsgs,sptr->channel_privmsgs);
-	    /* and report it if happens again */
-	    sptr->person_privmsgs = 0;
-	    sptr->channel_privmsgs = 0;
-	  }
+      if( MyConnect(sptr) &&
+	  ((sptr->person_privmsgs - sptr->channel_privmsgs)
+	   > SPAMBOT_PRIVMSG_POSSIBLE_SPAMBOT_COUNT) )
+	{
+	  sendto_realops("Possible spambot %s [%s@%s] : privmsgs to clients %d privmsgs to channels %d",
+			 sptr->name, sptr->user->username,
+			 sptr->user->host,
+			 sptr->person_privmsgs,sptr->channel_privmsgs);
+	  /* and report it if happens again */
+	  sptr->person_privmsgs = 0;
+	  sptr->channel_privmsgs = 0;
+	}
 #endif
-	continue;
-      }
+      return 0;
+    }
 
 	
-    /*
-    ** the following two cases allow masks in NOTICEs
-    ** (for OPERs only)
-    **
-    ** Armin, 8Jun90 (gruner@informatik.tu-muenchen.de)
-    */
-    if ((*nick == '$' || *nick == '#') && IsAnOper(sptr))
-      {
-	if (!(s = (char *)rindex(nick, '.')))
-	  {
-	    sendto_one(sptr, err_str(ERR_NOTOPLEVEL),
-		       me.name, parv[0], nick);
-	    continue;
-	  }
-	while (*++s)
-	  if (*s == '.' || *s == '*' || *s == '?')
-	    break;
-	if (*s == '*' || *s == '?')
-	  {
-	    sendto_one(sptr, err_str(ERR_WILDTOPLEVEL),
-		       me.name, parv[0], nick);
-	    continue;
-	  }
-	sendto_match_butone(IsServer(cptr) ? cptr : NULL, 
-			    sptr, nick + 1,
-			    (*nick == '#') ? MATCH_HOST :
-			    MATCH_SERVER,
-			    ":%s %s %s :%s", parv[0],
-			    cmd, nick, parv[2]);
-	continue;
-      }
+  /*
+  ** the following two cases allow masks in NOTICEs
+  ** (for OPERs only)
+  **
+  ** Armin, 8Jun90 (gruner@informatik.tu-muenchen.de)
+  */
+  if ((*nick == '$' || *nick == '#') && IsAnOper(sptr))
+    {
+      if (!(s = (char *)rindex(nick, '.')))
+	{
+	  sendto_one(sptr, err_str(ERR_NOTOPLEVEL),
+		     me.name, parv[0], nick);
+	  return 0;
+	}
+      while (*++s)
+	if (*s == '.' || *s == '*' || *s == '?')
+	  break;
+      if (*s == '*' || *s == '?')
+	{
+	  sendto_one(sptr, err_str(ERR_WILDTOPLEVEL),
+		     me.name, parv[0], nick);
+	  return 0;
+	}
+      sendto_match_butone(IsServer(cptr) ? cptr : NULL, 
+			  sptr, nick + 1,
+			  (*nick == '#') ? MATCH_HOST :
+			  MATCH_SERVER,
+			  ":%s %s %s :%s", parv[0],
+			  cmd, nick, parv[2]);
+      return 0;
+    }
 	
-    /*
-    ** user[%host]@server addressed?
-    */
-    if ((server = (char *)index(nick, '@')) &&
-	(acptr = find_server(server + 1, NULL)))
-      {
-	int count = 0;
+  /*
+  ** user[%host]@server addressed?
+  */
+  if ((server = (char *)index(nick, '@')) &&
+      (acptr = find_server(server + 1, NULL)))
+    {
+      int count = 0;
 	
-	/*
-	** Not destined for a user on me :-(
-	*/
-	if (!IsMe(acptr))
-	  {
-	    sendto_one(acptr,":%s %s %s :%s", parv[0],
-		       cmd, nick, parv[2]);
-	    continue;
-	  }
-	*server = '\0';
+      /*
+      ** Not destined for a user on me :-(
+      */
+      if (!IsMe(acptr))
+	{
+	  sendto_one(acptr,":%s %s %s :%s", parv[0],
+		     cmd, nick, parv[2]);
+	  return 0;
+	}
+      *server = '\0';
 	
-	if ((host = (char *)index(nick, '%')))
-	  *host++ = '\0';
+      if ((host = (char *)index(nick, '%')))
+	*host++ = '\0';
 
-	/*
-	** Look for users which match the destination host
-	** (no host == wildcard) and if one and one only is
-	** found connected to me, deliver message!
-	*/
-	acptr = find_userhost(nick, host, NULL, &count);
-	if (server)
-	  *server = '@';
-	if (host)
-	  *--host = '%';
-	if (acptr)
-	  {
-	    if (count == 1)
-	      sendto_prefix_one(acptr, sptr,
-				":%s %s %s :%s",
-				parv[0], cmd,
-				nick, parv[2]);
-	    else if (!notice)
-	      sendto_one(sptr,
-			 err_str(ERR_TOOMANYTARGETS),
-			 me.name, parv[0], nick);
-	  }
-	if (acptr)
-	  continue;
-      }
-    sendto_one(sptr, err_str(ERR_NOSUCHNICK), me.name,
-	       parv[0], nick);
-  }
-  if ((i > 20) && sptr->user)
-    sendto_realops_lev(SPY_LEV, "User %s (%s@%s) tried to msg %d users",
-		       sptr->name,
-		       sptr->user->username, sptr->user->host, i);
+      /*
+      ** Look for users which match the destination host
+      ** (no host == wildcard) and if one and one only is
+      ** found connected to me, deliver message!
+      */
+      acptr = find_userhost(nick, host, NULL, &count);
+      if (server)
+	*server = '@';
+      if (host)
+	*--host = '%';
+      if (acptr)
+	{
+	  if (count == 1)
+	    sendto_prefix_one(acptr, sptr,
+			      ":%s %s %s :%s",
+			      parv[0], cmd,
+			      nick, parv[2]);
+	  else if (!notice)
+	    sendto_one(sptr,
+		       err_str(ERR_TOOMANYTARGETS),
+		       me.name, parv[0], nick);
+	}
+      if (acptr)
+	  return 0;
+    }
+  sendto_one(sptr, err_str(ERR_NOSUCHNICK), me.name,
+	     parv[0], nick);
+
   return 0;
 }
 
@@ -2167,9 +2223,10 @@ int	m_who(aClient *cptr,
 
   /* Allow use of m_who without registering */
   /* Not anymore...- Comstud */
-
-  if (check_registered_user(sptr))
+  /* taken care of in parse.c now - Dianora */
+     /*  if (check_registered_user(sptr))
     return 0;
+    */
 
   /*
   **  Following code is some ugly hacking to preserve the
@@ -2726,7 +2783,7 @@ int	m_quit(aClient *cptr,
        */
       if( MyConnect(sptr))
 	{
-	  if(sptr->person_privmsgs && !sptr->channel_privmsgs)
+	  if((sptr->person_privmsgs > 4) && !sptr->channel_privmsgs)
 	    {
 	      sendto_realops("Possible spambot exiting %s [%s@%s] [%s] : privmsgs to clients %d, privmsgs to channels %d",
 			     sptr->name, sptr->user->username,
@@ -3261,16 +3318,13 @@ int	m_oper(aClient *cptr,
 	  }
       Count.oper++;
       *--s =  '@';
-      /* FDLIST */
-      addto_fdlist(sptr->fd, &oper_fdlist);
       SetElined(cptr);
       
-#ifdef USE_LINKLIST
       /* LINKLIST */  
       /* add to oper link list -Dianora */
       cptr->next_oper_client = oper_cptr_list;
       oper_cptr_list = cptr;
-#endif
+
       if(cptr->confs)
 	{
 	  aConfItem *aconf;
@@ -3707,12 +3761,8 @@ int	m_umode(aClient *cptr,
 
       if (MyConnect(sptr))
         {
-#ifdef USE_LINKLIST
           aClient *prev_cptr = (aClient *)NULL;
           aClient *cur_cptr = oper_cptr_list;
-#endif
-	  delfrom_fdlist(sptr->fd, &oper_fdlist);
-
 
 	  sptr->flags2 &= ~(FLAGS2_OPER_GLOBAL_KILL|
 			    FLAGS2_OPER_REMOTE|
@@ -3720,7 +3770,6 @@ int	m_umode(aClient *cptr,
 			    FLAGS2_OPER_GLINE|
 			    FLAGS2_OPER_N|
 			    FLAGS2_OPER_K);
-#ifdef USE_LINKLIST         
           while(cur_cptr)
             {
               if(sptr == cur_cptr) 
@@ -3736,7 +3785,6 @@ int	m_umode(aClient *cptr,
 		prev_cptr = cur_cptr;
               cur_cptr = cur_cptr->next_oper_client;
             }
-#endif
         }
     }
 
@@ -3821,11 +3869,9 @@ void	send_umode_out(aClient *cptr,
 {
   Reg    int     i, j;
   Reg    aClient *acptr;
-  fdlist fdl = serv_fdlist;
 
   send_umode(NULL, sptr, old, SEND_UMODES, buf);
 
-#ifdef USE_LINKLIST
   for(acptr = serv_cptr_list; acptr; acptr = acptr->next_server_client)
     {
       if((acptr != cptr) && (acptr != sptr) && (*buf))
@@ -3834,19 +3880,7 @@ void	send_umode_out(aClient *cptr,
 		   sptr->name, sptr->name, buf);
 	}
     }
-#else
-  /*
-   * Cycling through serv_fdlist here should be MUCH faster than
-   * looping through every client looking for servers. -ThemBones
-   */
 
-  for (i = fdl.entry[j=1]; j <= fdl.last_entry; i = fdl.entry[++j])
-    if ((acptr = local[i]) && (acptr != cptr) &&
-	(acptr != sptr) && (*buf) )
-      sendto_one(acptr, ":%s MODE %s :%s",
-		 sptr->name, sptr->name, buf);
-#endif
-  
   if (cptr && MyClient(cptr))
     send_umode(cptr, sptr, old, ALL_UMODES, buf);
 }
@@ -3906,6 +3940,7 @@ botwarn(char *host,
     sendto_realops_lev(CCONN_LEV,"Possible AnnoyBot: %s (%s@%s) [B-lined]",
 		       nick, user, realhost);
 #endif
+
   return 0;
 }
 

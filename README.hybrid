@@ -1,4 +1,6 @@
-+hybrid-5.4 (7/16/98)
++hybrid-5.4 (9/14/98)
+- added kline matching on ip (CIDR) you can now kline
+  user@ip.ip.ip.ip/mask (Dianora)
 - added ANTI_SPAMBOT_EXTRA (read config.h) added heuristics to catch
   spambots (Dianora)
 - added ANTI_SPAM_EXIT_MESSAGE no quit message from client, if client
@@ -6,12 +8,14 @@
 - unkline will unkline temporary klines now as well (Dianora)
 - added oper priv field in normally unused port field of O line
   possible flags "ORUGT"
+  K enables, k disables, local kill and kline 
   O enables, o disables, global kill,
   R enables, r disables, remote operator commands, squit/connect
   U enables, u disables, unkline
   G enables, g disables, gline
   N enables, n disables, the use of umode +n
-  defaults for global O if no flags is ORUG, for local o, U (Dianora)
+  defaults for global O if no flags is OKRUG, for local o, KU
+  with K flags not being shown normally, only k flag (Dianora)
 - E lines replaced by ^ in front of username in I line
 - F lines replaced by > in front of username in I line
 - B lines replaced by & in front of username in I line
@@ -33,6 +37,10 @@
 - fixed REJECT_HOLD code, fripping backwards if (Dianora)
 - added +-! special I line prefix character ($ is not applicable to hybrid)
   (comstud/Dianora)
+- ripped out dich_conf replaced with mtrie_conf (Dianora)
+- added /quote set autoconn ALL 0/1 enable/disable autoconns
+- added /quote set autoconn servername 0/1 enable/disable this server
+  or /quote set autoconn ALL 0/1 enable/disable all autoconns (Dianora)
 
 +hybrid-5.3 (6/13/98)
 added NO_CHANOPS_WHEN_SPLIT code back in (Rodder/Dianora)

@@ -31,35 +31,18 @@ extern int	R_do_dns, R_fin_dns, R_fin_dnsc, R_fail_dns,
 		R_do_id, R_fin_id, R_fail_id;
 
 
-extern aMotd	*motd;
+extern aMessageFile	*motd;
+#ifdef AMOTD
+extern aMessageFile	*amotd;
+#endif
 extern struct tm	*motd_tm;
 
-extern aMotd	*helpfile;	/* oper helpfile is a link list of aMotd */
 
-#include "dich_conf.h"
+extern aMessageFile	*helpfile;
 
-extern aConfList	KList1;	/* ordered */
-extern aConfList	KList2;	/* ordered, reversed */
-extern aConfList	KList3;	/* what we can't sort */
+#include "mtrie_conf.h"
 
-extern aConfList	BList1;
-extern aConfList	BList2;
-extern aConfList	BList3;
-
-extern aConfList	EList1;
-extern aConfList	EList2;
-extern aConfList	EList3;
-
-extern aConfList	FList1;
-extern aConfList	FList2;
-extern aConfList	FList3;
-
-#include "fdlist.h"
 extern int lifesux;
-extern fdlist serv_fdlist;
-extern fdlist busycli_fdlist;
-extern fdlist default_fdlist;
-extern fdlist oper_fdlist;
 extern	int	MAXCLIENTS;
 extern	struct	Counter	Count;
 
@@ -71,7 +54,6 @@ extern	struct	stats	*ircstp;
 extern	int	bootopt;
 
 extern	char	*canonize (char *);
-extern  time_t  check_fdlists (time_t);
 extern	aChannel *find_channel (char *, aChannel *);
 extern	void	remove_user_from_channel (aClient *, aChannel *);
 extern	void	del_invite (aClient *, aChannel *);
@@ -92,7 +74,8 @@ extern	aClient	*find_userhost (char *, char *, aClient *, int *);
 extern	int	attach_conf (aClient *, aConfItem *);
 extern	aConfItem *attach_confs (aClient*, char *, int);
 extern	aConfItem *attach_confs_host (aClient*, char *, int);
-extern	int	  attach_Iline (aClient *, struct hostent *, char *);
+extern	int	  attach_Iline (aClient *, struct hostent *,char *,
+				char *,char **);
 extern	aConfItem *conf, *find_me (void);
 extern  aConfItem *find_admin (void);
 extern	aConfItem *count_cnlines (Link *);
@@ -106,26 +89,21 @@ extern	aConfItem *find_conf_ip (Link *, char *, char *, int);
 extern	aConfItem *find_conf_name (char *, int);
 extern	aConfItem *find_kill (aClient *);
 
-extern  void 	report_matching_host_klines(aClient *,char *);
-			/* report_matching_host_klines defined in s_conf.c */
-
 #ifdef  GLINES
 extern  aConfItem *find_gkill (aClient *);
 extern  aConfItem *find_is_glined(char *,char *);
 #endif
-extern  aConfItem *find_is_klined(char *,char *);
+extern  aConfItem *find_is_klined(char *,char *,unsigned long);
 
 /* hash d lines */
 extern void clear_dline_hash_table();	/* called at startup by ircd.c */
-extern void add_to_dline_hash(unsigned long,unsigned long,char *,char *);
-extern aConfItem *find_host_in_dline_hash(unsigned long);
+extern void add_to_dline_hash(aConfItem *);
+extern aConfItem *find_host_in_dline_hash(unsigned long,int);
+extern aConfItem *find_user_host_in_dline_hash(unsigned long,char *,int);
 unsigned long host_name_to_ip(char *, unsigned long *);
 extern aConfItem *find_dkill(aClient *cptr);
 extern void report_dline_hash(aClient *,int);
 extern void dhash_stats(aClient *,aClient *,int,char **,int);
-
-/* iphash */
-extern void iphash_stats(aClient *,aClient *,int,char **,int);
 
 extern  void	add_temp_kline(aConfItem *);
 extern  void	flush_temp_klines(void);
@@ -174,7 +152,7 @@ extern	int	readcalls, udpfd, resfd;
 extern	aClient	*add_connection (aClient *, int);
 extern	int	add_listener (aConfItem *);
 extern	void	add_local_domain (char *, int);
-extern	int	check_client (aClient *);
+extern	int	check_client (aClient *,char *,char **);
 extern	int	check_server (aClient *, struct hostent *,
 				    aConfItem *, aConfItem *, int);
 extern	int	check_server_init (aClient *);
@@ -185,7 +163,7 @@ extern	void	get_my_name (aClient *, char *, int);
 extern	int	get_sockerr (aClient *);
 extern	int	inetport (aClient *, char *, int, u_long);
 extern	void	init_sys ();
-extern	int	read_message (time_t, fdlist *);
+extern	int	read_message (time_t);
 extern	void	report_error (char *, aClient *);
 extern	void	set_non_blocking (int, aClient *);
 extern	int	setup_ping (void);
@@ -205,7 +183,6 @@ extern	void	server_reboot (void);
 extern	void	terminate (void), write_pidfile (void);
 
 extern	int	send_queued (aClient *);
-extern  int     send_motd(aClient *,aClient *,int,char **);
 extern  int     place_dline(aClient *,char *,char*, char*);
 
 /* Missing definitions */
@@ -224,6 +201,8 @@ extern	char    *collapse(char *);		/* match.c */
 extern	void	sendto_one();
 /*VARARGS4*/
 extern	void	sendto_channel_butone();
+/*VARARGS5*/
+extern	void	sendto_channel_type();
 /*VARARGS2*/
 extern	void	sendto_serv_butone();
 
@@ -339,12 +318,15 @@ extern	void	count_memory (aClient *, char *);
 #endif
 
 /* iphash code */
+extern void iphash_stats(aClient *,aClient *,int,char **,int);
+extern void clear_ip_hash_table(void);
+
 #ifdef LIMIT_UH
 void remove_one_ip(aClient *);
 #else
 void remove_one_ip(unsigned long);
 #endif
-void clear_ip_hash_table(void);
+
 
 #ifdef FLUD
 int	check_for_ctcp();

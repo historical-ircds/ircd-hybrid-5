@@ -32,15 +32,11 @@ static char *rcs_version = "$Id$";
 #include <stdio.h>
 #include "numeric.h"
 
-/* FDLIST */
-void sendto_fdlist();
 
-#ifdef USE_LINKLIST
 /* LINKLIST */
 extern aClient *local_cptr_list;
 extern aClient *oper_cptr_list;
 extern aClient *serv_cptr_list;
-#endif
 
 #define	NEWLINE	"\n"
 
@@ -332,8 +328,6 @@ va_dcl
 # ifdef	USE_VARARGS
   va_start(vl);
 # endif
-/*	for (i = 0; i < MAXCONNECTIONS; i++)
-		sentalong[i] = 0;*/
 
   bzero((char *)sentalong,sizeof(sentalong));
   for (lp = chptr->members; lp; lp = lp->next)
@@ -341,6 +335,75 @@ va_dcl
       acptr = lp->value.cptr;
       if (acptr->from == one)
 	continue;	/* ...was the one I should skip */
+      i = acptr->from->fd;
+      if (MyConnect(acptr) && IsRegisteredUser(acptr))
+	{
+# ifdef	USE_VARARGS
+	  sendto_prefix_one(acptr, from, pattern, vl);
+# else
+	  sendto_prefix_one(acptr, from, pattern, p1, p2,
+			    p3, p4, p5, p6, p7, p8);
+# endif
+	  sentalong[i] = 1;
+	}
+      else
+	{
+	  /* Now check whether a message has been sent to this
+	   * remote link already */
+	  if (sentalong[i] == 0)
+	    {
+# ifdef	USE_VARARGS
+	      sendto_prefix_one(acptr, from, pattern, vl);
+# else
+	      sendto_prefix_one(acptr, from, pattern,
+				p1, p2, p3, p4,
+				p5, p6, p7, p8);
+# endif
+	      sentalong[i] = 1;
+	    }
+	}
+    }
+# ifdef	USE_VARARGS
+  va_end(vl);
+# endif
+  return;
+}
+
+# ifndef	USE_VARARGS
+/*VARARGS*/
+void	sendto_channel_type(one, from, chptr, type,  pattern,
+			      p1, p2, p3, p4, p5, p6, p7, p8)
+aClient *one, *from;
+aChannel *chptr;
+int type;
+char	*pattern, *p1, *p2, *p3, *p4, *p5, *p6, *p7, *p8;
+{
+# else
+void	sendto_channel_type(one, from, chptr, type, pattern, va_alist)
+aClient	*one, *from;
+int type;
+aChannel *chptr;
+char	*pattern;
+va_dcl
+{
+  va_list	vl;
+# endif
+  register	Link	*lp;
+  register	aClient *acptr;
+  register	int	i;
+  
+# ifdef	USE_VARARGS
+  va_start(vl);
+# endif
+
+  bzero((char *)sentalong,sizeof(sentalong));
+  for (lp = chptr->members; lp; lp = lp->next)
+    {
+      if (!(lp->flags & type))
+	continue;
+
+      acptr = lp->value.cptr;
+
       i = acptr->from->fd;
       if (MyConnect(acptr) && IsRegisteredUser(acptr))
 	{
@@ -396,16 +459,11 @@ va_dcl
 # endif
   register	int	i;
   register	aClient *cptr;
-#ifndef USE_LINKLIST
-  register int j,k=0;
-  fdlist send_fdlist;
-#endif
 
 # ifdef	USE_VARARGS
   va_start(vl);
 # endif
 
-#ifdef USE_LINKLIST
   /* LINKLIST */
 
   for(cptr = serv_cptr_list; cptr; cptr = cptr->next_server_client)
@@ -414,28 +472,6 @@ va_dcl
 	continue;
       sendto_one(cptr, pattern, p1, p2, p3, p4, p5, p6, p7, p8);
     }
-#else
-
-  for (i=serv_fdlist.entry[j=1] ;
-       j<=serv_fdlist.last_entry ; i=serv_fdlist.entry[++j])
-    {
-      if (!(cptr = local[i]) || (one && cptr == one->from))
-	continue;
-      /*if (IsServer(cptr))*/
-# ifdef	USE_VARARGS
-      sendto_one(cptr, pattern, vl);
-    }
-  va_end(vl);
-# else
-  /*			sendto_one(cptr, pattern, p1, p2, p3, p4,
-				   p5, p6, p7, p8);*/
-      send_fdlist.entry[++k] = i;
-    }
-  send_fdlist.last_entry = k;
-  if (k) sendto_fdlist(&send_fdlist,pattern,p1,p2,p3,p4,p5,p6,p7,p8);
-# endif /* USE_VARARGS */
-#endif /* USE_LINKLIST */
-
   return;
 }
 
@@ -632,10 +668,6 @@ va_dcl
 {
   va_list	vl;
 #endif
-#ifndef USE_LINKLIST
-  register int i,j,k=0;
-  fdlist send_fdlist;
-#endif
   register aClient	*cptr;
 
 #ifdef	USE_VARARGS
@@ -648,34 +680,12 @@ va_dcl
 	return;
     }
 
-#ifdef USE_LINKLIST
   for(cptr = serv_cptr_list; cptr; cptr = cptr->next_server_client)
     {
       if (cptr == from)
         continue;
       sendto_one(cptr, format, p1, p2, p3, p4, p5, p6, p7, p8, p9);
     }
-#else
-  /*for (i = 0; i <= highest_fd; i++)*/
-  for (i=serv_fdlist.entry[j=1] ; j<=serv_fdlist.last_entry ; i=serv_fdlist.entry[++j])
-    {
-      if (!(cptr = local[i]))
-        continue;
-      if (cptr == from)
-        continue;
-
-#ifdef	USE_VARARGS
-      sendto_one(cptr, format, vl);
-    }
-  va_end(vl);
-#else
-/*		sendto_one(cptr, format, p1, p2, p3, p4, p5, p6, p7, p8, p9);*/
-    send_fdlist.entry[++k] = i;
-  }
-    send_fdlist.last_entry=k;
-    if (k) sendto_fdlist(&send_fdlist,format,p1,p2,p3,p4,p5,p6,p7,p8,p9);
-#endif /* USE_VARARGS */
-#endif /* USE_LINKLIST */
   return;
 }
 
@@ -709,8 +719,6 @@ va_dcl
   va_start(vl);
 #endif
 
-#ifdef USE_LINKLIST
-
   /* scan the local clients */
   for(cptr = local_cptr_list; cptr; cptr = cptr->next_local_client)
     {
@@ -718,8 +726,13 @@ va_dcl
 	continue;
       if (match_it(cptr, mask, what))
 	{
+#ifdef	USE_VARARGS
+	  sendto_prefix_one(cptr, from, pattern, vl);
+	  va_end(vl);
+#else
 	  sendto_prefix_one(cptr, from, pattern,
 			    p1, p2, p3, p4, p5, p6, p7, p8);
+#endif
 	}
     }
 
@@ -728,60 +741,34 @@ va_dcl
     {
       if (cptr == one)	/* must skip the origin !! */
 	continue;
-      if (match_it(cptr, mask, what))
-	{
-	  for (acptr = client; acptr; acptr = acptr->next)
-	    if (IsRegisteredUser(acptr)
-		&& match_it(acptr, mask, what)
-		&& acptr->from == cptr)
-	      break;
-	  /* a person on that server matches the mask, so we
-	  ** send *one* msg to that server ...
-	  */
-	  if (acptr == NULL)
-	    continue;
-	  /* ... but only if there *IS* a matching person */
-	  sendto_prefix_one(cptr, from, pattern,
-			    p1, p2, p3, p4, p5, p6, p7, p8);
-	}
-    }
-  return;
-#else
-  for (i = 0; i <= highest_fd; i++)
-    {
-      if (!(cptr = local[i]))
-	continue;       /* that clients are not mine */
-      if (cptr == one)	/* must skip the origin !! */
-	continue;
-      if (IsServer(cptr))
-	{
-	  for (acptr = client; acptr; acptr = acptr->next)
-	    if (IsRegisteredUser(acptr)
-		&& match_it(acptr, mask, what)
-		&& acptr->from == cptr)
-	      break;
-	  /* a person on that server matches the mask, so we
-	  ** send *one* msg to that server ...
-	  */
-	  if (acptr == NULL)
-	    continue;
-	  /* ... but only if there *IS* a matching person */
-	}
-      /* my client, does he match ? */
-      else if (!(IsRegisteredUser(cptr) &&
-		 match_it(cptr, mask, what)))
-	continue;
+      /*
+       * scan all clients, if there is at least one client that
+       * matches the mask, and is on this server, send
+       * *one* message to the server, and let that server deal
+       * with sending it to all the clients that match on that server.
+       */
+
+      for (acptr = client; acptr; acptr = acptr->next)
+	if (IsRegisteredUser(acptr)
+	    && match_it(acptr, mask, what)
+	    && acptr->from == cptr)
+	  {
+
+	    /* a person on that server matches the mask, so we
+	    ** send *one* msg to that server ...
+	    */
+
 #ifdef	USE_VARARGS
-      sendto_prefix_one(cptr, from, pattern, vl);
-    }
-  va_end(vl);
+	    sendto_prefix_one(cptr, from, pattern, vl);
+	    va_end(vl);
 #else
-      sendto_prefix_one(cptr, from, pattern,
-		    p1, p2, p3, p4, p5, p6, p7, p8);
+	    sendto_prefix_one(cptr, from, pattern,
+			      p1, p2, p3, p4, p5, p6, p7, p8);
+	    break;
+	  }
+#endif
     }
-#endif /* USE_VARARGS */
   return;
-#endif /* USE_LINKLIST */
 }
 
 /*
@@ -807,29 +794,21 @@ va_dcl
   register	int	i;
   register	aClient *cptr;
 
-#ifdef	USE_VARARGS
-  for (va_start(vl), i = 0; i <= highest_fd; i++)
-    if ((cptr = local[i]) && !IsMe(cptr) && one != cptr)
-      sendto_prefix_one(cptr, from, pattern, vl);
-  va_end(vl);
-#else
-#ifdef USE_LINKLIST
+#ifdef USE_VARARGS
+  va_start(vl);
+#endif
+
   for (cptr = local_cptr_list; cptr; cptr = cptr->next_local_client)
     {
       if (!IsMe(cptr) && one != cptr)
+#ifdef USE_VARARGS
+      sendto_prefix_one(cptr, from, pattern, vl);
+      va_end(vl);
+#else
       sendto_prefix_one(cptr, from, pattern,
 			p1, p2, p3, p4, p5, p6, p7, p8);
+#endif
     }
-#else /* USE_LINKLIST */
-  for (i = 0; i <= highest_fd; i++)
-    {
-      if ((cptr = local[i]) && !IsMe(cptr) && one != cptr)
-
-      sendto_prefix_one(cptr, from, pattern,
-			p1, p2, p3, p4, p5, p6, p7, p8);
-    }
-#endif /* USE_LINKLIST */
-#endif /* USE_VARARGS */
   return;
 }
 
@@ -857,20 +836,13 @@ va_dcl
   va_list vl;
 #endif
   register    aClient *cptr;
-#ifndef USE_LINKLIST
-  register    int     i;
-#endif
   char   nbuf[1024];
 
 #ifdef        USE_VARARGS
   va_start(vl);
 #endif
-#ifdef USE_LINKLIST
+
   for(cptr = local_cptr_list; cptr; cptr = cptr->next_local_client)
-#else
-  for (i = 0; i <= highest_fd; i++)
-    if ((cptr = local[i]) && !IsServer(cptr) && !IsMe(cptr))
-#endif
       {
 	switch (lev)
 	  {
@@ -937,22 +909,14 @@ va_dcl
   va_list	vl;
 #endif
   register	aClient *cptr;
-#ifndef USE_LINKLIST
-  register	int	i;
-#endif
   char	nbuf[1024];
 
 #ifdef	USE_VARARGS
   va_start(vl);
 #endif
-#ifdef USE_LINKLIST
+
   for(cptr = local_cptr_list; cptr; cptr = cptr->next_local_client)
     if(SendServNotice(cptr))
-#else
-  for (i = 0; i <= highest_fd; i++)
-    if ((cptr = local[i]) && !IsServer(cptr) && !IsMe(cptr) &&
-	SendServNotice(cptr))
-#endif
       {
 	(void)ircsprintf(nbuf, ":%s NOTICE %s :*** Notice -- ",
 			 me.name, cptr->name);
@@ -1110,20 +1074,11 @@ void    send_operwall(aClient *from, char *type_message,char *message)
       (void)strcat(sender, "@");
       (void)strcat(sender, from->sockhost);
     }
-#ifdef USE_LINKLIST
+
   for(acptr = oper_cptr_list; acptr; acptr = acptr->next_oper_client)
     {
       if (!SendOperwall(acptr))
 	continue; /* has to be oper if in this linklist */
-#else
-  for (i=oper_fdlist.entry[j=1];j<=oper_fdlist.last_entry;
-       i=oper_fdlist.entry[++j])
-    {
-      if (!(acptr=local[i]))
-	continue;
-      if (!IsAnOper(acptr) || !SendOperwall(acptr))
-	continue; /* should be oper, might as well check */
-#endif
       sendto_one(acptr, ":%s WALLOPS :%s - %s", sender, type_message, message);
     }
 }
@@ -1163,8 +1118,6 @@ va_dcl
 #else
   par = p1;
 #endif
-  /* DEBUG */
-Debug((DEBUG_DEBUG,"sendto_prefix_one to %x from %x",to,from));
 
 /* Optimize by checking if (from && to) before everything */
   if (to && from)
@@ -1260,96 +1213,98 @@ register char f;
   /* just scan the format string and puke out whatever is necessary
      along the way... */
 
-  while ( (f = *(fp++)) ) {
-
-    if (f!= '%') *(wp++) = f;
-    else
-      switch (*(fp++)) {
-      case 's': /* put the most common case at the top */
-	if(rp)
+  while ( (f = *(fp++)) )
+    {
+      if (f!= '%') *(wp++) = f;
+      else
+	switch (*(fp++))
 	  {
-	    while(*rp)
-	      *wp++ = *rp++;
-	    *wp = '\0';
+	  case 's': /* put the most common case at the top */
+	    if(rp)
+	      {
+		while(*rp)
+		  *wp++ = *rp++;
+		*wp = '\0';
+	      }
+	    else
+	      {
+		*wp++ = '{'; *wp++ = 'n'; *wp++ = 'u'; *wp++ = 'l';
+		*wp++ = 'l'; *wp++ = '}'; *wp++ = '\0';
+	      }
+	    rp = inp[++i];                  /* get the next parameter */
+	    break;
+	  case 'd':
+	    {
+	      register int myint,quotient;
+	      myint = (int)rp;
+	      if (myint > 999 || myint < 0)
+		{
+		  /* don't call ircsprintf here... that's stupid.. */
+		  (void)sprintf(outp,formp,in0p,in1p,in2p,in3p,
+				in4p,in5p,in6p,in7p,in8p,
+				in9p,in10p,in11p);
+		  /* *blink */
+		  strcat(outp,NEWLINE);
+		  outp[511] = '\n'; outp[512]= '\0';
+		  return strlen(outp);
+		}
+	      /* leading 0's are suppressed unlike ircsprintf() - Dianora */
+	      if( (quotient=myint/100) )
+		{
+		  *(wp++) = (char) (quotient + (int) '0');
+		  myint %=100;
+		  *(wp++) = (char) (myint/10 + (int) '0');
+		}
+	      else
+		{
+		  myint %=100;
+		  if( (quotient = myint/10) )
+		    *(wp++) = (char) (quotient + (int)'0');
+		}
+	      myint %=10;
+	      *(wp++) = (char) ((myint) + (int) '0');
+	      
+	      rp = inp[++i];
+	    }
+	  break;
+	  case 'u':
+	    {
+	      register unsigned int myuint;
+	      myuint = (unsigned int)rp;
+
+	      if (myuint < 100 || myuint > 999)
+		{
+		  (void)sprintf(outp,formp,in0p,in1p,in2p,in3p,
+				in4p,in5p,in6p,in7p,in8p,
+				in9p,in10p,in11p);
+		  strcat(outp,NEWLINE);
+		  outp[511] = '\n'; outp[512]= '\0';
+		  return strlen(outp);
+		}
+
+	      *(wp++) = (char) ((myuint / 100) + (unsigned int) '0');
+	      myuint %=100;
+	      *(wp++) = (char) ((myuint / 10) + (unsigned int) '0');
+	      myuint %=10;
+	      *(wp++) = (char) ((myuint) + (unsigned int) '0');
+	      rp = inp[++i];
+	    }
+	  break;
+	  case '%':
+	    *(wp++) = '%';
+	    break;
+	  default:
+	    /* oh shit */
+	    /* don't call ircsprintf here... that's stupid.. */
+	    (void)sprintf(outp,formp,in0p,in1p,in2p,in3p,
+			  in4p,in5p,in6p,in7p,in8p,
+			  in9p,in10p,in11p);
+	    strcat(outp,NEWLINE);
+	    outp[511] = '\n'; outp[512]= '\0';
+	    return strlen(outp);
+	    break;
 	  }
-	else
-	  {
-            *wp++ = '{'; *wp++ = 'n'; *wp++ = 'u'; *wp++ = 'l';
-            *wp++ = 'l'; *wp++ = '}'; *wp++ = '\0';
-	  }
-       rp = inp[++i];                  /* get the next parameter */
-       break;
-      case 'd':
-       {
-         register int myint,quotient;
-         myint = (int)rp;
-         if (myint > 999 || myint < 0)
-	   {
-	     /* don't call ircsprintf here... that's stupid.. */
-	     (void)sprintf(outp,formp,in0p,in1p,in2p,in3p,
-			   in4p,in5p,in6p,in7p,in8p,			   
-			   in9p,in10p,in11p);
-	     strcat(outp,NEWLINE);
-	     outp[511] = '\n'; outp[512]= '\0';
-	     return strlen(outp);
-	   }
-	 /* leading 0's are suppressed unlike ircsprintf() - Dianora */
-         if( (quotient=myint/100) )
-	   {
-	     *(wp++) = (char) (quotient + (int) '0');
-	     myint %=100;
-	     *(wp++) = (char) (myint/10 + (int) '0');
-	   }
-         else
-	   {
-	     myint %=100;
-	     if( (quotient = myint/10) )
-	       *(wp++) = (char) (quotient + (int)'0');
-	   }
-         myint %=10;
-         *(wp++) = (char) ((myint) + (int) '0');
-
-         rp = inp[++i];
-       }
-       break;
-      case 'u':
-       {
-         register unsigned int myuint;
-         myuint = (unsigned int)rp;
-
-         if (myuint < 100 || myuint > 999)
-	   {
-	     (void)sprintf(outp,formp,in0p,in1p,in2p,in3p,
-			   in4p,in5p,in6p,in7p,in8p,
-			   in9p,in10p,in11p);
-	     strcat(outp,NEWLINE);
-	     outp[511] = '\n'; outp[512]= '\0';
-	     return strlen(outp);
-	   }
-
-         *(wp++) = (char) ((myuint / 100) + (unsigned int) '0');
-         myuint %=100;
-         *(wp++) = (char) ((myuint / 10) + (unsigned int) '0');
-         myuint %=10;
-         *(wp++) = (char) ((myuint) + (unsigned int) '0');
-         rp = inp[++i];
-       }
-       break;
-      case '%':
-       *(wp++) = '%';
-       break;
-      default:
-	/* oh shit */
-	/* don't call ircsprintf here... that's stupid.. */
-	(void)sprintf(outp,formp,in0p,in1p,in2p,in3p,
-		in4p,in5p,in6p,in7p,in8p,
-		in9p,in10p,in11p);
-	strcat(outp,NEWLINE);
-	outp[511] = '\n'; outp[512]= '\0';
-	return strlen(outp);
-       break;
-      }
-  }
+    }
   *(wp++) = '\n';
   *wp = '\0'; /* leaves wp pointing to the terminating NULL in the string */
   {
@@ -1357,25 +1312,8 @@ register char f;
     if ((len = wp-outp) >= 511) len = 512;
     outp[511] = '\n'; outp[512] = '\0';
     return len;
-
   }
 }
-
-#ifndef USE_LINKLIST
-void sendto_fdlist(listp,formp,p1,p2,p3,p4,p5,p6,p7,p8,p9)
-     fdlist  *listp;
-     char    *formp;
-     char *p1,*p2,*p3,*p4,*p5,*p6,*p7,*p8,*p9;
-{
-  register int len,j,fd;
-  len = format(sendbuf,formp,p1,p2,p3,p4,p5,p6,p7,p8,p9,
-	(char *)NULL,(char *)NULL,(char *)NULL);
-
-
-  for(fd=listp->entry[j=1]; j<= listp->last_entry ; fd=listp->entry[++j])
-    send_message(local[fd],sendbuf,len);
- }
-#endif
 
  /*
   * sendto_realops
@@ -1396,24 +1334,13 @@ va_dcl
   register aClient	*cptr;
   register int		i;
   char		nbuf[1024];
-#ifndef USE_LINKLIST
-  fdlist	*l;
-  int		fd;
-#endif
 
 #ifdef        USE_VARARGS
   va_start(vl);
 #endif
-#ifdef USE_LINKLIST
+
   for(cptr = oper_cptr_list; cptr; cptr = cptr->next_oper_client)
     {
-#else
-  l = &oper_fdlist;
-  for (fd = l->entry[i=1]; i <= l->last_entry; fd = l->entry[++i])
-    {
-      if (!(cptr = local[fd]))
-	continue;
-#endif
       if (SendServNotice(cptr))
 	{
 	  (void)ircsprintf(nbuf, ":%s NOTICE %s :*** Notice -- ",
@@ -1432,8 +1359,6 @@ va_dcl
 #endif
   return;
 }
-
-
 
  /*
   * sendto_realops_lev
@@ -1456,24 +1381,13 @@ va_dcl
   register aClient	*cptr;
   char		nbuf[1024];
   register int		i;
-#ifndef USE_LINKLIST
-  fdlist		*l;
-  int		fd;
-#endif
 
 #ifdef        USE_VARARGS
   va_start(vl);
 #endif
-#ifdef USE_LINKLIST
+
   for(cptr = oper_cptr_list; cptr; cptr = cptr->next_oper_client)
     {
-#else
-  l = &oper_fdlist;
-  for (fd = l->entry[i=1]; i <= l->last_entry; fd = l->entry[++i])
-    {
-      if (!(cptr = local[fd]))
-	continue;
-#endif
       switch (lev)
 	{
 	case CCONN_LEV:
@@ -1578,19 +1492,3 @@ va_dcl
         return;
 }
  
-
-/*
- ** flush_fdlist_connections
- */
-
-void    flush_fdlist_connections(listp)
-fdlist  *listp;
-{ 
-  register    int     i, fd;
-  register    aClient *cptr;
-
-  for (fd=listp->entry[i=1]; i<=listp->last_entry;
-       fd=listp->entry[++i])
-    if ((cptr = local[fd]) && DBufLength(&cptr->sendQ) > 0)
-      (void)send_queued(cptr);
-}

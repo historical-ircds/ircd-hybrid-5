@@ -71,7 +71,6 @@ void	free();
 #include MALLOCH
 #endif
 #endif
-extern	void	flush_fdlist_connections();
 extern	int	matches (char *, char *);
 extern	int	mycmp (char *, char *);
 extern	int	myncmp (char *, char *, int);

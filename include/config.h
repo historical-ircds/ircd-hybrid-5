@@ -24,11 +24,31 @@
 
 #include "setup.h"
 
+/* PLEASE READ SECTION:
+ *
+ * I have commented out WHOIS_NOTICE and STATS_NOTICE
+ * Personally, I feel opers do not need to know the information
+ * returned by having those two defines defined, it is an invasion
+ * of privacy. The original need/use of showing STATS_NOTICE
+ * it seems to me, was to find stats flooders. They no longer
+ * can do much damage with stats flooding, so why show it?
+ * whois notice is just an invasion of privacy. Who cares?
+ * I personally hope you agree with me, and leave these undef'ed
+ * but at least you have been warned.
+ *
+ * I have also #undef'd LOCAL_KILL_ONLY, as you can now limit
+ * the ability of an oper to do global kills using oper flags in
+ * ircd.conf. Until client id code is introduced, global kill is still
+ * necessary to get rid of a ghost.
+ *
+ * -Dianora
+ */
+
 /***************** MAKE SURE THIS IS CORRECT!!!!!!!!! **************/
 /* ONLY EDIT "HARD_FDLIMIT_" and "INIT_MAXCLIENTS" */
 
-#define HARD_FDLIMIT_   1024
-#define INIT_MAXCLIENTS 800
+#define HARD_FDLIMIT_   512
+#define INIT_MAXCLIENTS 400
 
 /*
  * This is how many 'buffer connections' we allow... 
@@ -72,6 +92,8 @@
  * SPATH = server executable,
  * CPATH = conf file,
  * MPATH = MOTD
+ * APATH = alternate MOTD for multi-lingual servers
+ * i.e. /motd A for second motd
  * KPATH = kline conf file 
  * 
  * For /restart to work, SPATH needs to be a full pathname
@@ -82,11 +104,12 @@
  * -Dianora
  */
 
-#define DPATH   "/usr/local/ircd/"
-#define SPATH   "/usr/local/ircd/ircd"
+#define DPATH   "./"
+#define SPATH   "./ircd"
 #define	CPATH	"ircd.conf"
 #define KPATH   "kline.conf"
 #define	MPATH	"ircd.motd"
+#undef  APATH   "ircd.motd2"
 #define	LPATH	"ircd.log"
 #define	PPATH	"ircd.pid"
 #define HPATH	"opers.txt"
@@ -294,13 +317,6 @@
  */
 #define DO_IDENTD
 
-/* K_COMMENT_ONLY - 2nd field in K-line is ALWAYS a comment.
- * If you define this, ircd will NOT put ^O's in K: line comments.
- * Undef this if you think you might ever run a non-hybrid
- * or non-th ircd.
- */
-#define K_COMMENT_ONLY
-
 /* KLINE_WITH_REASON - show comment to client on exit
  * define this if you want users to exit with the kline/dline reason
  * (i.e. instead of "You have been K-lined" they will see the reason
@@ -363,7 +379,7 @@
 
 /* STATS_NOTICE - See a notice when a user does a /stats
  */
-#define STATS_NOTICE
+#undef STATS_NOTICE
 
 /* LINKS_NOTICE - See a notice when a user does a /links
  * its always defined now
@@ -398,7 +414,7 @@
 /* WHOIS_NOTICE - Shows a notice to an oper when a user does a
  * /whois on them
  */
-#define WHOIS_NOTICE
+#undef WHOIS_NOTICE
 
 /* SHOW_HEADERS - Shows messages like "looking up hostname" 
  */
@@ -500,7 +516,7 @@
  * to a leaf which just has 1 server (typically the uplink). Define this
  * correctly for performance reasons.
  */
-#undef	HUB
+#define	HUB
 
 /* R_LINES - support for R: LINES
  * The conf file now allows the existence of R lines, or
@@ -629,28 +645,36 @@
  */
 #define NOISY_HTM YES
 
-/* NO_CHANOP_WHEN_SPLIT
+/*
+ * define ONE of NO_CHANOPS_ON_SPLIT, NO_JOIN_ON_SPLIT or
+ * PRESERVE_CHANNEL_ON_SPLIT
+ *
+ * choose =one= only
+ */
+
+/* NO_CHANOPS_WHEN_SPLIT
  * When this is defined, users will not be chanopped on empty channels
  * if there are no servers presently connected to this server
  * opers are not affected. 
  */
-#define NO_CHANOPS_WHEN_SPLIT
+#undef NO_CHANOPS_WHEN_SPLIT
 
 /*
- * comstud and I have both noted that solaris 2.5 at least, takes a hissy
- * fit if you don't read a fd that becomes ready right away. Unfortunately
- * the dog3 priority code relies upon not having to read a ready fd right away.
- * If you have HTM mode set low as it is normally, the server will
- * eventually grind to a halt. Personally, I think the server is 
- * faster without some of the CPU expensive manipulation some of the
- * priority code does. Your choice. but it has to be defined for SOLARIS
- * Try it and see. compare.
- * Don't complain if Solaris lags if you don't define this. I warned you.
+ * NO_JOIN_ON_SPLIT
  *
- * -Dianora
+ * When this is defined, users will not be allowed to join channels
+ * that were present before a split.
  */
+#undef NO_JOIN_ON_SPLIT
 
-#define NO_PRIORITY
+/*
+ * PRESERVE_CHANNEL_ON_SPLIT
+ *
+ * When this is defined, channel modes are preserved when this
+ * server is split from net until rejoin. i.e. if the channel
+ * was +i before this server split, it remains +i during the split
+ */
+#define PRESERVE_CHANNEL_ON_SPLIT
 
 /* LIMIT_UH
  * If this is defined, Y line limit is made against the actual
@@ -674,7 +698,7 @@
  *
  * -Dianora
  */
-#define IDLE_CHECK
+#undef IDLE_CHECK
 #define IDLE_TIME 30
 
 /*   STOP STOP STOP STOP STOP STOP STOP STOP STOP STOP STOP STOP STOP STOP  */
@@ -708,7 +732,7 @@
  *	 of KILL for non-local clients should be punished by removal of the
  *	 server's links (if only for ignoring this warning!).
  */
-#define	LOCAL_KILL_ONLY
+#undef	LOCAL_KILL_ONLY
 #endif
 
 /* PORTNUM - default port where ircd resides
@@ -949,10 +973,15 @@
 
 /* DEBUGMODE is used mostly for internal development, it is likely
  * to make your client server very sluggish.
- * You usually shouldn't need this. -db
+ * You usually shouldn't need this. -Dianora
 */
-#undef  DEBUGMODE               /* define DEBUGMODE to enable debugging mode.*/
+#define DEBUGMODE               /* define DEBUGMODE to enable debugging mode.*/
 
+/* DEBUG_NO_FORK is used to stop the daemon from doing a fork(), makes it
+ * easier for gdb. You won't need this unless you are planning on
+ * debugging ircd. -Dianora
+ */
+#undef DEBUG_NO_FORK
 
 /* ----------------- not approved on EFnet section -------------------- */
 /* GLINES - global Kline-like bans
@@ -961,7 +990,7 @@
  * three different servers must do the identical GLINE in order
  * for the G line to take effect.
  */
-#undef GLINES
+#define GLINES
 #define GLINEFILE	"gline.log"
 
 /* GLINE_TIME - local expire time for GLINES
@@ -1029,6 +1058,9 @@
 
 #define HELPFILE HPATH
 #define MOTD MPATH
+#ifdef  APATH
+#define AMOTD APATH
+#endif
 #define	MYNAME SPATH
 #define	CONFIGFILE CPATH
 #ifdef KPATH
@@ -1060,10 +1092,9 @@ error CLIENT_FLOOD undefined.
 #define ANTI_SPAMBOT
 #endif
 
-/* experimental LINKLIST. works fine */
+/* DEBUG_LINKLIST code or not */
 
 #define DEBUG_LINKLIST
-#define USE_LINKLIST
 
 #define REPORT_DLINE_TO_USER
 

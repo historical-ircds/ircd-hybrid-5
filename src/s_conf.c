@@ -46,7 +46,7 @@ static char *rcs_version = "$Id$";
 #include <signal.h>
 #include "h.h"
 extern int rehashed;
-#include "dich_conf.h"
+#include "mtrie_conf.h"
 
 #ifdef	TIMED_KLINES
 static	int	check_time_interval(char *);
@@ -60,17 +60,17 @@ char	specific_virtual_host;
 static	int	lookup_confhost (aConfItem *);
 static  int     attach_iline(aClient *, aConfItem *);
 aConfItem *temporary_klines = (aConfItem *)NULL;
-static	int	find_port_in_use(aConfItem *);
 
 static  char *set_conf_flags(aConfItem *,char *);
 static  int  get_oper_privs(int,char *);
 
 /* externally defined functions */
 extern  void    outofmemory(void);	/* defined in list.c */
+extern  void    add_to_ip_ilines(aConfItem *); /* defined in mtrie_conf.c */
 
 /* usually, with hash tables, you use a prime number...
-   but in this case I am dealing with ip addresses, not ascii strings.
-*/
+ * but in this case I am dealing with ip addresses, not ascii strings.
+ */
 
 #define IP_HASH_SIZE 0x1000
 #define DLINE_HASH_SIZE 0x1000
@@ -109,7 +109,6 @@ static IP_ENTRY *find_or_add_ip(unsigned long);
 #endif
 
 /* externally defined routines */
-int find_conf_match(aClient *,aConfList *,aConfList *,aConfList *);
 extern	void  delist_conf(aConfItem *);
 
 #ifdef GLINES
@@ -152,120 +151,85 @@ void	det_confs_butmask(aClient *cptr,int mask)
 }
 
 /*
- * Match address by #IP bitmask (10.11.12.128/27)
- * (from ircd2.9.5)
- */
-int    match_ipmask(mask, cptr)
-char   *mask;
-aClient *cptr;
-{
-        int i1, i2, i3, i4, m;
-        u_long lmask, baseip;
- 
-        if (sscanf(mask, "%d.%d.%d.%d/%d", &i1, &i2, &i3, &i4, &m) != 5 ||
-           m < 1 || m > 31) {
-               sendto_ops("Ignoring bad mask: %s", mask);
-                return -1;
-        }
-        lmask = htonl(0xfffffffful << (32 - m)); /* /24 -> 0xffffff00ul */
-        baseip = htonl(i1 * 0x1000000 + i2 * 0x10000 + i3 * 0x100 + i4);
-        return ((cptr->ip.s_addr & lmask) == baseip) ? 0 : 1;
-}
-
-
-/*
  * find the first (best) I line to attach.
  */
 /*
-  cleanup aug 3 1997 - Dianora
+ *  cleanup aug 3 1997 - Dianora
+ *  Cleaned up again Sept 7 1998 - Dianora
  */
 
 int	attach_Iline(aClient *cptr,
 		     struct hostent *hp,
-		     char *sockhost)
+		     char *sockhost,
+		     char *username,
+		     char **preason)
 {
   Reg	aConfItem	*aconf;
   Reg	char	*hname;
   Reg	int	i;
-  static	char	uhost[HOSTLEN+USERLEN+3];
-  static	char	uhost2[HOSTLEN+USERLEN+3];
+  /*  static	char	user[USERLEN+3]; */
+  static	char	host[HOSTLEN+3];
   static	char	fullname[HOSTLEN+1];
 
-  *uhost = '\0';
-  *uhost2 = '\0';
+  *host = '\0';
 
-  for (aconf = conf; aconf; aconf = aconf->next)
+  /* who cares about aliases? sheeeshhh -db */
+
+  if (hp)
     {
-      if (aconf->status != CONF_CLIENT)
-	continue;
+      hname = hp->h_name;
+      (void)strncpy(fullname, hname,
+		    sizeof(fullname)-1);
 
-      if (aconf->port && aconf->port != cptr->acpt->port)
-	continue;
+      add_local_domain(fullname,
+		       HOSTLEN - strlen(fullname));
+      Debug((DEBUG_DNS, "a_il: %s->%s",
+	     sockhost, fullname));
 
-      if (!aconf->host || !aconf->name)
+      (void)strncat(host, fullname,
+		    sizeof(host) - strlen(host));
+      /*      (void)strncpy(user, cptr->username,sizeof(user)-1); */
+    }
+
+  if(*host == '\0')
+    {
+      (void)strncat(host,sockhost,sizeof(host));
+      /*      (void)strncpy(user, cptr->username,sizeof(user)-1); */
+    }
+
+#ifdef DEBUG_MTRIE
+  sendto_realops("DEBUG: Looking for client name [%s] host [%s]",
+		 username,host);
+#endif
+
+  aconf = find_matching_mtrie_conf(host,username,cptr->ip.s_addr);
+
+#ifdef DEBUG_MTRIE
+  sendto_realops("DEBUG: aconf = %lX", aconf);
+#endif
+
+  if(aconf)
+    {
+      if(aconf->status & CONF_CLIENT)
 	{
+	  if(IsConfDoIdentd(aconf))
+	    SetDoId(cptr);
+#ifdef DEBUG_MTRIE
+	  sendto_realops("DEBUG: matching aconf->name [%s] aconf->host [%s]",
+			 aconf->name,aconf->host);
+#endif       
+	  strncpyzt(cptr->sockhost,host,sizeof(cptr->sockhost));
+
 	  return(attach_iline(cptr,aconf));
 	}
-
-      if (hp)
-	for (i = 0, hname = hp->h_name; hname;
-	     hname = hp->h_aliases[i++])
-	  {
-	    (void)strncpy(fullname, hname,
-			  sizeof(fullname)-1);
-	    add_local_domain(fullname,
-			     HOSTLEN - strlen(fullname));
-	    Debug((DEBUG_DNS, "a_il: %s->%s",
-		   sockhost, fullname));
-	    if (index(aconf->name, '@'))
-	      {
-		(void)strcpy(uhost, cptr->username);
-		(void)strcat(uhost, "@");
-		(void)strcpy(uhost2, cptr->username);
-		(void)strcat(uhost2, "@");
-	      }
-	    else
-	      {
-		*uhost = '\0';
-		*uhost2 = '\0';
-	      }
-
-	    (void)strncat(uhost, fullname,
-			  sizeof(uhost) - strlen(uhost));
-	    (void)strncat(uhost2, sockhost,
-			  sizeof(uhost2) - strlen(uhost2));
-
-	    if (index(uhost, '@'))
-	      cptr->flags |= FLAGS_DOID;
-	    get_sockhost(cptr, uhost);
-	    if ((!match(aconf->name, uhost)) ||
-		(!match(aconf->name, uhost2)))
-	      return(attach_iline(cptr,aconf));
-	  }
-
-      if (index(aconf->host, '@'))
-	{	
-	  /* strncpyzt(uhost, username, sizeof(uhost));
-	     username is limited in length -Sol */
-	  strncpyzt(uhost, cptr->username, USERLEN+1);
-	  (void)strcat(uhost, "@");
-	}
-      else
-	*uhost = '\0';
-      (void)strncat(uhost, sockhost, sizeof(uhost) - strlen(uhost));
-
-      if (index(uhost, '@'))
-	cptr->flags |= FLAGS_DOID;
-      get_sockhost(cptr, uhost);
-
-      /* ircd 2.9.5 ip mask matching */
-      if (strchr(aconf->host, '/'))		/* 1.2.3.0/24 */
+      else if(aconf->status & CONF_KILL)
 	{
-	  if (match_ipmask(aconf->host, cptr) == 0)
-	    return(attach_iline(cptr,aconf));
+#ifdef DEBUG_MTRIE
+	  sendto_realops("DEBUG: CONF_KILL");
+#endif
+	  *preason = aconf->passwd;
+	  return(-5);
 	}
-      else if (match(aconf->host, uhost) == 0)	/* 1.2.3.* */
-	return(attach_iline(cptr,aconf));
     }
 
   return -1;	/* -1 on no match *bleh* */
@@ -290,10 +254,13 @@ static int attach_iline(
 
 #ifdef LIMIT_UH
   ip_found = find_or_add_ip(cptr);
+  /* too tired FIX later */
+  /*  SetIpHash(cptr); */
   cptr->flags |= FLAGS_IPHASH;
   ip_found->count++;
 #else
   ip_found = find_or_add_ip(cptr->ip.s_addr);
+  /*  SetIpHash(cptr); */
   cptr->flags |= FLAGS_IPHASH;
   ip_found->count++;
 #endif
@@ -419,7 +386,7 @@ static IP_ENTRY *find_or_add_ip(unsigned long ip_in)
       if( free_ip_entries == (IP_ENTRY *)NULL)
 	{
 	  sendto_ops("s_conf.c free_ip_entries was found NULL in find_or_add");
-	  sendto_ops("Please report to the hybrid team! ircd-hybrid@vol.com");
+	  sendto_ops("Please report to the hybrid team! ircd-hybrid@the-project.org");
 	  outofmemory();
 	}
 
@@ -443,7 +410,7 @@ static IP_ENTRY *find_or_add_ip(unsigned long ip_in)
       if( free_ip_entries == (IP_ENTRY *)NULL)
         {
           sendto_ops("s_conf.c free_ip_entries was found NULL in find_or_add");
-          sendto_ops("Please report to the hybrid team! ircd-hybrid@vol.com");
+          sendto_ops("Please report to the hybrid team! ircd-hybrid@the-project.org");
           outofmemory();
         }
 
@@ -483,7 +450,7 @@ int count_users_on_this_ip(IP_ENTRY *ip_list,aClient *this_client)
     {
       /* nasty shouldn't happen, but this is better than coring */
       sendto_ops("s_conf.c count_users_on_this_ip my_user_name->user NULL");
-      sendto_ops("Please report to the hybrid team! ircd-hybrid@vol.com");
+      sendto_ops("Please report to the hybrid team! ircd-hybrid@the-project.org");
       return 0;
     }
 
@@ -592,7 +559,7 @@ void remove_one_ip(unsigned long ip_in)
         }
     }
   sendto_ops("s_conf.c couldn't find ip# in hash table in remove_one_ip()");
-  sendto_ops("Please report to the hybrid team! ircd-hybrid@vol.com");
+  sendto_ops("Please report to the hybrid team! ircd-hybrid@the-project.org");
   return;
 }
 
@@ -777,12 +744,20 @@ int	detach_conf(aClient *cptr,aConfItem *aconf)
 	      if (ConfMaxLinks(aconf) == -1 &&
 		  ConfLinks(aconf) == 0)
 		{
+#ifdef DEBUG_MTRIE
+		  sendto_realops("DEBUG: freeing a class");
+#endif
 		  free_class(Class(aconf));
 		  Class(aconf) = NULL;
 		}
 	    }
 	  if (aconf && !--aconf->clients && IsIllegal(aconf))
-	    free_conf(aconf);
+	    {
+#ifdef DEBUG_MTRIE
+	      sendto_realops("DEBUG: freeing an aconf %X", aconf);
+#endif
+	      free_conf(aconf);
+	    }
 	  tmp = *lp;
 	  *lp = tmp->next;
 	  free_link(tmp);
@@ -1018,12 +993,12 @@ aConfItem *find_conf_exact(char *name,
 }
 
 /*
-find_conf_name()
-
-
-** Accept if the *real* hostname (usually sockecthost)
-** matches *either* host or name field of the configuration.
-*/
+ * find_conf_name()
+ *
+ *
+ * Accept if the *real* hostname (usually sockecthost)
+ * matches *either* host or name field of the configuration.
+ */
 
 aConfItem *find_conf_name(char *name,int statmask)
 {
@@ -1325,9 +1300,7 @@ int	rehash(aClient *cptr,aClient *sptr,int sig)
   if (sig != SIGINT)
     flush_cache();		/* Flush DNS cache */
 
-  clear_conf_list(&KList1);
-  clear_conf_list(&KList2);
-  clear_conf_list(&KList3);
+  clear_mtrie_conf_links();
 
   clear_dlines();
 
@@ -1515,25 +1488,18 @@ int 	initconf(int opt, int fd)
 	  aconf->status = CONF_ADMIN;
 	  break;
 
-	case 'B': /* Bots we know are ok */
-	case 'b':
-	  aconf->status = CONF_BLINE;
-	  break;
-
 	case 'C': /* Server where I should try to connect */
 	case 'c': /* in case of lp failures             */
 	  ccount++;
 	  aconf->status = CONF_CONNECT_SERVER;
+	  aconf->flags = CONF_FLAGS_ALLOW_AUTO_CONN;
 	  break;
 
-	case 'D': /* Deny lines (immediate refusal) */
 	case 'd':
-	  aconf->status = CONF_DLINE;
+	  aconf->status = (CONF_DLINE|CONF_ELINE);
 	  break;
-
-	case 'F': /* Super-Exempt hosts */
-	case 'f':
-	  aconf->status = CONF_FLINE;
+	case 'D': /* Deny lines (immediate refusal) */
+	  aconf->status = CONF_DLINE;
 	  break;
 
 	case 'H': /* Hub server line */
@@ -1542,17 +1508,19 @@ int 	initconf(int opt, int fd)
 	  break;
 
 #ifdef LITTLE_I_LINES
-	case 'i': /* to connect me */
+	case 'i': /* Just plain normal irc client trying  */
+		  /* to connect to me */
 	  aconf->status = CONF_CLIENT;
 	  aconf->flags |= CONF_FLAGS_LITTLE_I_LINE;
 	  break;
 
 	case 'I': /* Just plain normal irc client trying  */
+		  /* to connect to me */
 	  aconf->status = CONF_CLIENT;
 	  break;
 #else
-	case 'i': /* to connect me */
-	case 'I': /* Just plain normal irc client trying  */
+	case 'i': /* Just plain normal irc client trying  */
+	case 'I': /* to connect to me */
 	  aconf->status = CONF_CLIENT;
 	  break;
 #endif
@@ -1786,38 +1754,50 @@ int 	initconf(int opt, int fd)
 	    portnum = aconf->port;
 	}
       
-      if ((aconf->status & CONF_KILL) && aconf->host)
+      if (aconf->host && (aconf->status & CONF_CLIENT))
 	{
-	  char	*host = host_field(aconf);
-	  
-	  dontadd = 1;
-	  switch (sortable(host))
+	  char *p;
+
+	  aconf->mask = aconf->host;
+
+	  /* add_to_ip_ilines defined in mtrie_conf.c */
+
+	  if(host_is_legal_ip(aconf->mask))
 	    {
-	    case 0 :
-	      l_addto_conf_list(&KList3, aconf, host_field);
-	      break;
-	    case 1 :
-	      addto_conf_list(&KList1, aconf, host_field);
-	      break;
-	    case -1 :
-	      addto_conf_list(&KList2, aconf, rev_host_field);
-	      break;
+	      add_to_ip_ilines(aconf);
 	    }
 
-	  MyFree(host);
+	  p = strchr(aconf->name,'@');
+	  if(p)
+	    {
+	      aconf->flags |= CONF_FLAGS_DO_IDENTD;
+	      *p = '\0';
+	      p++;
+	      DupString(aconf->host,p);
+	    }
+	  else
+	    {
+	      aconf->host = aconf->name;
+	      DupString(aconf->name,"*");
+	    }
+
+	  add_mtrie_conf_entry(aconf,CONF_CLIENT);
+	  dontadd = 1;
+	}
+
+      if (aconf->host && (aconf->status & CONF_KILL))
+	{
+	  if(host_is_legal_ip(aconf->host))
+	    add_to_dline_hash(aconf);
+	  else
+	    add_mtrie_conf_entry(aconf,CONF_KILL);
+	  dontadd = 1;
 	}
 
       if (aconf->host && (aconf->status & CONF_DLINE))
 	{
-	  unsigned long mask;
-	  unsigned host_ip;
-
 	  dontadd = 1;
-	  host_ip = host_name_to_ip(aconf->host,&mask),
-	  add_to_dline_hash(host_ip,
-			    mask,
-			    aconf->host,
-			    aconf->passwd);
+	  add_to_dline_hash(aconf);
 	}
 
       (void)collapse(aconf->host);
@@ -1839,7 +1819,6 @@ int 	initconf(int opt, int fd)
   (void)close(fd);
   check_class();
   nextping = nextconnect = time(NULL);
-
 
   if(me.name[0] == '\0')
     {
@@ -1896,7 +1875,12 @@ static	int	lookup_confhost(aConfItem *aconf)
   */
   ln.value.aconf = aconf;
   ln.flags = ASYNC_CONF;
-  
+
+  /* The "if (isdigit(*s)" isn't strictly correct here
+   * some ISP's are using hostnames that start with digits now
+   * *sigh* just note it for looking at later -db
+   */
+
   if (isdigit(*s))
     aconf->ipnum.s_addr = inet_addr(s);
   else if ((hp = gethost_byname(s, &ln)))
@@ -1914,37 +1898,37 @@ static	int	lookup_confhost(aConfItem *aconf)
   return 0;
 }
 
-/* Why not just a simple macro? maybe next version... -Dianora */
-/* This is also used in ircd.c now */
-
-#ifndef K_COMMENT_ONLY
-int is_comment(char *comment)
-{
-  return (*comment == '');
-}
-#endif
-
 /*
-find_dline
-
-input		- host_ip as unsigned long in =network= order
-output		- 1 if D line was found
-side effects	-
-*/
+ * find_dline
+ *
+ * input	- host_ip as unsigned long in =network= order
+ * output	- 1 if D line was found
+ * side effects	- none
+ */
 
 int find_dline(unsigned long host_ip)
 {
-  return((int)find_host_in_dline_hash(host_ip));
+  aConfItem *aconf;
+
+  aconf = find_host_in_dline_hash(host_ip,CONF_DLINE);
+  if(aconf)
+    {
+      if(aconf->status & CONF_ELINE)
+	return(0);
+      else
+	return(1);
+    }
+  return(0);
 }
 
 /*
-  find_kill
-
-  See if this user is klined already, and if so, return aConfItem pointer
-  to the entry for this kline. This wildly changes the way find_kill works
-  -Dianora
-
-*/
+ * find_kill
+ *
+ * See if this user is klined already, and if so, return aConfItem pointer
+ * to the entry for this kline. This wildly changes the way find_kill works
+ * -Dianora
+ *
+ */
 
 aConfItem *find_kill(aClient *cptr)
 {
@@ -1966,19 +1950,16 @@ aConfItem *find_kill(aClient *cptr)
   if (IsElined(cptr))
     return(0);
   
-  return(find_is_klined(host,name));
+  return(find_is_klined(host,name,cptr->ip.s_addr));
 }
 
 /*
-  WARNING, no sanity checking on length of name,host etc.
-  thats expected to be done by caller.... *sigh* -Dianora
+ * WARNING, no sanity checking on length of name,host etc.
+ * thats expected to be done by caller.... *sigh* -Dianora
  */
 
-aConfItem *find_is_klined(char *host,char *name)
+aConfItem *find_is_klined(char *host,char *name,unsigned long ip)
 {
-  aConfList *list;
-  char rev[HOSTLEN+1];	/* why waste 2 function calls for this ? - Dianora */
-
   aConfItem *kill_list_ptr;	/* used for the link list only */
   aConfItem *last_list_ptr;
   aConfItem *tmp_list_ptr;
@@ -2013,10 +1994,7 @@ aConfItem *find_is_klined(char *host,char *name)
 		  tmp_list_ptr = last_list_ptr->next = kill_list_ptr->next;
 		}
 
-	      MyFree(kill_list_ptr->host);
-	      MyFree(kill_list_ptr->name);
-	      MyFree(kill_list_ptr->passwd);
-	      MyFree(kill_list_ptr);
+	      free_conf(kill_list_ptr);
 	      kill_list_ptr = tmp_list_ptr;
 	    }
 	  else
@@ -2032,22 +2010,7 @@ aConfItem *find_is_klined(char *host,char *name)
     }
 
 
-  reverse(rev, host);
-
-/* I have NEVER seen a kline with a port field, have you?
-   I have removed the testing of the port number from here
-   -Dianora
-*/
-
-  /* Start with hostnames of the form "*word" (most frequent) -Sol */
-  list = &KList2;
-  while ((tmp = find_matching_conf(list, rev)) != NULL)
-    {
-#ifndef TIMED_KLINES
-      if (tmp->name && (!name || !match(tmp->name, name)))
-	  return(tmp);
-#else
-#ifdef K_COMMENT_ONLY
+  /*
       if (tmp->name && (!name || !match(tmp->name, name)))
 	if(tmp->passwd)
 	  {
@@ -2056,274 +2019,61 @@ aConfItem *find_is_klined(char *host,char *name)
 	    else
 	      return((aConfItem *)NULL);
 	  }
-#else
-      if (tmp->name && (!name || !match(tmp->name, name)))
-	if(!BadPtr(tmp->passwd) && is_comment(tmp->passwd))
-	  {
-	    if(check_time_interval(tmp->passwd))
-	      return(tmp);
-	    else
-	      return((aConfItem *)NULL);
-	  }
-#endif
-#endif
-      list = NULL;
-    }
+	  */
 
-  /* Try hostnames of the form "word*" -Sol */
-  list = &KList1;
-  while ((tmp = find_matching_conf(list, host)) != NULL)
-    {
-#ifndef TIMED_KLINES
-      if (tmp->name && (!name || !match(tmp->name, name)))
-	  return(tmp);
-#else
-#ifdef K_COMMENT_ONLY
-      if (tmp->name && (!name || !match(tmp->name, name)))
-	if(tmp->passwd)
-	  {
-	    if(check_time_interval(tmp->passwd))
-	      return(tmp);
-	    else
-	      return((aConfItem *)NULL);
-	  }
-#else
-      if (tmp->name && (!name || !match(tmp->name, name)))
-	if(!BadPtr(tmp->passwd) && is_comment(tmp->passwd))
-	  {
-	    if(check_time_interval(tmp->passwd))
-	      return(tmp);
-	    else
-	      return((aConfItem *)NULL);
-	  }
-#endif
-#endif
-      list = NULL;
-    }
+  /* find_matching_mtrie_conf() can return either a CONF_KILL
+   * or a CONF_CLIENT
+   */
 
-  /* If none of the above worked, try non-sorted entries -Sol */
-  list = &KList3;
-  while ((tmp = l_find_matching_conf(list, host)) != NULL)
-    {
-#ifndef TIMED_KLINES
-      if (tmp->host && tmp->name && (!name || !match(tmp->name, name)))
-	  return(tmp);
-#else
-#ifdef K_COMMENT_ONLY
-      if (tmp->host && tmp->name && (!name || !match(tmp->name, name)))
-	if(tmp->passwd)
-	  {
-	    if(check_time_interval(tmp->passwd))
-	      return(tmp);
-	    else
-	      return((aConfItem *)NULL);
-	  }
-#else
-      if (tmp->host && tmp->name && (!name || !match(tmp->name, name)))
-	if(!BadPtr(tmp->passwd) && is_comment(tmp->passwd))
-	  {
-	    if(check_time_interval(tmp->passwd))
-	       return(tmp);
-	    else
-	      return((aConfItem *)NULL);
-	  }
-#endif
-#endif
-      list = NULL;
-    }
-  return((aConfItem *)NULL);
+  tmp = find_matching_mtrie_conf(host,name,ip);
+  if(tmp && tmp->status & CONF_KILL)
+    return(tmp);
+  else
+    return((aConfItem *)NULL);
 }
 
 /*
-report_matching_host_klines
-
-inputs		- aClient pointer pointing to user who requested stats k
-output		- NONE
-side effects	-
-
-report klines that are in the same "close" domain as user
-
--Dianora
-*/
-
-void report_matching_host_klines(aClient *cptr,char *host)
-{
-  char *pass;
-  char *name = (char *)NULL;
-  char *found_host = (char *)NULL;
-  aConfItem *tmp;
-  aConfList *list;
-  static char null[] = "<NULL>";
-  char rev[HOSTLEN+1];	/* why waste 2 function calls for this ? - Dianora */
-
-#ifndef K_COMMENT_ONLY
-  int  port;
-#endif
-
-  if (strlen(host) > (size_t) HOSTLEN ||
-      (name ? strlen(name) : 0) > (size_t) HOSTLEN)
-    return;
-
-  reverse(rev, host);
-
-  /* Start with hostnames of the form "*word" (most frequent) -Sol */
-  list = &KList2;
-  while ((tmp = find_matching_conf(list, rev)) != NULL)
-    {
-      pass = BadPtr(tmp->passwd) ? null : tmp->passwd;
-      name = BadPtr(tmp->name) ? null : tmp->name;
-      found_host = BadPtr(tmp->host) ? null : tmp->host;
-#ifdef K_COMMENT_ONLY
-      if (tmp->status == CONF_KILL)
-	sendto_one(cptr, rpl_str(RPL_STATSKLINE), me.name,
-		   cptr->name, 'K', found_host,
-		   name, pass);
-#else
-      port = BadPtr(tmp->port) ? 0 : tmp->port;
-      if (tmp->status == CONF_KILL)
-	sendto_one(cptr, rpl_str(RPL_STATSKLINE), me.name,
-		   cptr->name, 'K', found_host,
-		   pass, name, port, get_conf_class(tmp));
-#endif
-      list = NULL;
-    }
-
-  /* Try hostnames of the form "word*" -Sol */
-  list = &KList1;
-  while ((tmp = find_matching_conf(list, host)) != NULL)
-    {
-      pass = BadPtr(tmp->passwd) ? null : tmp->passwd;
-      name = BadPtr(tmp->name) ? null : tmp->name;
-      found_host = BadPtr(tmp->host) ? null : tmp->host;
-#ifdef K_COMMENT_ONLY
-      if (tmp->status == CONF_KILL)
-	sendto_one(cptr, rpl_str(RPL_STATSKLINE), me.name,
-		   cptr->name, 'K', found_host,
-		   name, pass);
-#else
-      port = BadPtr(tmp->port) ? 0 : tmp->port;
-      if (tmp->status == CONF_KILL)
-	sendto_one(cptr, rpl_str(RPL_STATSKLINE), me.name,
-		   cptr->name, 'K', found_host,
-		   pass, name, port, get_conf_class(tmp));
-#endif
-      list = NULL;
-    }
-
-  /* If none of the above worked, try non-sorted entries -Sol */
-  list = &KList3;
-  while ((tmp = l_find_matching_conf(list, host)) != NULL)
-    {
-      pass = BadPtr(tmp->passwd) ? null : tmp->passwd;
-      name = BadPtr(tmp->name) ? null : tmp->name;
-      found_host = BadPtr(tmp->host) ? null : tmp->host;
-#ifdef K_COMMENT_ONLY
-      if (tmp->status == CONF_KILL)
-	sendto_one(cptr, rpl_str(RPL_STATSKLINE), me.name,
-		   cptr->name, 'K', found_host,
-		   name, pass);
-#else
-      port = BadPtr(tmp->port) ? 0 : tmp->port;
-      if (tmp->status == CONF_KILL)
-	sendto_one(cptr, rpl_str(RPL_STATSKLINE), me.name,
-		   cptr->name, 'K', found_host,
-		   pass, name, port, get_conf_class(tmp));
-#endif
-      list = NULL;
-    }
-}
-
-
-/*
-find_dkill is only called when a /quote dline is applied
-all quote dlines are sortable, of the form nnn.nnn.nnn.* or nnn.nnn.nnn.nnn
-There is no reason to check for all three possible formats as in klines
-
-- Dianora
-
-inputs		- client pointer
-output		- return 1 if match is found, and loser should die
-		  return 0 if no match is found and loser shouldn't die
-side effects	- only sortable dline tree is searched
+ * find_dkill is only called when a /quote dline is applied
+ * all quote dlines are sortable, of the form nnn.nnn.nnn.* or nnn.nnn.nnn.nnn
+ * There is no reason to check for all three possible formats as in klines
+ * 
+ * - Dianora
+ * 
+ * inputs	- client pointer
+ * output	- return 1 if match is found, and loser should die
+ *		  return 0 if no match is found and loser shouldn't die
+ * side effects	- only sortable dline tree is searched
 */
 
 aConfItem *find_dkill(aClient *cptr)
 {
+  aConfItem *aconf;
+
   if (!cptr->user)
     return 0;
 
   if(IsElined(cptr))
      return((aConfItem *)NULL);
 
-  return(find_host_in_dline_hash(cptr->ip.s_addr));
-}
-
-int	find_conf_match(aClient *cptr,
-			aConfList *List1,
-			aConfList *List2,
-			aConfList *List3)
-{
-  char	*host, *name;
-  aConfItem *tmp;
-  char rev[HOSTLEN+1];	/* why waste 2 function calls for this ? - Dianora */
-  aConfList *list;
-
-  if (!cptr->user)
-    return 0;
-
-  host = cptr->sockhost;
-  name = cptr->user->username;
-  
-  if (strlen(host)  > (size_t) HOSTLEN ||
-      (name ? strlen(name) : 0) > (size_t) HOSTLEN)
-    return (0);
-
-  reverse(rev, host);
-
-  /* Start with hostnames of the form "*word" (most frequent) -Sol */
-  list = List2;
-  while ((tmp = find_matching_conf(list, rev)) != NULL)
+  aconf = find_host_in_dline_hash(cptr->ip.s_addr,CONF_DLINE);
+  if(aconf)
     {
-      if (tmp->name && (!name || !match(tmp->name, name)))
-	{
-	  return (tmp ? -1 : 0);
-	}
-      list = NULL;
+      if(aconf->status & CONF_ELINE)
+	return((aConfItem *)NULL);
+      else
+	return(aconf);
     }
-  
-  /* Try hostnames of the form "word*" -Sol */
-  list = List1;
-  while ((tmp = find_matching_conf(list, host)) != NULL)
-    {
-      if (tmp->name && (!name || !match(tmp->name, name)))
-	{
-	  return (tmp ? -1 : 0);
-	}
-      list = NULL;
-    }
-
-  /* If none of the above worked, try non-sorted entries -Sol */
-  list = List3;
-  while ((tmp = l_find_matching_conf(list, host)) != NULL)
-    {
-      if (tmp->host && tmp->name && (!name || !match(tmp->name, name)))
-	{
-	  return (tmp ? -1 : 0);
-	}
-      list = NULL;
-    }
-
-  return (tmp ? -1 : 0);
+  return((aConfItem *)NULL);
 }
 
 /* add_temp_kline
-
-inputs		- pointer to aConfItem
-output		- none
-Side effects	- links in given aConfItem into temporary kline link list
-
--Dianora
-*/
+ *
+ * inputs	- pointer to aConfItem
+ * output	- none
+ * Side effects	- links in given aConfItem into temporary kline link list
+ * 
+ * -Dianora
+ */
 
 void add_temp_kline(aConfItem *aconf)
 {
@@ -2332,16 +2082,16 @@ void add_temp_kline(aConfItem *aconf)
 }
 
 /* flush_temp_klines
-
-inputs		- NONE
-output		- NONE
-side effects	- All temporary klines are flushed out. 
-		  really should be used only for cases of extreme
-		  goof up for now.
-
-		  Note, you can't free an object, and expect to
-		  be able to dereference it under some malloc systems.
-*/
+ *
+ * inputs	- NONE
+ * output	- NONE
+ * side effects	- All temporary klines are flushed out. 
+ *		  really should be used only for cases of extreme
+ *		  goof up for now.
+ *
+ *		  Note, you can't free an object, and expect to
+ *		  be able to dereference it under some malloc systems.
+ */
 void flush_temp_klines()
 {
   aConfItem *kill_list_ptr;
@@ -2351,10 +2101,7 @@ void flush_temp_klines()
       while(kill_list_ptr)
         {
           temporary_klines = kill_list_ptr->next;
-          MyFree(kill_list_ptr->host);
-          MyFree(kill_list_ptr->name);
-	  MyFree(kill_list_ptr->passwd);
-          MyFree(kill_list_ptr);
+	  free_conf(kill_list_ptr);
 	  kill_list_ptr = temporary_klines;
         }
     }
@@ -2381,13 +2128,11 @@ void flush_glines()
       while(kill_list_ptr)
         {
           glines = kill_list_ptr->next;
-          MyFree(kill_list_ptr->host);
-          MyFree(kill_list_ptr->name);
-	  MyFree(kill_list_ptr->passwd);
-          MyFree(kill_list_ptr);
+	  free_conf(kill_list_ptr);
 	  kill_list_ptr = glines;
         }
     }
+  glines = (aConfItem *)NULL;
 }
 
 /* find_gkill
@@ -2462,10 +2207,7 @@ aConfItem *find_is_glined(char *host,char *name)
 		  tmp_list_ptr = last_list_ptr->next = kill_list_ptr->next;
 		}
 
-	      MyFree(kill_list_ptr->host);
-	      MyFree(kill_list_ptr->name);
-	      MyFree(kill_list_ptr->passwd);
-	      MyFree(kill_list_ptr);
+	      free_conf(kill_list_ptr);
 	      kill_list_ptr = tmp_list_ptr;
 	    }
 	  else
@@ -2573,10 +2315,7 @@ void report_glines(aClient *sptr)
 		  tmp_list_ptr = last_list_ptr->next = kill_list_ptr->next;
 		}
 
-	      MyFree(kill_list_ptr->host);
-	      MyFree(kill_list_ptr->name);
-	      MyFree(kill_list_ptr->passwd);
-	      MyFree(kill_list_ptr);
+	      free_conf(kill_list_ptr);
 	      kill_list_ptr = tmp_list_ptr;
 	    }
 	  else
@@ -2696,6 +2435,8 @@ int majority_gline(aClient *sptr,
 	  return NO;
 	}
 
+      memset((void *)new_pending_gline,0,sizeof(GLINE_PENDING));
+
       strncpyzt(new_pending_gline->oper_nick1,oper_nick,NICKLEN+1);
       new_pending_gline->oper_nick2[0] = '\0';
 
@@ -2706,7 +2447,6 @@ int majority_gline(aClient *sptr,
       new_pending_gline->oper_host2[0] = '\0';
 
       new_pending_gline->oper_server1 = find_or_add(oper_server);
-
 
       strncpyzt(new_pending_gline->user,user,USERLEN);
       strncpyzt(new_pending_gline->host,host,HOSTLEN);
@@ -2753,7 +2493,7 @@ int majority_gline(aClient *sptr,
 	      if(find_is_glined(host,user))
 		return NO;
 
-	      if(find_is_klined(host,user))
+	      if(find_is_klined(host,user,0L))
 		return NO;
 
 	      log_gline(sptr,sptr->name,gline_pending_ptr,
@@ -2785,6 +2525,8 @@ int majority_gline(aClient *sptr,
       return NO;
     }
 
+  memset((void *)new_pending_gline,0,sizeof(GLINE_PENDING));
+
   strncpyzt(new_pending_gline->oper_nick1,oper_nick,NICKLEN+1);
   new_pending_gline->oper_nick2[0] = '\0';
 
@@ -2810,15 +2552,15 @@ int majority_gline(aClient *sptr,
 }
 
 /* add_gline
-
-inputs		- pointer to aConfItem
-output		- none
-Side effects	- links in given aConfItem into gline link list
-
-Identical to add_temp_kline code really.
-
--Dianora
-*/
+ *
+ * inputs	- pointer to aConfItem
+ * output	- none
+ * Side effects	- links in given aConfItem into gline link list
+ *
+ * Identical to add_temp_kline code really.
+ *
+ * -Dianora
+ */
 
 void add_gline(aConfItem *aconf)
 {
@@ -2828,12 +2570,12 @@ void add_gline(aConfItem *aconf)
 #endif
 
 /* report_temp_klines
-
-inputs		- aClient pointer
-output		- NONE
-side effects	- 
-		  
-*/
+ *
+ * inputs	- aClient pointer, client to report to
+ * output	- NONE
+ * side effects	- NONE
+ *		  
+ */
 void report_temp_klines(aClient *sptr)
 {
   aConfItem *kill_list_ptr;
@@ -2866,10 +2608,7 @@ void report_temp_klines(aClient *sptr)
 		  tmp_list_ptr = last_list_ptr->next = kill_list_ptr->next;
 		}
 
-	      MyFree(kill_list_ptr->host);
-	      MyFree(kill_list_ptr->name);
-	      MyFree(kill_list_ptr->passwd);
-	      MyFree(kill_list_ptr);
+	      free_conf(kill_list_ptr);
 	      kill_list_ptr = tmp_list_ptr;
 	    }
 	  else
@@ -2900,9 +2639,9 @@ void report_temp_klines(aClient *sptr)
 }
 
 /* urgh. consider this a place holder for a new version of R-lining
-   to be done in next version of hybrid. don't use this. it will
-   likely break... :-) -Dianora
-*/ 
+ * to be done in next version of hybrid. don't use this. it will
+ * likely break... :-) -Dianora
+ */ 
 
 #ifdef R_LINES
 /* find_restrict works against host/name and calls an outside program 
@@ -3022,21 +2761,21 @@ int	find_restrict(aClient *cptr)
 
 
 /* check_time_interval
-inputs		- comment field of k-line
-output		- 1 if its NOT a time_interval or it is :-)
-		  0 if its a time interval, but its not in the interval
-side effects	-
-
-There doesn't seem to be much need for this kind of kline anymore,
-and it is a bit of a CPU hog. The previous version of hybrid only supported
-it if you didn't have KLINE_COMMENT_ONLY....
-It still needs some rethinking/recoding.. but not today...
-In most cases, its not needed, esp. on a busy server. don't
-#define TIMED_KLINES, if you ban them on one server, they'll just
-use another server. Just doesn't make sense to me any more.
-
--Dianora
-*/
+ * inputs	- comment field of k-line
+ * output	- 1 if its NOT a time_interval or it is :-)
+ *		  0 if its a time interval, but its not in the interval
+ * side effects	-
+ *
+ * There doesn't seem to be much need for this kind of kline anymore,
+ * and it is a bit of a CPU hog. The previous version of hybrid only supported
+ * it if you didn't have KLINE_COMMENT_ONLY....
+ * It still needs some rethinking/recoding.. but not today...
+ * In most cases, its not needed, esp. on a busy server. don't
+ * #define TIMED_KLINES, if you ban them on one server, they'll just
+ * use another server. Just doesn't make sense to me any more.
+ *
+ * -Dianora
+ */
 
 #ifdef TIMED_KLINES
 /*
@@ -3112,18 +2851,18 @@ static int check_time_interval(char *interval)
 
 
 /* 
-D line hash table implementation 
-
-Diane Bruce (Dianora/db)
-*/
+ * D line hash table implementation 
+ *
+ * Diane Bruce (Dianora/db)
+ */
 
 /*
-clear_dline_hash_table
-
-input		- NONE
-output		- NONE
-side effects 	- Initialize the dline hash table
-*/
+ * clear_dline_hash_table
+ *
+ * input	- NONE
+ * output	- NONE
+ * side effects	- Initialize the dline hash table
+ */
 
 void clear_dline_hash_table()
 {
@@ -3131,18 +2870,19 @@ void clear_dline_hash_table()
 }
 
 /*
-clear_dlines
-
-input		- NONE
-output		- NONE
-side effects 	- clear the dline hash table
-*/
+ * clear_dlines
+ *
+ * input	- NONE
+ * output	- NONE
+ * side effects - clear the dline hash table
+ */
 
 static void clear_dlines()
 {
   int i;
   DLINE_ENTRY *p;
   DLINE_ENTRY *next_p;
+  aConfItem *aconf;
 
   for(i = 0; i < DLINE_HASH_SIZE; i++)
     {
@@ -3152,13 +2892,8 @@ static void clear_dlines()
 	  next_p = p->next;
 	  if(p->conf_entry)
 	    {
-	      if(p->conf_entry->host)
-		(void)free(p->conf_entry->host);
-	      if(p->conf_entry->passwd)
-		(void)free(p->conf_entry->passwd);
-	      if(p->conf_entry->name)
-		(void)free(p->conf_entry->name);
-	      free_conf(p->conf_entry);
+	      aconf = p->conf_entry;
+	      free_conf(aconf);
 	    }
 	  (void)free(p);
 	  p = next_p;
@@ -3168,34 +2903,27 @@ static void clear_dlines()
 }
 
 /*
-add_to_dline_hash()
-
-inputs		- host_ip in =host= order
-		- host_mask in =host= order
-		- host ip banned as string
-		- reason for ban
-		
-output		- none
-side effects	-
+ * add_to_dline_hash()
+ *
+ * inputs	- pointer to aConfItem 
+ *		with following setup
+ *
+ *		- host ip banned as string
+ *		- reason for ban
+ *	
+ * output	- none
+ * side effects	- none
 */
 
-void add_to_dline_hash(unsigned long host_ip,
-		       unsigned long host_mask,
-		       char *host,
-		       char *reason)
+void add_to_dline_hash(aConfItem *aconf)
 {
-  aConfItem *aconf;
   DLINE_ENTRY *p;
   DLINE_ENTRY *new_entry;
+  unsigned long host_mask;
+  unsigned host_ip;
   int i;
 
-  aconf = make_conf();
-  aconf->status = CONF_KILL;
-  DupString(aconf->host,host);
-  DupString(aconf->passwd,reason);
-  aconf->name = (char *)NULL;
-  aconf->port = 0;
-
+  host_ip = host_name_to_ip(aconf->host,&host_mask),
   host_ip &= host_mask;
 
   new_entry = (DLINE_ENTRY *)MyMalloc(sizeof(DLINE_ENTRY));
@@ -3217,43 +2945,99 @@ void add_to_dline_hash(unsigned long host_ip,
 }
 
 /*
-find_host_in_dline_hash
+ * find_host_in_dline_hash
+ *
+ * inputs	- host ip in =network= order
+ * output	- aConfItem if dlined NULL if not
+ * side effects	- none
+ */
 
-inputs		- host ip in =network= order
-output		- aConfItem if dlined NULL if not
-side effects	- none
-*/
-
-aConfItem *find_host_in_dline_hash(unsigned long host_ip)
+aConfItem *find_host_in_dline_hash(unsigned long host_ip,int mask)
 {
   int i;
   DLINE_ENTRY *p;
   unsigned long host_ip_host_order;
+  aConfItem *aconf=(aConfItem *)NULL;
+  aConfItem *bconf;
 
   host_ip_host_order = ntohl(host_ip);
 
   i = hash_dline_ip(host_ip_host_order);
 
-  if((p = dline_hash_table[i]) == (DLINE_ENTRY *)NULL)
-    return((aConfItem *)NULL);
-  while(p)
+  /*
+   * find the matches for this ip and mask 
+   */
+
+  for(p = dline_hash_table[i]; p; p = p->next)
     {
       if( (host_ip_host_order & p->mask) == p->ip)
 	{
-	  return(p->conf_entry);
+	  if(p->conf_entry)
+	    {
+	      bconf = p->conf_entry;
+
+	      if(bconf->status & mask)
+		aconf = bconf;
+	      if(bconf->status & CONF_ELINE)
+		return(bconf);
+	    }
 	}
-      p = p->next;
     }
-  return((aConfItem *)NULL);
+  return(aconf);
 }
 
 /*
-hash_dline_ip()
+ * find_user_host_in_dline_hash
+ *
+ * inputs	- host ip in =network= order
+ *		- user name to fine
+ * output	- aConfItem if dlined/klined NULL if not
+ * side effects	- none
+ */
 
-input		- unsigned long ip address in host order
-output		- integer value used as index into hash table
-side effects	- hopefully, none
-*/
+aConfItem *find_user_host_in_dline_hash(unsigned long host_ip,char *name,
+					int mask)
+{
+  int i;
+  DLINE_ENTRY *p;
+  unsigned long host_ip_host_order;
+  aConfItem *aconf=(aConfItem *)NULL;
+  aConfItem *bconf;
+
+  host_ip_host_order = ntohl(host_ip);
+
+  i = hash_dline_ip(host_ip_host_order);
+
+  /*
+   * find the matches for this ip/mask and username
+   */
+
+  for(p = dline_hash_table[i]; p; p = p->next)
+    {
+      if((host_ip_host_order & p->mask) == p->ip)
+	{
+	  if(p->conf_entry)
+	    {
+	      bconf = p->conf_entry;
+	      if((bconf->status & mask) && (!matches(bconf->name,name)))
+		{
+		  aconf = bconf;
+		  if(bconf->status & CONF_ELINE)
+		    return(bconf);
+		}
+	    }
+	}
+    }
+  return(aconf);
+}
+
+/*
+ * hash_dline_ip()
+ *
+ * input	- unsigned long ip address in host order
+ * output	- integer value used as index into hash table
+ * side effects	- none
+ */
 
 static int hash_dline_ip(unsigned long ip)
 {
@@ -3263,12 +3047,16 @@ static int hash_dline_ip(unsigned long ip)
 }
 
 /*
-inputs		- hostname
-		- pointer to ip_mask
-output		- ip in host order
-		- ip_mask pointed to by ip_mask_ptr is updated
-side effects	- NONE
-*/
+ * host_name_to_ip
+ *
+ * inputs	- hostname
+ *		- pointer to ip_mask
+ * output	- ip in host order
+ * 		- ip_mask pointed to by ip_mask_ptr is updated
+ * side effects	- NONE
+ *	generate an ip, and produce the proper mask
+ *	given the / mask notation
+ */
 
 unsigned long cidr_to_bitmask[]=
 {
@@ -3353,58 +3141,78 @@ unsigned long host_name_to_ip(char *host,unsigned long *ip_mask_ptr)
     }
   else
     {
-      *ip_mask_ptr = 0xFFFFFF00L;
+      *ip_mask_ptr = 0xFFFFFFFFL;
     }
   return(generated_host_ip);
 }
 
 
 /*
-report_dline_hash()
+ * report_dline_hash()
+ *
+ * inputs	- aClient to source requesting stats D
+ * output	- none
+ * side effects	- 
+ */
 
-inputs		- aClient to source requesting stats D
-output		-
-side effects
-*/
-
-void report_dline_hash(aClient *sptr, int numeric)
+void report_dline_hash(aClient *sptr, int mask)
 {
-  aConfItem *tmp;
+  aConfItem *aconf;
   int i;
   DLINE_ENTRY *p;
-  char *host,*pass;
+  char *host,*pass,*name;
+  int port;
   static  char	null[] = "<NULL>";
 
   for(i = 0; i < DLINE_HASH_SIZE; i++)
     {
-      p = dline_hash_table[i];
-      while(p)
+      for( p = dline_hash_table[i]; p; p = p->next)
 	{
-	  tmp = p->conf_entry;
-	  if (tmp == (aConfItem *)NULL)
-	    {
-	      p = p->next;
-	      continue;
-	    }
-	  host = BadPtr(tmp->host) ? null : tmp->host;
-	  pass = BadPtr(tmp->passwd) ? null : tmp->passwd;
+	  aconf = p->conf_entry;
+	  if (!aconf)
+	    continue;
 
-	  sendto_one(sptr, rpl_str(numeric), me.name,
-		       sptr->name, 'D', host,
-		       pass);
-	  p = p->next;
+	  if(!(aconf->status & mask))
+	    continue;
+
+	  host = BadPtr(aconf->host) ? null : aconf->host;
+	  pass = BadPtr(aconf->passwd) ? null : aconf->passwd;
+	  name = BadPtr(aconf->name) ? null : aconf->name;
+	  port = (int)aconf->port;
+
+	  if(mask & CONF_DLINE)
+	    {
+	      if(aconf->status & CONF_ELINE)
+		sendto_one(sptr, rpl_str(RPL_STATSDLINE), me.name,
+			   sptr->name, 'd', host,
+			   pass);
+	      else
+		sendto_one(sptr, rpl_str(RPL_STATSDLINE), me.name,
+			   sptr->name, 'D', host,
+			   pass);
+	    }
+	  else if(mask & CONF_KILL)
+	    {
+	      sendto_one(sptr, rpl_str(RPL_STATSKLINE),
+			 me.name,
+			 sptr->name,
+			 'K',
+			 host,
+			 name,
+			 pass);
+	    }
 	}
     }
 
 }
 
 /*
-dhash_stats()
-
-inputs		- 
-output		-
-side effects
-*/
+ * dhash_stats()
+ *
+ * inputs		- 
+ * output		-
+ * side effects
+ */
 
 void dhash_stats(aClient *cptr, aClient *sptr,int parc, char *parv[],int out)
 {
@@ -3585,4 +3393,73 @@ char *oper_privs(aClient *cptr,int port)
   *privs_ptr = '\0';
 
   return(privs_out);
+}
+
+/*
+ * host_is_legal_ip
+ *
+ * inputs	- hostname
+ * output	- YES if hostname is ip# only NO if its not
+ * side effects	- NONE
+ * 
+ * (If you think you've seen this somewhere else, you are right.
+ * ripped out of tcm-dianora basically)
+ *
+ * BUGS
+ * This is very rudimentary check, it should be improved some time
+ * notably:
+ *
+ * 1) it does not check that each quad is <= 255
+ * 2) it does not verify that there is a valid / mask found
+ * 
+ * -Dianora
+ */
+
+int host_is_legal_ip(char *host_name)
+{
+  int number_of_dots = 0;
+
+  if(*host_name == '.')
+    return(NO);	/* degenerate case */
+
+  /* "I:x:..." case */
+  if(*host_name == 'x')
+    return(NO);	/* fast case to throw out */
+
+  /* "I:NOMATCH:..." case */
+  if(*host_name == 'N')
+    return(NO);	/* another fast one to throw out */
+
+  while(*host_name)
+    {
+      if( *host_name == '.' )
+	number_of_dots++;
+      else if(*host_name == '*')
+	{
+	  if(*(host_name+1) == '\0')
+	    {
+	      if(number_of_dots == 3)
+		return(YES);
+	      else
+		return(NO);
+	    }
+	  else
+	    return(NO);
+	}
+      else if(*host_name == '/')
+	{
+	  if(number_of_dots == 3)
+	    return(YES);
+	  else
+	    return(NO);
+	}
+      else if(!isdigit(*host_name))
+	return(NO);
+      host_name++;
+    }
+
+  if(number_of_dots == 3 )
+    return(YES);
+  else
+    return(NO);
 }
