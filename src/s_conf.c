@@ -114,7 +114,16 @@ extern	void  delist_conf(aConfItem *);
 
 #ifdef GLINES
 static  aConfItem *glines = (aConfItem *)NULL;
-extern	void expire_pending_glines();	/* defined in s_serv.c */
+void expire_pending_glines();	/* defined here */
+int majority_gline(aClient *,
+			  char *,char *,
+			  char *,char *,
+			  char *,char *,char *); /* defined here */
+void add_gline(aConfItem *);
+extern void log_gline(aClient *,char *,GLINE_PENDING *,
+		      char *,char *,char *,char *,char *,
+		      char *,char *);	/* defined in s_serv.c */
+static GLINE_PENDING *pending_glines;
 #endif
 
 /* general conf items link list root */
@@ -846,21 +855,18 @@ int	attach_conf(aClient *cptr,aConfItem *aconf)
 	  ConfLinks(aconf) >= ConfMaxLinks(aconf) && ConfMaxLinks(aconf) > 0)
 #endif
 	{
-	  /*
-	  if (!find_fline(cptr))
+	  if (!IsConfFlined(aconf))
 	    {
-	    */
-
 	      return -3;	/* Use this for printing error message */
-	      /*
 	    }
 	  else
 	    {
 	      send(cptr->fd,
 		   "NOTICE FLINE :I: line is full, but you have an F: line!\n",
 		   56, 0);
+	      SetFlined(cptr);
 	    }
-	    */
+
 	}
 #ifndef OLD_Y_LIMIT
     }
@@ -1656,10 +1662,18 @@ int 	initconf(int opt, int fd)
 	      aconf->port = get_oper_privs(aconf->port,tmp);
 	    }
 	  else
-	    aconf->port = atoi(tmp);
+	    {
+	      if ((tmp = getfield(NULL)) == NULL)
+		break;
+	      aconf->port = atoi(tmp);
+	    }
+
+	  Debug((DEBUG_DEBUG,"aconf->port %x",aconf->port));
 
 	  if ((tmp = getfield(NULL)) == NULL)
 	    break;
+	  Debug((DEBUG_DEBUG,"class tmp = %s",tmp));
+
 	  Class(aconf) = find_class(atoi(tmp));
 	  break;
           /* NOTREACHED */
@@ -2376,6 +2390,13 @@ void flush_glines()
     }
 }
 
+/* find_gkill
+ *
+ * inputs	- aClient pointer to a Client struct
+ * output	- aConfItem pointer if a gline was found for this client
+ * side effects	- none
+ */
+
 aConfItem *find_gkill(aClient *cptr)
 {
   char *host, *name;
@@ -2397,8 +2418,13 @@ aConfItem *find_gkill(aClient *cptr)
 }
 
 /*
-  WARNING, no sanity checking on length of name,host etc.
-  thats expected to be done by caller.... *sigh* -Dianora
+ * find_is_glined
+ * inputs	- hostname
+ *		- username
+ * output	- pointer to aConfItem if user@host glined
+ * side effects	-
+ *  WARNING, no sanity checking on length of name,host etc.
+ * thats expected to be done by caller.... *sigh* -Dianora
  */
 
 aConfItem *find_is_glined(char *host,char *name)
@@ -2458,25 +2484,71 @@ aConfItem *find_is_glined(char *host,char *name)
 }
 
 /* report_glines
-
-inputs		- aClient pointer
-output		- NONE
-side effects	- 
-
-Just like temp_klines, except these are kept separately...
-		  
-*/
+ *
+ * inputs	- aClient pointer
+ * output	- NONE
+ * side effects	- 
+ *
+ * report pending glines, and placed glines.
+ * 
+ * - Dianora		  
+ */
 void report_glines(aClient *sptr)
 {
+  GLINE_PENDING *gline_pending_ptr;
   aConfItem *kill_list_ptr;
   aConfItem *last_list_ptr;
   aConfItem *tmp_list_ptr;
+  char timebuffer[MAX_DATE_STRING];
+  struct tm *tmptr;
   char *host;
   char *name;
   char *reason;
 
   expire_pending_glines();	/* This is not the g line list, but
 				   the pending possible g line list */
+
+  if(gline_pending_ptr = pending_glines)
+    {
+      sendto_one(sptr,":%s NOTICE %s :Pending G-lines", me.name,
+			 sptr->name);
+      while(gline_pending_ptr)
+	{
+	  tmptr = localtime(&gline_pending_ptr->time_request1);
+	  strftime(timebuffer, MAX_DATE_STRING, "%y/%m/%d %H:%M:%S", tmptr);
+
+	  sendto_one(sptr,":%s NOTICE %s :1) %s!%s@%s on %s requested gline at %s for %s@%s [%s]",
+		     me.name,sptr->name,
+		     gline_pending_ptr->oper_nick1,
+		     gline_pending_ptr->oper_user1,
+		     gline_pending_ptr->oper_host1,
+		     gline_pending_ptr->oper_server1,
+		     timebuffer,
+		     gline_pending_ptr->user,
+		     gline_pending_ptr->host,
+		     gline_pending_ptr->reason1);
+
+	  if(gline_pending_ptr->oper_nick2[0])
+	    {
+	      tmptr = localtime(&gline_pending_ptr->time_request2);
+	      strftime(timebuffer, MAX_DATE_STRING, "%y/%m/%d %H:%M:%S", tmptr);
+	      sendto_one(sptr,
+	      ":%s NOTICE %s :2) %s!%s@%s on %s requested gline at %s for %s@%s [%s]",
+			 me.name,sptr->name,
+			 gline_pending_ptr->oper_nick2,
+			 gline_pending_ptr->oper_user2,
+			 gline_pending_ptr->oper_host2,
+			 gline_pending_ptr->oper_server2,
+			 timebuffer,
+			 gline_pending_ptr->user,
+			 gline_pending_ptr->host,
+			 gline_pending_ptr->reason2);
+	    }
+	  gline_pending_ptr = gline_pending_ptr->next;
+	}
+      sendto_one(sptr,":%s NOTICE %s :End of Pending G-lines", me.name,
+		 sptr->name);
+    }
 
   if(glines)
     {
@@ -2532,6 +2604,209 @@ void report_glines(aClient *sptr)
 	    }
         }
     }
+}
+
+/*
+ * expire_pending_glines
+ * 
+ * inputs	- NONE
+ * output	- NONE
+ * side effects	-
+ *
+ * Go through the pending gline list, expire any that haven't had
+ * enough "votes" in the time period allowed
+ */
+
+void expire_pending_glines()
+{
+  GLINE_PENDING *gline_pending_ptr;
+  GLINE_PENDING *last_gline_pending_ptr;
+  GLINE_PENDING *tmp_pending_ptr;
+
+  if(pending_glines == (GLINE_PENDING *)NULL)
+    return;
+
+  last_gline_pending_ptr = (GLINE_PENDING *)NULL;
+  gline_pending_ptr = pending_glines;
+
+  while(gline_pending_ptr)
+    {
+      if( (gline_pending_ptr->last_gline_time + GLINE_PENDING_EXPIRE) <= NOW )
+	{
+	  if(last_gline_pending_ptr)
+	    last_gline_pending_ptr->next = gline_pending_ptr->next;
+	  else
+	    pending_glines = gline_pending_ptr->next;
+
+	  /*Some malloc packages get terribly upset if you 
+	    try to dereference a pointer you have freed,
+	    hence I need to dereference the pointer then free it,
+	    so I need to keep a pointer to the item I am about to free.
+	    -Dianora */
+
+	  tmp_pending_ptr = gline_pending_ptr;
+	  gline_pending_ptr = gline_pending_ptr->next;
+	  MyFree(tmp_pending_ptr->reason1);
+	  MyFree(tmp_pending_ptr->reason2);
+	  MyFree(tmp_pending_ptr);
+	}
+      else
+	{
+	  last_gline_pending_ptr = gline_pending_ptr;
+	  gline_pending_ptr = gline_pending_ptr->next;
+	}
+    }
+}
+
+/*
+ * majority_gline()
+ *
+ * inputs	- oper_nick, oper_user, oper_host, oper_server
+ *		  user,host reason
+ *
+ * output	- YES if there are 3 different opers on 3 different servers
+ *		  agreeing to this gline, NO if there are not.
+ * Side effects	-
+ *	See if there is a majority agreement on a GLINE on the given user
+ *	There must be at least 3 different opers agreeing on this GLINE
+ *
+ *	Expire old entries.
+ */
+
+int majority_gline(aClient *sptr,
+			  char *oper_nick,
+			  char *oper_user,
+			  char *oper_host,
+			  char *oper_server,
+			  char *user,
+			  char *host,
+			  char *reason)
+{
+  GLINE_PENDING *new_pending_gline;
+  GLINE_PENDING *gline_pending_ptr;
+
+  /* special case condition where there are no pending glines */
+
+  if(pending_glines == (GLINE_PENDING *)NULL) /* first gline request placed */
+    {
+      new_pending_gline = (GLINE_PENDING *)malloc(sizeof(GLINE_PENDING));
+      if(new_pending_gline == (GLINE_PENDING *)NULL)
+	{
+	  sendto_realops("No memory for GLINE, GLINE dropped");
+	  return NO;
+	}
+
+      strncpyzt(new_pending_gline->oper_nick1,oper_nick,NICKLEN+1);
+      new_pending_gline->oper_nick2[0] = '\0';
+
+      strncpyzt(new_pending_gline->oper_user1,oper_user,USERLEN);
+      new_pending_gline->oper_user2[0] = '\0';
+
+      strncpyzt(new_pending_gline->oper_host1,oper_host,HOSTLEN);
+      new_pending_gline->oper_host2[0] = '\0';
+
+      new_pending_gline->oper_server1 = find_or_add(oper_server);
+
+
+      strncpyzt(new_pending_gline->user,user,USERLEN);
+      strncpyzt(new_pending_gline->host,host,HOSTLEN);
+      new_pending_gline->reason1 = strdup(reason);
+      new_pending_gline->reason2 = (char *)NULL;
+
+      new_pending_gline->next = (GLINE_PENDING *)NULL;
+      new_pending_gline->last_gline_time = NOW;
+      new_pending_gline->time_request1 = NOW;
+      pending_glines = new_pending_gline;
+      return NO;
+    }
+
+  expire_pending_glines();
+
+  for(gline_pending_ptr = pending_glines;
+      gline_pending_ptr; gline_pending_ptr = gline_pending_ptr->next)
+    {
+      if( (strcasecmp(gline_pending_ptr->user,user) == 0) &&
+	  (strcasecmp(gline_pending_ptr->host,host) ==0 ) )
+	{
+	  if(((strcasecmp(gline_pending_ptr->oper_user1,oper_user) == 0) &&
+	      (strcasecmp(gline_pending_ptr->oper_host1,oper_host) == 0)) ||
+	      (strcasecmp(gline_pending_ptr->oper_server1,oper_server) == 0) )
+	    {
+	      /* This oper or server has already "voted" */
+	      sendto_realops("oper or server has already voted");
+	      return NO;
+	    }
+
+	  if(gline_pending_ptr->oper_user2[0] != '\0')
+	    {
+	      /* if two other opers on two different servers have voted yes */
+
+	      if(((strcasecmp(gline_pending_ptr->oper_user2,oper_user)==0) &&
+		  (strcasecmp(gline_pending_ptr->oper_host2,oper_host)==0)) ||
+		  (strcasecmp(gline_pending_ptr->oper_server2,oper_server)==0))
+		{
+		  /* This oper or server has already "voted" */
+		  sendto_ops("oper or server has already voted");
+		  return NO;
+		}
+
+	      if(find_is_glined(host,user))
+		return NO;
+
+	      if(find_is_klined(host,user))
+		return NO;
+
+	      log_gline(sptr,sptr->name,gline_pending_ptr,
+			oper_nick,oper_user,oper_host,oper_server,
+			user,host,reason);
+	      return YES;
+	    }
+	  else
+	    {
+	      strncpyzt(gline_pending_ptr->oper_nick2,oper_nick,NICKLEN+1);
+	      strncpyzt(gline_pending_ptr->oper_user2,oper_user,USERLEN);
+	      strncpyzt(gline_pending_ptr->oper_host2,oper_host,HOSTLEN);
+	      gline_pending_ptr->reason2 = strdup(reason);
+	      gline_pending_ptr->oper_server2 = find_or_add(oper_server);
+	      gline_pending_ptr->last_gline_time = NOW;
+	      gline_pending_ptr->time_request1 = NOW;
+	      return NO;
+	    }
+	}
+    }
+  /* Didn't find this user@host gline in pending gline list
+   * so add it.
+   */
+
+  new_pending_gline = (GLINE_PENDING *)malloc(sizeof(GLINE_PENDING));
+  if(new_pending_gline == (GLINE_PENDING *)NULL)
+    {
+      sendto_realops("No memory for GLINE, GLINE dropped");
+      return NO;
+    }
+
+  strncpyzt(new_pending_gline->oper_nick1,oper_nick,NICKLEN+1);
+  new_pending_gline->oper_nick2[0] = '\0';
+
+  strncpyzt(new_pending_gline->oper_user1,oper_user,USERLEN);
+  new_pending_gline->oper_user2[0] = '\0';
+
+  strncpyzt(new_pending_gline->oper_host1,oper_host,HOSTLEN);
+  new_pending_gline->oper_host2[0] = '\0';
+
+  new_pending_gline->oper_server1 = find_or_add(oper_server);
+
+  strncpyzt(new_pending_gline->user,user,USERLEN);
+  strncpyzt(new_pending_gline->host,host,HOSTLEN);
+  new_pending_gline->reason1 = strdup(reason);
+  new_pending_gline->reason2 = (char *)NULL;
+
+  new_pending_gline->last_gline_time = NOW;
+  new_pending_gline->time_request1 = NOW;
+  new_pending_gline->next = pending_glines;
+  pending_glines = new_pending_gline;
+  
+  return NO;
 }
 
 /* add_gline

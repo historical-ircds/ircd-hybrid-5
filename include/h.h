@@ -132,9 +132,9 @@ extern  void	flush_temp_klines(void);
 extern  void    report_temp_klines(aClient *);
 
 #ifdef  GLINES
-extern  void	flush_glines(void);
-extern  void	report_glines(aClient *);
-extern  void    add_gline(aConfItem *);
+extern  void	flush_glines(void);		/* defined in s_conf.c */
+extern  void	report_glines(aClient *);	/* defined in s_conf.c */
+extern  void    add_gline(aConfItem *);		/* defined in s_conf.c */
 #endif
 
 extern	int	find_restrict (aClient *);
