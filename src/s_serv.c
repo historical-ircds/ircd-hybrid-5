@@ -3209,13 +3209,6 @@ int m_unkline (aClient *cptr,aClient *sptr,int parc,char *parv[])
       return 0;
     }
 
-  if (strchr(parv[1], '?'))
-    {
-      sendto_one(sptr, ":%s NOTICE %s :Invalid character (?)",
-		 me.name, parv[0]);
-      return 0;
-    }
-
   if ( (host = strchr(parv[1], '@')) || *parv[1] == '*' )
     {
       /* Explicit user@host mask given */
