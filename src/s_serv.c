@@ -3466,10 +3466,10 @@ int     m_gline(aClient *cptr,
       add_gline(aconf);
       
       sendto_realops("%s!%s@%s on %s has triggered gline for [%s@%s] [%s]",
-		 sptr->name,
-		 sptr->username,
-		 sptr->user->host,
-		 sptr->user->server,
+		 oper_name,
+		 oper_username,
+		 oper_host,
+		 oper_server,
 		 user,
 		 host,
 		 reason);
@@ -3511,8 +3511,15 @@ static int majority_gline(char *oper_nick,
   GLINE_PENDING *tmp_gline_pending_ptr;
  */
 
+  /* DEBUG */
+
+  Debug((DEBUG_DEBUG,"majority_gline: oper_nick %s oper_user %s oper_host %s oper_server %s user %s host %s reason %s",
+	 oper_nick,oper_user,oper_host,oper_server,user,host,reason));
+
   if(pending_glines == (GLINE_PENDING *)NULL) /* first gline request placed */
     {
+Debug((DEBUG_DEBUG,"New GLINE"));
+
       new_pending_gline = (GLINE_PENDING *)malloc(sizeof(GLINE_PENDING));
       if(new_pending_gline == (GLINE_PENDING *)NULL)
 	{
@@ -3552,21 +3559,46 @@ static int majority_gline(char *oper_nick,
 	  (strcasecmp(gline_pending_ptr->host,host) != 0) )
 	{
 	  /* Not a match for this user */
+Debug((DEBUG_DEBUG,"No match for this user: gline_pending_ptr->user %s gline_pending_ptr->host",
+		   gline_pending_ptr->user,gline_pending_ptr->host));
+
+Debug((DEBUG_DEBUG,"No match for this user: user %s host",
+		   user,host));
+
 	  gline_pending_ptr = gline_pending_ptr->next;
 	  continue;
 	}
+
+Debug((DEBUG_DEBUG,"gline_pending_ptr->oper_user1 %s",
+		   gline_pending_ptr->oper_user1));
+
+Debug((DEBUG_DEBUG,"gline_pending_ptr->oper_host1 %s",
+		   gline_pending_ptr->oper_host1));
+
+Debug((DEBUG_DEBUG,"gline_pending_ptr->oper_server1 %s",
+		   gline_pending_ptr->oper_server1));
 
       if( ((strcasecmp(gline_pending_ptr->oper_user1,oper_user) == 0) &&
 	  (strcasecmp(gline_pending_ptr->oper_host1,oper_host) == 0)) ||
 	  (strcasecmp(gline_pending_ptr->oper_server1,oper_server) == 0) )
 	{
 	  /* This oper or server has already "voted" */
+Debug((DEBUG_DEBUG,"already one oper has voted yes"));
 	  sendto_realops("oper or server has already voted");
 	  return NO;
 	}
 
       if( gline_pending_ptr->oper_user2[0] != '\0' )
 	{
+Debug((DEBUG_DEBUG,"gline_pending_ptr->oper_user2 %s",
+		   gline_pending_ptr->oper_user2));
+
+Debug((DEBUG_DEBUG,"gline_pending_ptr->oper_host2 %s",
+		   gline_pending_ptr->oper_host2));
+
+Debug((DEBUG_DEBUG,"gline_pending_ptr->oper_server2 %s",
+		   gline_pending_ptr->oper_server2));
+
 	  /* already two opers have "voted" yes */
 	  
 	  if( ((strcasecmp(gline_pending_ptr->oper_user2,oper_user) == 0) &&
@@ -3574,12 +3606,14 @@ static int majority_gline(char *oper_nick,
 	      (strcasecmp(gline_pending_ptr->oper_server2,oper_server) == 0) )
 	    {
 	      /* This oper or server has already "voted" */
+Debug((DEBUG_DEBUG,"already two opers have voted yes"));
 	      sendto_ops("oper or server has already voted");
 	      return NO;
 	    }
           /* expire it this way */
           gline_pending_ptr->last_gline_time = (time_t)0;
           expire_pending_glines();
+Debug((DEBUG_DEBUG,"Now have a majority"));
 	  return YES;
 	}
       else
@@ -4233,6 +4267,97 @@ int m_unkline (aClient *cptr,aClient *sptr,int parc,char *parv[])
   filename = klinefile;
 #endif			
 
+  if(configfile != klinefile)
+    {
+      sendto_one(sptr,":%s NOTICE %s :Rehashing in %s k-lines",
+		 me.name,parv[0],configfile);
+
+      if( (in = open(configfile, O_RDONLY)) == -1)
+	{
+	  sendto_one(sptr, ":%s NOTICE %s :Cannot open %s",
+		     me.name,parv[0],configfile);
+#if defined(LOCKFILE) && !defined(SEPARATE_QUOTE_KLINES_BY_DATE)
+	  (void)unlink(LOCKFILE);
+#endif
+	  return 0;
+	}
+
+      clear_conf_list(&KList1);
+      clear_conf_list(&KList2);
+      clear_conf_list(&KList3);
+
+      while((nread = dgets(in, buf, sizeof(buf)) ) > 0) 
+	{
+	  buf[nread] = '\0';
+
+	  if((buf[1] == ':') && ((buf[0] == 'k') || (buf[0] == 'K')))
+	    {
+	      /* its a K: line */
+	      char *found_host;
+	      char *found_user;
+	      char *found_comment;
+
+	      strcpy(buff,buf);
+
+	      p = strchr(buff,'\n');
+	      if(p)
+		*p = '\0';
+	      p = strchr(buff,'\r');
+	      if(p)
+		*p = '\0';
+
+	      found_host = buff + 2;	/* point past the K: */
+	      p = strchr(found_host,':');
+	      if(p == (char *)NULL)
+		{
+		  sendto_one(sptr, ":%s NOTICE %s :K-Line file corrupted",
+			     me.name, parv[0]);
+		  sendto_one(sptr, ":%s NOTICE %s :Couldn't find host",
+			     me.name, parv[0]);
+		  continue;		/* This K line is corrupted ignore */
+		}
+	      *p = '\0';
+	      p++;
+ 
+	      found_comment = p;
+	      p = strchr(found_comment,':');
+	      if(p == (char *)NULL)
+		{
+		  sendto_one(sptr, ":%s NOTICE %s :K-Line file corrupted",
+			     me.name, parv[0]);
+		  sendto_one(sptr, ":%s NOTICE %s :Couldn't find comment",
+			     me.name, parv[0]);
+		  continue;		/* This K line is corrupted ignore */
+		}
+	      *p = '\0';
+	      p++;
+	      found_user = p;
+
+	      aconf = make_conf();
+	      aconf->status = CONF_KILL;
+	      DupString(aconf->host, found_host);
+	      DupString(aconf->name, found_user);
+	      DupString(aconf->passwd,found_comment);
+	      aconf->port = 0;
+	      Class(aconf) = find_class(0);
+      
+	      switch (sortable(found_host))
+		{
+		case 0 :
+		  l_addto_conf_list(&KList3, aconf, host_field);
+		  break;
+		case 1 :
+		  addto_conf_list(&KList1, aconf, host_field);
+		  break;
+		case -1 :
+		  addto_conf_list(&KList2, aconf, rev_host_field);
+		  break;
+		}
+	    }
+	}
+      (void)close(in);
+    }
+
   if( (in = open(filename, O_RDONLY)) == -1)
     {
       sendto_one(sptr, ":%s NOTICE %s :Cannot open %s",
@@ -4263,10 +4388,6 @@ int m_unkline (aClient *cptr,aClient *sptr,int parc,char *parv[])
 #Dianora!db@ts2-11.ottawa.net K'd: foo@bar:No reason
 K:bar:No reason (1997/08/30 14.56):foo
 */
-
-  clear_conf_list(&KList1);
-  clear_conf_list(&KList2);
-  clear_conf_list(&KList3);
 
   while((nread = dgets(in, buf, sizeof(buf)) ) > 0) 
     {

@@ -913,8 +913,8 @@
 */
 #undef  DEBUGMODE               /* define DEBUGMODE to enable debugging mode.*/
 
-/* ----------------- archaic and/or broken section -------------------- */
 
+/* ----------------- not approved on EFnet section -------------------- */
 /* GLINES - global Kline-like bans
  * Define this if you want GLINE support
  * when this is defined, 3 completely different opers from
@@ -929,6 +929,7 @@
  */
 #define GLINE_TIME      (12*3600)
 
+/* ----------------- archaic and/or broken section -------------------- */
 #undef DNS_DEBUG
 
 /* SETUID_ROOT - plock - keep the ircd from being swapped out.

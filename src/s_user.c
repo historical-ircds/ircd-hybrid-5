@@ -653,6 +653,49 @@ static	int	register_user(aClient *cptr,
 #endif
 #endif
 	}
+
+#ifdef GLINES
+      if ( (aconf=find_gkill(sptr)) )
+	{
+	  char *reason;
+
+#ifdef K_COMMENT_ONLY
+	  reason = aconf->passwd ? aconf->passwd : "G-lined";
+#else
+	  reason = (BadPtr(aconf->passwd) || !is_comment(aconf->passwd)) ?
+	    "G-lined" : aconf->passwd;
+#endif
+
+#ifdef RK_NOTICES
+	  sendto_realops("G-lined %s@%s. for %s",sptr->user->username,
+			 sptr->sockhost,reason);
+#endif
+
+	  /* Ok...read note about REJECT_HOLD above -Dianora
+	   */
+
+#ifdef REJECT_HOLD
+	  SetRejectHold(cptr);
+#ifdef KLINE_WITH_REASON
+	  sendto_one(sptr, ":%s NOTICE %s :*** G-lined for %s",
+		     me.name,cptr->name,reason);
+#else
+	  sendto_one(sptr, ":%s NOTICE %s :*** G-lined",
+		     me.name,cptr->name);
+#endif
+	  return(0);
+#else
+	  ircstp->is_ref++;
+
+#ifdef KLINE_WITH_REASON
+	  return exit_client(cptr, sptr, &me, reason);
+#else
+	  return exit_client(cptr, sptr, &me, "G-lined");
+#endif
+#endif
+	}
+#endif	/* GLINES */
+
 #ifdef R_LINES
       if (find_restrict(sptr))
 	{
