@@ -224,7 +224,6 @@ typedef struct	MotdItem aMotd;
 #define	IsPrivileged(x)		(IsAnOper(x) || IsServer(x))
 #define	SendWallops(x)		((x)->flags & FLAGS_WALLOP)
 #define	SendServNotice(x)	((x)->flags & FLAGS_SERVNOTICE)
-
 #define SendOperwall(x)		((x)->flags & FLAGS_OPERWALL)
 #define SendCConnNotice(x)	((x)->flags & FLAGS_CCONN)
 #define SendRejNotice(x)	((x)->flags & FLAGS_REJ)
@@ -239,7 +238,6 @@ typedef struct	MotdItem aMotd;
 #define	DoAccess(x)		((x)->flags & FLAGS_CHKACCESS)
 #define	IsLocal(x)		((x)->flags & FLAGS_LOCAL)
 #define	IsDead(x)		((x)->flags & FLAGS_DEADSOCKET)
-
 #define	SetOper(x)		((x)->flags |= FLAGS_OPER)
 #define	SetLocOp(x)    		((x)->flags |= FLAGS_LOCOP)
 #define	SetInvisible(x)		((x)->flags |= FLAGS_INVISIBLE)
@@ -250,7 +248,6 @@ typedef struct	MotdItem aMotd;
 #define	SetAccess(x)		((x)->flags |= FLAGS_CHKACCESS)
 #define	DoingAuth(x)		((x)->flags & FLAGS_AUTH)
 #define	NoNewLine(x)		((x)->flags & FLAGS_NONL)
-
 #define	ClearOper(x)		((x)->flags &= ~FLAGS_OPER)
 #define ClearLocOp(x)		((x)->flags &= ~FLAGS_LOCOP)
 #define	ClearInvisible(x)	((x)->flags &= ~FLAGS_INVISIBLE)
@@ -258,6 +255,12 @@ typedef struct	MotdItem aMotd;
 #define	ClearDNS(x)		((x)->flags &= ~FLAGS_DOINGDNS)
 #define	ClearAuth(x)		((x)->flags &= ~FLAGS_AUTH)
 #define	ClearAccess(x)		((x)->flags &= ~FLAGS_CHKACCESS)
+
+#ifdef REJECT_HOLD
+#define IsRejectHeld(x)	        ((x)->flags & FLAGS_REJECT_HOLD)
+#define SetRejectHold(x)        ((x)->flags |= FLAGS_REJECT_HOLD)
+#endif
+
 
 /*
  * flags2 macros.

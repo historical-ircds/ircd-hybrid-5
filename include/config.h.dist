@@ -846,6 +846,20 @@
 #define FLUD_BLOCK	15	/* Seconds to block fluds */
 #endif
 
+/* REJECT_HOLD 
+ * clients that reconnect but are k-lined will have their connections
+ * "held" for REJECT_HOLD_TIME seconds, they cannot PRIVMSG. The idea
+ * is to keep a reconnecting client from forcing the ircd to re-scan
+ * dich_conf. There is one possible serious hitch with this...
+ * If it is a mass cloner, your attacker can "REJECT_HOLD" a number
+ * of local fd's on your server. Against normal bots this code will
+ * be a "win", against mass cloners, it could lose. 
+ *
+ */
+  
+#undef REJECT_HOLD
+#define REJECT_HOLD_TIME 60 
+
 /*
  * OLD_Y_LIMIT
  *
@@ -901,21 +915,6 @@
  * As configured here, a GLINE will last 12 hours
  */
 #define GLINE_TIME      (12*3600)
-
-/* USE_REJECT_HOLD 
- * clients that reconnect but are k-lined will have their connections
- * "held" for REJECT_HOLD_TIME seconds, they cannot PRIVMSG. The idea
- * is to keep a reconnecting client from forcing the ircd to re-scan
- * dich_conf. There is one possible serious hitch with this...
- * If it is a mass cloner, your attacker can "REJECT_HOLD" a number
- * of local fd's on your server. Against normal bots this code will
- * be a "win", against mass cloners, it could lose. 
- * 
- * this is still not working yet
- */
-  
-#undef USE_REJECT_HOLD
-#define REJECT_HOLD_TIME 60 
 
 #undef DNS_DEBUG
 

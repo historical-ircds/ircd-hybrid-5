@@ -605,8 +605,21 @@ static	int	register_user(aClient *cptr,
 			 sptr->sockhost,reason);
 #endif
 
-#ifdef USE_REJECT_HOLD
-	  cptr->flags |= FLAGS_REJECT_HOLD;
+	  /* Ok... if we are using REJECT_HOLD, I'm not going to dump
+	   * the client immediately, but just mark the client for exit
+	   * at some future time, .. this marking also disables reads/
+	   * writes from the client. i.e. the client is "hanging" onto an fd
+	   * without actually being able to do anything with it
+	   * I still send the usual messages about the k line, but its
+	   * not exited immediately.
+	   * My concern would be, someone attempting to deny service attack
+	   * would load up a bunch of clients all on the same user@host
+	   * expecting to use up fd's
+	   * - Dianora
+	   */
+
+#ifdef REJECT_HOLD
+	  SetRejectHold(cptr);
 #ifdef KLINE_WITH_REASON
 	  sendto_one(sptr, ":%s NOTICE %s :*** K-lined for %s",
 		     me.name,cptr->name,reason);
@@ -939,23 +952,31 @@ static	int	register_user(aClient *cptr,
 		  sendto_one(sptr,"NOTICE %s :*** Notice -- motd was last changed at %s",
 			     nick, motd_last_changed_date);
 #ifdef SHORT_MOTD
-		  sendto_one(sptr,
+#ifdef REJECT_HOLD
+		  if(!IsRejectHeld(sptr))
+#endif		  
+		    {
+		      sendto_one(sptr,
        "NOTICE %s :*** Notice -- Please read the motd if you haven't read it",
 			     nick);
 
-		  sendto_one(sptr, rpl_str(RPL_MOTDSTART),
-			     me.name, parv[0], me.name);
+		      sendto_one(sptr, rpl_str(RPL_MOTDSTART),
+				 me.name, parv[0], me.name);
 
-		  sendto_one(sptr,
-			     rpl_str(RPL_MOTD),
-			     me.name, parv[0],
-			     "*** This is the short motd ***"
-			     );
+		      sendto_one(sptr,
+				 rpl_str(RPL_MOTD),
+				 me.name, parv[0],
+				 "*** This is the short motd ***"
+				 );
 
-		  sendto_one(sptr, rpl_str(RPL_ENDOFMOTD),
-			     me.name, parv[0]);
+		      sendto_one(sptr, rpl_str(RPL_ENDOFMOTD),
+				 me.name, parv[0]);
+		    }
 #else
-		  (void)send_motd(sptr, sptr, 1, parv);
+#ifdef REJECT_HOLD
+		  if(!IsRejectHeld(sptr))
+#endif
+		    (void)send_motd(sptr, sptr, 1, parv);
 #endif
 #ifdef LITTLE_I_LINES
 		  if(sptr->confs && sptr->confs->value.aconf &&
@@ -1722,6 +1743,11 @@ static	int	m_message(aClient *cptr,
     */
     if ((acptr = find_person(nick, NULL)))
       {
+#ifdef REJECT_HOLD
+	if(IsRejectHeld(acptr))
+	  return 0;
+#endif
+
 #ifdef FLUD
 	if(!notice && MyFludConnect(acptr))
 	  if(check_for_ctcp(parv[2]))

@@ -3,6 +3,7 @@
 - report user doing /motd, removed STATS_FLAG (Dianora)
 - added delay between motd requests (Dianora)
 - kline of *@some ip block is translated into dline (Dianora)
+- fixed REJECT_HOLD code, fripping backwards if (Dianora)
 
 +hybrid-5.3 (6/13/98)
 added NO_CHANOPS_WHEN_SPLIT code back in (Rodder/Dianora)
