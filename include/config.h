@@ -665,6 +665,12 @@
  */
 #undef LIMIT_UH
 
+/* IDLE_CHECK
+ *
+ */
+#define IDLE_CHECK
+#define IDLE_TIME 60
+
 /*   STOP STOP STOP STOP STOP STOP STOP STOP STOP STOP STOP STOP STOP STOP  */
 
 /* You shouldn't change anything below this line, unless absolutely needed. */

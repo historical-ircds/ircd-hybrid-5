@@ -1735,7 +1735,7 @@ static REPORT_STRUCT report_array[] = {
   { 0, 0, '\0' }
 };
 
-#define MAXPREFIX (USERLEN+10)
+#define MAXPREFIX (HOSTLEN+USERLEN+10)
 
 static	void	report_configured_links(aClient *sptr,int mask)
 {
@@ -1793,12 +1793,30 @@ static	void	report_configured_links(aClient *sptr,int mask)
               *prefix_ptr++ = '$';
             if (IsNoMatchIp(tmp))
               *prefix_ptr++ = '%';
+
+#ifdef E_LINES_OPER_ONLY
+	    if(IsAnOper(sptr))
+#endif
+	      if (IsConfElined(tmp))
+		*prefix_ptr++ = '^';
+
+#ifdef B_LINES_OPER_ONLY
+	    if(IsAnOper(sptr))
+#endif
+	      if (IsConfBlined(tmp))
+		*prefix_ptr++ = '&';
+
+#ifdef F_LINES_OPER_ONLY
+	    if(IsAnOper(sptr))
+#endif
+	      if (IsConfFlined(tmp))
+		*prefix_ptr++ = '>';
             *prefix_ptr = '\0';
 
 	    strncat(prefix_of_host,name,MAXPREFIX);
             c = 'I';
 #ifdef LITTLE_I_LINES
-            if(IsLittleI(tmp))
+            if(IsConfLittleI(tmp))
               c = 'i';
 #endif
 	    sendto_one(sptr, rpl_str(p->rpl_stats), me.name,
@@ -1983,16 +2001,7 @@ int	m_stats(aClient *cptr,
       break;
 
     case 'B' : case 'b' :
-#ifdef B_LINES_OPER_ONLY
-      if (!IsAnOper(sptr))
-	{
-	  sendto_one(sptr, err_str(ERR_NOPRIVILEGES), me.name, parv[0]);
-	  break;
-	}
-#endif
-      report_conf_links(sptr, &BList1, RPL_STATSBLINE, 'B');
-      report_conf_links(sptr, &BList2, RPL_STATSBLINE, 'B');
-      report_conf_links(sptr, &BList3, RPL_STATSBLINE, 'B');
+      sendto_one(sptr,":%s NOTICE %s Use stats I instead", me.name, parv[0]);
       break;
 
     case 'D': case 'd':
@@ -2005,29 +2014,11 @@ int	m_stats(aClient *cptr,
       break;
 
     case 'E' : case 'e' :
-#ifdef E_LINES_OPER_ONLY
-      if (!IsAnOper(sptr))
-	{
-	  sendto_one(sptr, err_str(ERR_NOPRIVILEGES), me.name, parv[0]);
-	  break;
-	}
-#endif
-      report_conf_links(sptr, &EList1, RPL_STATSELINE, 'E');
-      report_conf_links(sptr, &EList2, RPL_STATSELINE, 'E');
-      report_conf_links(sptr, &EList3, RPL_STATSELINE, 'E');
+      sendto_one(sptr,":%s NOTICE %s Use stats I instead", me.name, parv[0]);
       break;
 
     case 'F' : case 'f' :
-#ifdef F_LINES_OPER_ONLY
-      if (!IsAnOper(sptr))
-	{
-	  sendto_one(sptr, err_str(ERR_NOPRIVILEGES), me.name, parv[0]);
-	  break;
-	}
-#endif
-      report_conf_links(sptr, &FList1, RPL_STATSFLINE, 'F');
-      report_conf_links(sptr, &FList2, RPL_STATSFLINE, 'F');
-      report_conf_links(sptr, &FList3, RPL_STATSFLINE, 'F');
+      sendto_one(sptr,":%s NOTICE %s Use stats I instead", me.name, parv[0]);
       break;
 
     case 'G': case 'g' :
@@ -2048,9 +2039,10 @@ int	m_stats(aClient *cptr,
       break;
 
     case 'k' :
-    case 'K' :
       report_temp_klines(sptr);
+      break;
 
+    case 'K' :
 /* sendto_one(sptr, err_str(ERR_NOPRIVILEGES), me.name, parv[0]); */
       if(parc > 3)
 	report_matching_host_klines(sptr,parv[3]);
@@ -3902,6 +3894,14 @@ int     m_kline(aClient *cptr,
 	  return 0;
 	}
 
+      if(IsElined(acptr))
+	{
+	  sendto_one(sptr,
+		     ":%s NOTICE %s :%s is E-lined",me.name,parv[0],
+		     acptr->name);
+	  return 0;
+	}
+
       /* turn the "user" bit into "*user", blow away '~'
 	 if found in original user name (non-idented) */
 
@@ -4309,7 +4309,7 @@ int m_unkline (aClient *cptr,aClient *sptr,int parc,char *parv[])
 
 #ifdef NO_LOCAL_KLINE
   if(!IsOper(sptr))
-# else
+#else
   if (!IsAnOper(sptr))  
 #endif
     {

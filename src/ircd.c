@@ -46,18 +46,6 @@ aConfList	KList1 = { 0, NULL };	/* ordered */
 aConfList	KList2 = { 0, NULL };	/* ordered, reversed */
 aConfList	KList3 = { 0, NULL };	/* what we can't sort */
 
-aConfList	BList1 = { 0, NULL };	/* ordered */
-aConfList	BList2 = { 0, NULL };	/* ordered, reversed */
-aConfList	BList3 = { 0, NULL };	/* what we can't sort */
-
-aConfList       EList1 = { 0, NULL };   /* ordered */
-aConfList       EList2 = { 0, NULL };   /* ordered, reversed */
-aConfList       EList3 = { 0, NULL };   /* what we can't sort */
-
-aConfList       FList1 = { 0, NULL };   /* ordered */
-aConfList       FList2 = { 0, NULL };   /* ordered, reversed */
-aConfList       FList3 = { 0, NULL };   /* what we can't sort */
-
 aMotd		*motd;
 aMotd		*helpfile;	/* misnomer, aMotd could be generalized */
 struct tm	*motd_tm;
@@ -520,6 +508,19 @@ static	time_t	check_pings(time_t currenttime)
 		}
 	    }
 	}
+
+#ifdef IDLE_CHECK
+      if (IsPerson(cptr))
+	{
+	  if( (timeofday - cptr->user->last) > IDLE_TIME)
+	    {
+	      dying_clients[die_index] = cptr;
+	      dying_clients_reason[die_index++] = "idle exceeder";
+	      dying_clients[die_index] = (aClient *)NULL;
+	      continue;		/* and go examine next fd/cptr */
+	    }
+	}
+#endif
 
 #ifdef REJECT_HOLD
       if (IsRejectHeld(cptr))

@@ -91,8 +91,6 @@ int botreject(char *);
 unsigned long my_rand(void);	/* provided by orabidoo */
 
 /* externally defined functions */
-extern int find_bline(aClient *);	/* defined in s_conf.c */
-extern int find_fline(aClient *);	/* defined in s_conf.c */
 extern Link *find_channel_link(Link *,aChannel *);	/* defined in list.c */
 
 #ifdef FLUD
@@ -601,6 +599,25 @@ static	int	register_user(aClient *cptr,
 	  return exit_client(cptr, sptr, &me, "Bad Password");
 	}
       bzero(sptr->passwd, sizeof(sptr->passwd));
+
+      /* If this user is in the exception class, Set it "E lined" */
+      if(IsConfElined(aconf))
+	{
+	  SetElined(sptr);
+	  sendto_one(sptr,
+	      ":%s NOTICE %s :*** You are exempt from K/D/G lines. congrats.",
+		     me.name,parv[0]);
+	}
+
+      /* If this user can run bots set it "B lined" */
+      if(IsConfBlined(aconf))
+	{
+	  SetElined(sptr);
+	  sendto_one(sptr,
+	      ":%s NOTICE %s :*** You can run bots here. congrats.",
+		     me.name,parv[0]);
+	}
+
       /*
        * following block for the benefit of time-dependent K:-lines
        */
@@ -709,7 +726,7 @@ static	int	register_user(aClient *cptr,
 #endif
 
 #ifdef BOTCHECK
-      if (find_bline(cptr))
+      if (IsBlined(cptr))
 	isbot = botwarn(bottemp, sptr->name, 
 			sptr->user->username, sptr->sockhost);
       else
@@ -730,10 +747,10 @@ static	int	register_user(aClient *cptr,
 	  !isbot &&
 #endif /* BOTCHECK */
           ((Count.local + 1) >= (MAXCLIENTS+MAX_BUFFER))) ||
-            (((Count.local +1) >= (MAXCLIENTS - 5)) && !(find_fline(sptr))))
+            (((Count.local +1) >= (MAXCLIENTS - 5)) && !(IsFlined(sptr))))
 /*
 	  (sptr->fd >= (MAXCLIENTS+MAX_BUFFER))) ||
-             ((sptr->fd >= (MAXCLIENTS - 5)) && !(find_fline(sptr))))
+             ((sptr->fd >= (MAXCLIENTS - 5)) && !(IsFlined(sptr))))
 */
 
     {
@@ -1061,11 +1078,13 @@ static	int	register_user(aClient *cptr,
 		  (void)send_motd(sptr, sptr, 1, parv);
 #endif
 #ifdef LITTLE_I_LINES
-		  if(sptr->confs && sptr->confs->value.aconf &&
-		     (sptr->confs->value.aconf->flags
-		      & CONF_FLAGS_LITTLE_I_LINE))
+		  if(sptr->confs)
 		    {
-		      SetRestricted(sptr);
+		      aConfItem *aconf;
+
+		      aconf = sptr->confs->value.aconf;
+		      if(
+			 SetRestricted(sptr);
 		      sendto_one(sptr,"NOTICE %s :*** Notice -- You are in a restricted access mode",nick);
 		      sendto_one(sptr,"NOTICE %s :*** Notice -- You can not be chanopped",nick);
 		    }
@@ -3107,7 +3126,8 @@ int	m_oper(aClient *cptr,
       *--s =  '@';
       /* FDLIST */
       addto_fdlist(sptr->fd, &oper_fdlist);
-
+      SetElined(cptr);
+      
 #ifdef USE_LINKLIST
       /* LINKLIST */  
       /* add to oper link list -Dianora */

@@ -204,6 +204,9 @@ typedef struct	MotdItem aMotd;
 /* *sigh* overflow flags */
 #define FLAGS2_RESTRICTED   0x0001      /* restricted client */
 #define FLAGS2_PING_TIMEOUT 0x0002
+#define FLAGS2_E_LINED	    0x0004	/* client is graced with E line */
+#define FLAGS2_B_LINED	    0x0008	/* client is graced with B line */
+#define FLAGS2_F_LINED	    0x0010	/* client is graced with F line */
 
 /* for sendto_ops_lev */
 #define CCONN_LEV	1
@@ -275,6 +278,12 @@ typedef struct	MotdItem aMotd;
  */
 #define IsRestricted(x)		((x)->flags2 & FLAGS2_RESTRICTED)
 #define SetRestricted(x)	((x)->flags2 |= FLAGS2_RESTRICTED)
+#define IsElined(x)		((x)->flags2 & FLAGS2_E_LINED)
+#define SetElined(x)		((x)->flags2 |= FLAGS2_E_LINED)
+#define IsBlined(x)		((x)->flags2 & FLAGS2_B_LINED)
+#define SetBlined(x)		((x)->flags2 |= FLAGS2_B_LINED)
+#define IsFlined(x)		((x)->flags2 & FLAGS2_F_LINED)
+#define SetFlined(x)		((x)->flags2 |= FLAGS2_F_LINED)
 
 /*
  * defined debugging levels
@@ -393,9 +402,12 @@ struct	ConfItem
 #define CONF_FLAGS_NEED_IDENTD		0x0004
 #define CONF_FLAGS_PASS_IDENTD		0x0008
 #define CONF_FLAGS_NOMATCH_IP		0x0010
+#define CONF_FLAGS_E_LINED		0x0020
+#define CONF_FLAGS_B_LINED		0x0040
+#define CONF_FLAGS_F_LINED		0x0080
 
 #ifdef LITTLE_I_LINES
-#define CONF_FLAGS_LITTLE_I_LINE	0x0020
+#define CONF_FLAGS_LITTLE_I_LINE	0x8000
 #endif
 
 /* Macros for aConfItem */
@@ -405,9 +417,11 @@ struct	ConfItem
 #define IsNeedIdentd(x)         ((x)->flags & CONF_FLAGS_NEED_IDENTD)
 #define IsPassIdentd(x)         ((x)->flags & CONF_FLAGS_PASS_IDENTD)
 #define IsNoMatchIp(x)          ((x)->flags & CONF_FLAGS_NOMATCH_IP)
-
+#define IsConfElined(x)		((x)->flags & CONF_FLAGS_E_LINED)
+#define IsConfBlined(x)		((x)->flags & CONF_FLAGS_B_LINED)
+#define IsConfFlined(x)		((x)->flags & CONF_FLAGS_F_LINED)
 #ifdef LITTLE_I_LINES
-#define IsLittleI(x)		((x)->flags & CONF_FLAGS_LITTLE_I_LINE)
+#define IsConfLittleI(x)	((x)->flags & CONF_FLAGS_LITTLE_I_LINE)
 #endif
 
 /*

@@ -1,4 +1,8 @@
-+hybrid-5.4 (7/8/98)
++hybrid-5.4 (7/14/98)
+- E lines replaced by ^ in front of username in I line
+- F lines replaced by > in front of username in I line
+- B lines replaced by & in front of username in I line
+- "^>&" can be combined with any combination of "+!-" characters (Dianora)
 - will not allow any user with username including '!' '*' '?'
 or high bit/control characters to user the server (Dianora)
 - added LIMIT_UH code (Dianora)

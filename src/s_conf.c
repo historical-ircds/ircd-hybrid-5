@@ -109,7 +109,6 @@ static IP_ENTRY *find_or_add_ip(unsigned long);
 
 /* externally defined routines */
 int find_conf_match(aClient *,aConfList *,aConfList *,aConfList *);
-int find_fline(aClient *);
 extern	void  delist_conf(aConfItem *);
 
 #ifdef GLINES
@@ -817,9 +816,13 @@ int	attach_conf(aClient *cptr,aConfItem *aconf)
 	  ConfLinks(aconf) >= ConfMaxLinks(aconf) && ConfMaxLinks(aconf) > 0)
 #endif
 	{
+	  /*
 	  if (!find_fline(cptr))
 	    {
+	    */
+
 	      return -3;	/* Use this for printing error message */
+	      /*
 	    }
 	  else
 	    {
@@ -827,6 +830,7 @@ int	attach_conf(aClient *cptr,aConfItem *aconf)
 		   "NOTICE FLINE :I: line is full, but you have an F: line!\n",
 		   56, 0);
 	    }
+	    */
 	}
 #ifndef OLD_Y_LIMIT
     }
@@ -1288,20 +1292,8 @@ int	rehash(aClient *cptr,aClient *sptr,int sig)
   clear_conf_list(&KList1);
   clear_conf_list(&KList2);
   clear_conf_list(&KList3);
-  
-  clear_conf_list(&BList1);
-  clear_conf_list(&BList2);
-  clear_conf_list(&BList3);
 
   clear_dlines();
-
-  clear_conf_list(&EList1);
-  clear_conf_list(&EList2);
-  clear_conf_list(&EList3);
-
-  clear_conf_list(&FList1);
-  clear_conf_list(&FList2);
-  clear_conf_list(&FList3);
 
   (void) initconf(0,fd);
 #ifdef SEPARATE_QUOTE_KLINES_BY_DATE
@@ -1382,6 +1374,15 @@ static char *set_conf_flags(aConfItem *aconf,char *tmp)
 	  break;
 	case '%':
 	  aconf->flags |= CONF_FLAGS_NOMATCH_IP;
+	  break;
+	case '^':	/* is exempt from k/g lines */
+	  aconf->flags |= CONF_FLAGS_E_LINED;
+	  break;
+	case '&':	/* can run a bot */
+	  aconf->flags |= CONF_FLAGS_B_LINED;
+	  break;
+	case '>':	/* can exceed max connects */
+	  aconf->flags |= CONF_FLAGS_F_LINED;
 	  break;
 	default:
 	  return tmp;
@@ -1492,11 +1493,6 @@ int 	initconf(int opt, int fd)
 	case 'D': /* Deny lines (immediate refusal) */
 	case 'd':
 	  aconf->status = CONF_DLINE;
-	  break;
-
-	case 'E': /* Addresses that we don't want to check */
-	case 'e': /* for bots. */
-	  aconf->status = CONF_ELINE;
 	  break;
 
 	case 'F': /* Super-Exempt hosts */
@@ -1741,27 +1737,6 @@ int 	initconf(int opt, int fd)
 	  MyFree(host);
 	}
 
-      if (aconf->host && (aconf->status & CONF_BLINE))
-        {
-	  char    *host = host_field(aconf);
-
-	  dontadd = 1;
-	  switch (sortable(host))
-	    {
-	    case 0 :
-	      l_addto_conf_list(&BList3, aconf, host_field);
-	      break;
-	    case 1 :
-	      addto_conf_list(&BList1, aconf, host_field);
-	      break;
-	    case -1 :
-	      addto_conf_list(&BList2, aconf, rev_host_field);
-	      break;
-  	  }
-	
-	MyFree(host);
-      }
-
       if (aconf->host && (aconf->status & CONF_DLINE))
 	{
 	  unsigned long mask;
@@ -1774,44 +1749,6 @@ int 	initconf(int opt, int fd)
 			    aconf->host,
 			    aconf->passwd);
 	}
-
-      if (aconf->host && (aconf->status & CONF_ELINE)) {
-	char	*host = host_field(aconf);
-
-	dontadd = 1;
-	switch (sortable(host))
-	  {
-	  case 0 :
-	    l_addto_conf_list(&EList3, aconf, host_field);
-	    break;
-	  case 1 :
-	    addto_conf_list(&EList1, aconf, host_field);
-	    break;
-	  case -1 :
-	    addto_conf_list(&EList2, aconf, rev_host_field);
-	    break;
-	  }
-	MyFree(host);
-      }
-
-      if (aconf->host && (aconf->status & CONF_FLINE)) {
-	char	*host = host_field(aconf);
-
-	dontadd = 1;
-	switch (sortable(host))
-	  {
-	  case 0 :
-	    l_addto_conf_list(&FList3, aconf, host_field);
-	    break;
-	  case 1 :
-	    addto_conf_list(&FList1, aconf, host_field);
-	    break;
-	  case -1 :
-	    addto_conf_list(&FList2, aconf, rev_host_field);
-	    break;
-	  }
-	MyFree(host);
-      }
 
       (void)collapse(aconf->host);
       (void)collapse(aconf->name);
@@ -1917,11 +1854,6 @@ int is_comment(char *comment)
 }
 #endif
 
-int     find_bline(aClient *cptr)
-{
-  return find_conf_match(cptr, &BList1, &BList2, &BList3);
-}
-
 /*
 find_dline
 
@@ -1933,16 +1865,6 @@ side effects	-
 int find_dline(unsigned long host_ip)
 {
   return((int)find_host_in_dline_hash(host_ip));
-}
-
-int     find_eline(aClient *cptr)
-{
-  return find_conf_match(cptr, &EList1, &EList2, &EList3);
-}
-
-int     find_fline(aClient *cptr)
-{
-  return find_conf_match(cptr, &FList1, &FList2, &FList3);
 }
 
 /*
@@ -1967,10 +1889,13 @@ aConfItem *find_kill(aClient *cptr)
   if (strlen(host)  > (size_t) HOSTLEN ||
       (name ? strlen(name) : 0) > (size_t) HOSTLEN)
     return (0);
-  
-  if (find_eline(cptr))
-    return 0;
 
+  /* If client is e-lined, then its not k-linable */
+  /* opers get that flag automatically, normal users do not */
+
+  if (IsElined(cptr))
+    return(0);
+  
   return(find_is_klined(host,name));
 }
 
@@ -2257,8 +2182,8 @@ aConfItem *find_dkill(aClient *cptr)
   if (!cptr->user)
     return 0;
 
-  if (find_eline(cptr))
-    return((aConfItem *)NULL);
+  if(IsElined(cptr))
+     return((aConfItem *)NULL);
 
   return(find_host_in_dline_hash(cptr->ip.s_addr));
 }
@@ -2409,7 +2334,7 @@ aConfItem *find_gkill(aClient *cptr)
       (name ? strlen(name) : 0) > (size_t) HOSTLEN)
     return (0);
   
-  if (find_eline(cptr))
+  if(IsElined(cptr))
     return 0;
 
   return(find_is_glined(host,name));
