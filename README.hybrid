@@ -10,7 +10,7 @@
   R enables, r disables, remote operator commands, squit/connect
   U enables, u disables, unkline
   G enables, g disables, gline
-  T enables, t disables, the use of umode +n
+  N enables, n disables, the use of umode +n
   defaults for global O if no flags is ORUG, for local o, U (Dianora)
 - E lines replaced by ^ in front of username in I line
 - F lines replaced by > in front of username in I line

@@ -517,22 +517,6 @@ char	*comment	/* Reason for the exit */
       sptr->flags |= FLAGS_CLOSING;
       if (IsPerson(sptr))
 	{
-#ifdef ANTI_SPAMBOT_EXTRA
-	  /* catch the "one shot" spambots, they appear
-	   * to message a client, then exit. We can't do anything
-	   * to them since they are now exiting, but at least
-	   * we know about them now
-	   * -Dianora
-	   */
-	  if( sptr->person_privmsgs && !sptr->channel_privmsgs)
-	    {
-	      sendto_realops("Possible spambot exiting %s [%s@%s] : privmsgs to clients %d privmsgs to channels %d",
-			     sptr->name, sptr->user->username,
-			     sptr->user->host,
-			     sptr->person_privmsgs,sptr->channel_privmsgs);
-	    }
-#endif
-
 	  sendto_realops_lev(CCONN_LEV, "Client exiting: %s (%s@%s) [%s] [%s]",
 		    sptr->name, sptr->user->username,
 		    sptr->user->host,
@@ -761,20 +745,8 @@ static	void	exit_one_client(aClient *cptr,
       ** (Note: The notice is to the local clients *only*)
       */
 
-#ifdef ANTI_SPAM_EXIT_MESSAGE
-	  if(sptr->flags & FLAGS_KILLED)
-	    sendto_common_channels(sptr, ":%s QUIT :%s",
+	  sendto_common_channels(sptr, ":%s QUIT :%s",
 				   sptr->name, comment);
-	  else
-	    {
-	      if((sptr->firsttime + ANTI_SPAM_EXIT_MESSAGE_TIME) > NOW)
-		sendto_common_channels(sptr, ":%s QUIT :%s",
-				       sptr->name, "Client Quit");
-	      else
-		sendto_common_channels(sptr, ":%s QUIT :%s",
-				       sptr->name, comment);
-	    }
-#endif
 
 	  while ((lp = sptr->user->channel))
 	    remove_user_from_channel(sptr,lp->value.chptr);

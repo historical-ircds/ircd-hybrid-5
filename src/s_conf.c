@@ -3483,8 +3483,8 @@ int get_oper_privs(int int_privs,char *privs)
 	int_privs |= CONF_OPER_REMOTE;	/* squit/connect etc. */
       else if(*privs == 'r')
 	int_privs &= ~CONF_OPER_REMOTE;	/* squit/connect etc. */
-      else if(*privs == 'T')
-	int_privs |= CONF_OPER_TCM;
+      else if(*privs == 'N')
+	int_privs |= CONF_OPER_N;
 #ifdef GLINES
       else if(*privs == 'G')
 	int_privs |= CONF_OPER_GLINE;
@@ -3552,11 +3552,11 @@ char *oper_privs(aClient *cptr,int port)
   else
     *privs_ptr++ = 'g';
 
-  if(port & CONF_OPER_TCM)
+  if(port & CONF_OPER_N)
     {
       if(cptr)
-	SetOpertcm(cptr);
-      *privs_ptr++ = 'T';
+	SetOperN(cptr);
+      *privs_ptr++ = 'N';
     }
 
   *privs_ptr = '\0';

@@ -1104,7 +1104,7 @@ static	int	register_user(aClient *cptr,
 #endif
 		  nextping = timeofday;
 #ifdef ANTI_SPAMBOT_EXTRA
-	      if(strstr(sptr->info,"http:"))
+	      if(strstr(sptr->info,"http:") || strstr(sptr->info,"www."))
 		{
 		  sendto_realops("Possible spambot %s [%s@%s] : [gecos: %s]",
 					 nick, sptr->user->username,
@@ -2713,6 +2713,31 @@ int	m_quit(aClient *cptr,
   sptr->flags |= FLAGS_NORMALEX;
   if (strlen(comment) > (size_t) TOPICLEN)
     comment[TOPICLEN] = '\0';
+
+#if defined(ANTI_SPAM_EXIT_MESSAGE) || defined(ANTI_SPAMBOT_EXTRA)
+  if(!IsServer(sptr))
+    {
+#ifdef ANTI_SPAMBOT_EXTRA
+	  /* catch the "one shot" spambots, they appear
+	   * to message a client, then exit. We can't do anything
+	   * to them since they are now exiting, but at least
+	   * we know about them now
+	   * -Dianora
+	   */
+	  if( sptr->person_privmsgs && !sptr->channel_privmsgs)
+	    {
+	      sendto_realops("Possible spambot exiting %s [%s@%s] : privmsgs to clients %d privmsgs to channels %d",
+			     sptr->name, sptr->user->username,
+			     sptr->user->host,
+			     sptr->person_privmsgs,sptr->channel_privmsgs);
+	    }
+#endif
+#ifdef ANTI_SPAM_EXIT_MESSAGE
+      if((sptr->firsttime + ANTI_SPAM_EXIT_MESSAGE_TIME) > NOW)
+	comment = "Client Quit";
+#endif
+    }
+#endif
   return IsServer(sptr) ? 0 : exit_client(cptr, sptr, sptr, comment);
 }
 
@@ -3644,7 +3669,7 @@ int	m_umode(aClient *cptr,
       Count.oper++;
     }
 
-  if ((sptr->flags & FLAGS_NCHANGE) && !IsSetOpertcm(sptr))
+  if ((sptr->flags & FLAGS_NCHANGE) && !IsSetOperN(sptr))
     {
       sendto_one(sptr,":%s NOTICE %s :*** You need oper and T flag for +n",
 		 me.name,parv[0]);
@@ -3668,7 +3693,8 @@ int	m_umode(aClient *cptr,
 			    FLAGS2_OPER_REMOTE|
 			    FLAGS2_OPER_UNKLINE|
 			    FLAGS2_OPER_GLINE|
-			    FLAGS2_OPER_TCM);
+			    FLAGS2_OPER_N|
+			    FLAGS2_OPER_K);
 #ifdef USE_LINKLIST         
           while(cur_cptr)
             {
