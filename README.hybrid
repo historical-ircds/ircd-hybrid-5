@@ -1,4 +1,4 @@
-+hybrid-5.1 (2/8/98) - The inevitable bug fix release
++hybrid-5.1 (2/22/98) - The inevitable bug fix release
 -fixes
 * removed ident_fdlist it was never used anyway (comstud)
 * fixed quote kline for 10 character user names (Dianora)
@@ -12,6 +12,7 @@
 * stats l/L no longer shows -i clients to non-opers (Rodder)
 * exorcised evil timedelta variable
 * Fixed oper wallops broadcasting instead of routing (Dianora)
+* Covered up bogus "Got Ident" messages in read_authports() (Rodder)
 
 -feature adds
 * stop people from laming up the kline conf file with # in comment (Dianora)

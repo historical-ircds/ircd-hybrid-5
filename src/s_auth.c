@@ -218,6 +218,11 @@ static void authsenderr(aClient *cptr)
  * read the reply (if any) from the ident server we connected to.
  * The actual read processing here is pretty weak - no handling of the reply
  * if it is fragmented by IP.
+ * 
+ * This is really broken and needs to be rewritten.  Somehow len is nonzero
+ * on failed connects() on Solaris (and maybe others?).  I relocated the
+ * REPORT_FIN_ID to hide the problem.  --Rodder
+ *
  */
 void	read_authports(aClient *cptr)
 {
@@ -271,15 +276,17 @@ void	read_authports(aClient *cptr)
     SetAccess(cptr);
   if (len > 0)
     Debug((DEBUG_INFO,"ident reply: [%s]", cptr->buffer));
-#ifdef SHOW_HEADERS
-  send(cptr->fd, REPORT_FIN_ID, R_fin_id, 0);
-#endif
   if (!locp || !remp || !*ruser)
     {
       ircstp->is_abad++;
       (void)strcpy(cptr->username, "unknown");
       return;
     }
+#ifdef SHOW_HEADERS
+  else
+    send(cptr->fd, REPORT_FIN_ID, R_fin_id, 0);
+#endif
+
   ircstp->is_asuc++;
   strncpyzt(cptr->username, ruser, USERLEN+1);
   cptr->flags |= FLAGS_GOTID;
