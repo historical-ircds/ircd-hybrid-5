@@ -3456,7 +3456,7 @@ int     m_gline(aClient *cptr,
 		    oper_server,
 		    user,
 		    host,
-		    reason) )
+		    reason))
     {
       current_date = smalldate((time_t) 0);
 	  
@@ -3472,17 +3472,18 @@ int     m_gline(aClient *cptr,
       add_gline(aconf);
       
       sendto_realops("%s!%s@%s on %s has triggered gline for [%s@%s] [%s]",
-		 oper_name,
-		 oper_username,
-		 oper_host,
-		 oper_server,
-		 user,
-		 host,
-		 reason);
+		     oper_name,
+		     oper_username,
+		     oper_host,
+		     oper_server,
+		     user,
+		     host,
+		     reason);
       
       rehashed = YES;
       dline_in_progress = NO;
       nextping = timeofday;
+
       return 0;
     }
   
@@ -3515,8 +3516,6 @@ static int majority_gline(aClient *sptr,
   GLINE_PENDING *new_pending_gline;
   GLINE_PENDING *gline_pending_ptr;
 
-  /* DEBUG */
-
   if(pending_glines == (GLINE_PENDING *)NULL) /* first gline request placed */
     {
       new_pending_gline = (GLINE_PENDING *)malloc(sizeof(GLINE_PENDING));
@@ -3536,12 +3535,19 @@ static int majority_gline(aClient *sptr,
       new_pending_gline->oper_host2[0] = '\0';
 
       new_pending_gline->oper_server1 = find_or_add(oper_server);
-      
+
+
       strncpyzt(new_pending_gline->user,user,USERLEN);
       strncpyzt(new_pending_gline->host,host,HOSTLEN);
       new_pending_gline->reason1 = strdup(reason);
       new_pending_gline->reason2 = (char *)NULL;
-      /* if (new_pending_gline == (char *)NULL return */    
+
+Debug((DEBUG_DEBUG,"new GLINE %s!%s@%s on %s for %s@%s [%s]",
+       new_pending_gline->oper_nick1,
+       new_pending_gline->oper_user1,
+       new_pending_gline->oper_host1,
+       new_pending_gline->oper_server1
+       ,user,host,reason));
 
       new_pending_gline->next = (GLINE_PENDING *)NULL;
       new_pending_gline->last_gline_time = NOW;
@@ -3551,10 +3557,19 @@ static int majority_gline(aClient *sptr,
   else
     expire_pending_glines();
 
+Debug((DEBUG_DEBUG,"after expire_pending_glines() pending_glines = %X",
+       pending_glines));
+
   gline_pending_ptr = pending_glines;
 
   while(gline_pending_ptr)
     {
+Debug((DEBUG_DEBUG,"while(gline_pending_ptr)... %s!%s@%s on %s for %s@%s [%s]",
+       gline_pending_ptr->oper_nick1,
+       gline_pending_ptr->oper_user1,
+       gline_pending_ptr->oper_host1,
+       gline_pending_ptr->oper_server1,user,host,reason));
+
       if( (strcasecmp(gline_pending_ptr->user,user) != 0) || 
 	  (strcasecmp(gline_pending_ptr->host,host) != 0) )
 	{
@@ -3575,6 +3590,13 @@ static int majority_gline(aClient *sptr,
 
       if( gline_pending_ptr->oper_user2[0] != '\0' )
 	{
+	  Debug((DEBUG_DEBUG,
+		 "oper_user2[0] new GLINE %s!%s@%s on %s for %s@%s [%s]",
+       gline_pending_ptr->oper_nick2,
+       gline_pending_ptr->oper_user2,
+       gline_pending_ptr->oper_host2,
+       gline_pending_ptr->oper_server2,user,host,reason));
+
 	  /* already two opers have "voted" yes */
 	  
 	  if( ((strcasecmp(gline_pending_ptr->oper_user2,oper_user) == 0) &&
@@ -3589,10 +3611,22 @@ static int majority_gline(aClient *sptr,
           gline_pending_ptr->last_gline_time = (time_t)0;
           expire_pending_glines();
 
+	  if(find_is_glined(host,user))
+	    {
+	      Debug((DEBUG_DEBUG,"already glined %s@%s answer NO",user,host));
+	      return NO;
+	    }
+
+	  if(find_is_klined(host,user))
+	    {
+	      Debug((DEBUG_DEBUG,"already klined %s@%s answer NO",user,host));
+	      return NO;
+	    }
+
 	  log_gline(sptr,parv0,gline_pending_ptr,
 		    oper_nick,oper_user,oper_host,oper_server,
 		    user,host,reason);
-
+	  Debug((DEBUG_DEBUG,"after log_gline answer YES"));
 	  return YES;
 	}
       else
@@ -3692,8 +3726,8 @@ static void log_gline(
  * output	- NONE
  * side effects	-
  *
- * Go through the  pending gline list, expire any that haven't had
- * enough "votes"
+ * Go through the pending gline list, expire any that haven't had
+ * enough "votes" in the time period allowed
  */
 
 void expire_pending_glines()
@@ -3708,10 +3742,15 @@ void expire_pending_glines()
   last_gline_pending_ptr = (GLINE_PENDING *)NULL;
   gline_pending_ptr = pending_glines;
 
+Debug((DEBUG_DEBUG,"gline_pending_ptr %x",gline_pending_ptr));
+
   while(gline_pending_ptr)
     {
       if( (gline_pending_ptr->last_gline_time + GLINE_PENDING_EXPIRE) <= NOW )
 	{
+Debug((DEBUG_DEBUG,"expiring gline_pending_ptr %x last_gline_time %d NOW %d",
+       gline_pending_ptr,gline_pending_ptr->last_gline_time,NOW));
+
 	  if(last_gline_pending_ptr)
 	    last_gline_pending_ptr->next = gline_pending_ptr->next;
 	  else

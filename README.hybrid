@@ -1,4 +1,6 @@
 +hybrid-5.4 (7/8/98)
+- will not allow any user with username including '!' '*' '?'
+or high bit/control characters to user the server (Dianora)
 - added LIMIT_UH code (Dianora)
 - fixed missing USE_SYLOG in ircd.c (ThemBones)
 - use Count.local instead of sptr->fd in s_user for SET MAX (ThemBones)
