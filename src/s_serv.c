@@ -1048,6 +1048,10 @@ int	m_links(aClient *cptr,
   char *mask;
   aClient *acptr;
   static  time_t last_links=0;
+  char clean_mask[(2*HOSTLEN)+1];
+  char *s;
+  char *d;
+  int  n;
 
   if ( ( (last_links + LINK_WAIT) < NOW) || IsAnOper(sptr) )
     {
@@ -1063,10 +1067,45 @@ int	m_links(aClient *cptr,
       else
 	mask = parc < 2 ? NULL : parv[1];
 
+/*
+  *sigh* Before the kiddies find this new and exciting way of 
+  annoying opers, lets clean up what is sent to all opers
+  -Dianora
+*/
+
+  if(mask)	/* only necessary if there is a mask */
+    {
+      s = mask;
+      d = clean_mask;
+      n = (2*HOSTLEN) - 2;
+      while(*s && n)
+        {
+          if(*s < ' ') /* Is it a control character? */
+            {
+              *d++ = '^';
+              *d++ = (*s + 0x40); /* turn it into a printable */
+              s++;
+              n--;
+            }
+          else if(*s > '~')
+            {
+              *d++ = '.';
+              s++;
+              n--;
+            }
+          else
+            {
+              *d++ = *s++;
+              n--;
+            }
+        }
+      *d = '\0';
+    }
+
       if (MyConnect(sptr))
 	sendto_realops_lev(SPY_LEV,
 			   "LINKS '%s' requested by %s (%s@%s) [%s]",
-			   mask?mask:"",
+			   mask?clean_mask:"",
 			   sptr->name, sptr->user->username,
 			   sptr->user->host, sptr->user->server);
   
@@ -1083,7 +1122,7 @@ int	m_links(aClient *cptr,
 	}
 
       sendto_one(sptr, rpl_str(RPL_ENDOFLINKS), me.name, parv[0],
-		 BadPtr(mask) ? "*" : mask);
+		 BadPtr(mask) ? "*" : clean_mask);
       return 0;
     }
   else
@@ -1938,11 +1977,41 @@ int     m_wallops(aClient *cptr,
     {
       sendto_serv_butone( NULL, ":%s WALLOPS :%s",
 			 parv[0], message);
-      send_operwall(sptr, message);
+      send_operwall(sptr, "WALLOPS", message);
     }
   return 0;
 }
 
+#ifdef LOCOPS
+/*
+** m_locops (write to *all* local opers currently online)
+**      parv[0] = sender prefix
+**      parv[1] = message text
+*/
+int     m_locops(aClient *cptr,
+                  aClient *sptr,
+                  int parc,
+                  char *parv[])
+{
+  char    *message;
+
+  message = parc > 1 ? parv[1] : NULL;
+
+  if (BadPtr(message))
+    {
+      sendto_one(sptr, err_str(ERR_NEEDMOREPARAMS),
+                 me.name, parv[0], "WALLOPS");
+      return 0;
+    }
+
+  if (!IsServer(sptr) && MyConnect(sptr) && !IsAnOper(sptr))
+    {
+      sendto_one(sptr, err_str(ERR_NOPRIVILEGES), me.name, parv[0]);
+      return(0);
+    }
+  send_operwall(sptr, "LOCOPS", message);
+}
+#endif
 
 /* raped from csr30 */
 
@@ -1974,7 +2043,7 @@ int     m_operwall(aClient *cptr,
     message[TOPICLEN] = (char) 0;
   sendto_serv_butone(IsServer(cptr) ? cptr : NULL, ":%s OPERWALL :%s",
 		     parv[0], message);
-  send_operwall(sptr, message);
+  send_operwall(sptr, "OPERWALL", message);
   return 0;
 }
 

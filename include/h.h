@@ -197,7 +197,7 @@ extern	int	send_queued (aClient *);
 extern  void	sendto_ops_lev();		/* defined in send.c */
 extern  void	sendto_realops_lev();		/* defined in send.c */
 extern  void	sendto_realops();		/* defined in send.c */
-extern  void	send_operwall();		/* defined in send.c */
+extern  void	send_operwall(aClient *,char *,char *);	/* defined in send.c */
 extern  void	sendto_wallops_butone();	/* defined in send.c */
 extern  int     match(char *,char *);		/* defined in match.c */
 extern	char    *collapse(char *);		/* match.c */

@@ -983,7 +983,7 @@ va_dcl
 **
 */
 
-void    send_operwall(aClient *from, char *message)
+void    send_operwall(aClient *from, char *type_message,char *message)
 {
   register int i, j;
   char sender[NICKLEN+USERLEN+HOSTLEN+5];
@@ -1018,7 +1018,7 @@ void    send_operwall(aClient *from, char *message)
 	continue;
       if (!IsAnOper(acptr) || !SendOperwall(acptr))
 	continue; /* should be oper, might as well check */
-      sendto_one(acptr, ":%s WALLOPS :%s", sender, message);
+      sendto_one(acptr, ":%s WALLOPS :%s - %s", sender, type_message, message);
     }
 }
 

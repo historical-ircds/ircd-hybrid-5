@@ -261,6 +261,10 @@
  */
 #define GLINES
 
+/*
+*/
+#define LOCOPS
+
 /* GLINE_TIME - local expire time for GLINES
  * As configured here, a GLINE will last 12 hours
  */
