@@ -100,6 +100,8 @@ typedef struct	MotdItem aMotd;
 #define	MAXBANS		25
 #define	MAXBANLENGTH	1024
 
+#define OPERWALL_LEN    400		/* can be truncated on other servers */
+
 #define MOTDLINELEN	90
 
 #define	USERHOST_REPLYLEN	(NICKLEN+HOSTLEN+USERLEN+5)

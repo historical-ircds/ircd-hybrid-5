@@ -31,11 +31,24 @@ static char *rcs_version = "$Id$";
 #include "hash.h"
 #include "h.h"
 
+#include <sys/stat.h>
+#include <fcntl.h>
+
+int HASHSIZE = U_MAX;
+int CHANNELHASHSIZE = CH_MAX;
+
+#ifdef  DEBUGMODE
+static  aHashEntry	*clientTable = NULL;
+static	aHashEntry	*channelTable = NULL;
+static  int	clhits, clmiss;
+static	int	chhits, chmiss;
+#else
+
 static	aHashEntry	clientTable[U_MAX];
 static	aHashEntry	channelTable[CH_MAX];
 
-static void client_stats(aClient *,aClient*,int,char**);
-static void channel_stats(aClient *,aClient*,int,char**);
+#endif
+
 /*
 
 look in whowas.c for the missing ...[WW_MAX]; entry
@@ -146,11 +159,26 @@ unsigned int hash_whowas_name(char *name)
  */
 void	clear_client_hash_table()
 {
+#ifdef	DEBUGMODE
+  clhits = 0;
+  clmiss = 0;
+  if(!clientTable)
+    clientTable = (aHashEntry *)MyMalloc(HASHSIZE *
+					sizeof(aHashEntry));
+#endif
+
   bzero((char *)clientTable, sizeof(aHashEntry) * U_MAX);
 }
 
 void	clear_channel_hash_table()
 {
+#ifdef	DEBUGMODE
+  chmiss = 0;
+  chhits = 0;
+  if (!channelTable)
+    channelTable = (aHashEntry *)MyMalloc(CHANNELHASHSIZE *
+					  sizeof(aHashEntry));
+#endif
   bzero((char *)channelTable, sizeof(aHashEntry) * CH_MAX);
 }
 
@@ -272,9 +300,15 @@ aClient	*hash_find_client(char *name, aClient *cptr)
   for (tmp = (aClient *)tmp3->list; tmp; prv = tmp, tmp = tmp->hnext)
     if (mycmp(name, tmp->name) == 0)
       {
+#ifdef	DEBUGMODE
+	clhits++;
+#endif
 	return(tmp);
       }
-  return (cptr);
+#ifdef	DEBUGMODE
+  clmiss++;
+#endif
+return (cptr);
 
   /*
    * If the member of the hashtable we found isnt at the top of its
@@ -313,10 +347,16 @@ aClient	*hash_find_nickserver(char *name, aClient *cptr)
     if (mycmp(name, tmp->name) == 0 && tmp->user &&
 	mycmp(serv, tmp->user->server) == 0)
       {
+#ifdef DEBUGMODE
+	clmiss++;
+#endif
 	*--serv = '\0';
 	return (tmp);
       }
 
+#ifdef DEBUGMODE
+  clmiss++;
+#endif
   *--serv = '\0';
   return (cptr);
 }
@@ -342,6 +382,9 @@ aClient	*hash_find_server(char *server,aClient *cptr)
 	continue;
       if (mycmp(server, tmp->name) == 0)
 	{
+#ifdef	DEBUGMODE
+	  clhits++;
+#endif
 	  return(tmp);
 	}
     }
@@ -373,6 +416,9 @@ aClient	*hash_find_server(char *server,aClient *cptr)
 	}
       *t = ch;
     }
+#ifdef	DEBUGMODE
+  clmiss++;
+#endif
   return (cptr);
 }
 
@@ -391,8 +437,14 @@ aChannel	*hash_find_channel(char *name,aChannel *chptr)
   for (tmp = (aChannel *)tmp3->list; tmp; prv = tmp, tmp = tmp->hnextch)
     if (mycmp(name, tmp->chname) == 0)
       {
+#ifdef	DEBUGMODE
+	chhits++;
+#endif
 	return (tmp);
       }
+#ifdef	DEBUGMODE
+  chmiss++;
+#endif
   return chptr;
 }
 
@@ -408,110 +460,330 @@ aChannel	*hash_find_channel(char *name,aChannel *chptr)
 
 int	m_hash(aClient *cptr,aClient *sptr,int parc,char *parv[])
 {
-  char *command;
+#ifdef DEBUGMODE
+  register	int	l, i;
+  register	aHashEntry	*tab;
+  int	deepest = 0, deeplink = 0, showlist = 0, tothits = 0;
+  int	mosthit = 0, mosthits = 0, used = 0, used_now = 0, totlink = 0;
+  int	link_pop[10], size = HASHSIZE;
+  char	ch;
+  aHashEntry	*table;
+#endif
+  char  hash_log_file[256];
+  char  result_buf[256];
+  int   out;
+  char timebuffer[MAX_DATE_STRING];
+  struct tm *tmptr;
 
-   if (!MyClient(sptr) || !IsOper(sptr))
+  if (!MyClient(sptr) || !IsOper(sptr))
     {
       sendto_one(sptr, err_str(ERR_NOPRIVILEGES), me.name, parv[0]);
       return 0;
     }
-
-  if (parc > 1)
+  if(parc > 1)
     {
-      command = parv[1];
-      if(!strcmp(command,"dhash"))
-        dhash_stats(cptr,sptr,parc,parv);
-      else if(!strcmp(command,"iphash"))
-	iphash_stats(cptr,sptr,parc,parv);
-      else if(!strcmp(command,"client"))
-	client_stats(cptr,sptr,parc,parv);
-      else if(!strcmp(command,"channel"))
-	channel_stats(cptr,sptr,parc,parv);
+      if(!strcasecmp(parv[1],"iphash"))
+	{
+	  iphash_stats(cptr,sptr,parc,parv,-1);
+	  return 0;
+	}
+      else if(!strcasecmp(parv[1],"dhash"))
+	{
+	  dhash_stats(cptr,sptr,parc,parv,-1);
+	  return 0;
+	}
+      else if(!strcasecmp(parv[1],"Diphash"))
+	{
+	  tmptr = localtime(&NOW);
+	  strftime(timebuffer, MAX_DATE_STRING, "%y%m%d%H%M", tmptr);
+	  (void)sprintf(hash_log_file,"%s/hash/iphash.%s",
+			DPATH,timebuffer);
+
+	  if ((out = open(hash_log_file, O_RDWR|O_APPEND|O_CREAT,0664))==-1)
+	      sendto_one(sptr, ":%s NOTICE %s :Problem opening %s ",
+			 me.name, parv[0], hash_log_file);
+	  else
+	    sendto_one(sptr, ":%s NOTICE %s :Writing hash log to %s ",
+		       me.name, parv[0], hash_log_file);
+
+	  iphash_stats(cptr,sptr,parc,parv,out);
+	  return 0;
+	}
+      else if(!strcasecmp(parv[1],"Ddhash"))
+	{
+	  tmptr = localtime(&NOW);
+	  strftime(timebuffer, MAX_DATE_STRING, "%y%m%d%H%M", tmptr);
+	  (void)sprintf(hash_log_file,"%s/hash/dhash.%s",
+			DPATH,timebuffer);
+
+	  if ((out = open(hash_log_file, O_RDWR|O_APPEND|O_CREAT,0664))==-1)
+	      sendto_one(sptr, ":%s NOTICE %s :Problem opening %s ",
+			 me.name, parv[0], hash_log_file);
+	  else
+	    sendto_one(sptr, ":%s NOTICE %s :Writing hash log to %s ",
+		       me.name, parv[0], hash_log_file);
+	  dhash_stats(cptr,sptr,parc,parv,out);
+	  return 0;
+	}
+
+#ifndef	DEBUGMODE
+    }
+#endif
+#ifdef	DEBUGMODE
+      ch = *parv[1];
+      if (islower(ch))
+	{
+	  table = clientTable;
+	  
+	}
+      else
+	{
+	  table = channelTable;
+	  size = CHANNELHASHSIZE;
+	}
+      if (ch == 'L' || ch == 'l')
+	{
+	  tmptr = localtime(&NOW);
+	  strftime(timebuffer, MAX_DATE_STRING, "%y%m%d%H%M", tmptr);
+	  (void)sprintf(hash_log_file,"%s/hash/%cdump.%s",
+			DPATH,ch,timebuffer);
+	  showlist = 1;
+	  if ((out = open(hash_log_file, O_RDWR|O_APPEND|O_CREAT,0664))==-1)
+	      sendto_one(sptr, ":%s NOTICE %s :Problem opening %s ",
+			 me.name, parv[0], hash_log_file);
+	  else
+	    sendto_one(sptr, ":%s NOTICE %s :Writing hash log to %s ",
+		       me.name, parv[0], hash_log_file);
+	}
     }
   else
     {
-      sendto_one(sptr, ":%s NOTICE %s :hash [dhash|iphash|client|channel|dump]",
-        me.name, parv[0]);
+      ch = '\0';
+      table = clientTable;
     }
 
+  for (i = 0; i < 10; i++)
+    link_pop[i] = 0;
+  for (i = 0; i < size; i++)
+    {
+      tab = &table[i];
+      l = tab->links;
+      if (showlist)
+	{
+	/*
+	  sendto_one(sptr,
+	  "NOTICE %s :Hash Entry:%6d Hits:%7d Links:%6d",
+	  parv[0], i, tab->hits, l); */
+	  if(out >= 0)
+	    {
+	      (void)sprintf(result_buf,"Hash Entry:%6d Hits;%7d Links:%6d\n",
+			    i, tab->hits, l);
+	      (void)write(out,result_buf,strlen(result_buf));
+	    }
+	}
+
+      if (l > 0)
+	{
+	  if (l < 10)
+	    link_pop[l]++;
+	  else
+	    link_pop[9]++;
+	  used_now++;
+	  totlink += l;
+	  if (l > deepest)
+	    {
+	      deepest = l;
+	      deeplink = i;
+	    }
+	}
+      else
+	link_pop[0]++;
+      l = tab->hits;
+      if (l)
+	{
+	  used++;
+	  tothits += l;
+	  if (l > mosthits)
+	    {
+	      mosthits = l;
+	      mosthit = i;
+	    }
+	}
+    }
+  if(showlist && (out >= 0))
+     (void)close(out);
+
+  switch((int)ch)
+    {
+    case 'V' : case 'v' :
+      {
+	register	aClient	*acptr;
+	int	bad = 0, listlength = 0;
+	
+	for (acptr = client; acptr; acptr = acptr->next) {
+	  if (hash_find_client(acptr->name,acptr) != acptr)
+	    {
+	      if (ch == 'V')
+		sendto_one(sptr, "NOTICE %s :Bad hash for %s",
+			   parv[0], acptr->name);
+	      bad++;
+	    }
+	  listlength++;
+	}
+	sendto_one(sptr,"NOTICE %s :List Length: %d Bad Hashes: %d",
+		   parv[0], listlength, bad);
+      }
+    case 'P' : case 'p' :
+      for (i = 0; i < 10; i++)
+	sendto_one(sptr,"NOTICE %s :Entires with %d links : %d",
+		   parv[0], i, link_pop[i]);
+      return (0);
+    case 'r' :
+      {
+	register	aClient	*acptr;
+
+	sendto_one(sptr,"NOTICE %s :Rehashing Client List.", parv[0]);
+	clear_client_hash_table();
+	for (acptr = client; acptr; acptr = acptr->next)
+	  (void)add_to_client_hash_table(acptr->name, acptr);
+	break;
+      }
+    case 'R' :
+      {
+	register	aChannel	*acptr;
+
+	sendto_one(sptr,"NOTICE %s :Rehashing Channel List.", parv[0]);
+	clear_channel_hash_table();
+	for (acptr = channel; acptr; acptr = acptr->nextch)
+	  (void)add_to_channel_hash_table(acptr->chname, acptr);
+	break;
+      }
+    case 'H' :
+      if (parc > 2)
+	sendto_one(sptr,"NOTICE %s :%s hash to entry %d",
+		   parv[0], parv[2],
+		   hash_channel_name(parv[2]));
+      return (0);
+    case 'h' :
+      if (parc > 2)
+	sendto_one(sptr,"NOTICE %s :%s hash to entry %d",
+		   parv[0], parv[2],
+		   hash_nick_name(parv[2]));
+      return (0);
+    case 'n' :
+      {
+	aClient	*tmp;
+	int	max;
+	
+	if (parc <= 2)
+	  return (0);
+	l = atoi(parv[2]) % HASHSIZE;
+	if (parc > 3)
+	  max = atoi(parv[3]) % HASHSIZE;
+	else
+	  max = l;
+	for (;l <= max; l++)
+	  for (i = 0, tmp = (aClient *)clientTable[l].list; tmp;
+	       i++, tmp = tmp->hnext)
+	    {
+	      if (parv[1][2] == '1' && tmp != tmp->from)
+		continue;
+	      sendto_one(sptr,"NOTICE %s :Node: %d #%d %s",
+			 parv[0], l, i, tmp->name);
+	    }
+	return (0);
+      }
+    case 'N' :
+      {
+	aChannel *tmp;
+	int	max;
+
+	if (parc <= 2)
+	  return (0);
+	l = atoi(parv[2]) % CHANNELHASHSIZE;
+	if (parc > 3)
+	  max = atoi(parv[3]) % CHANNELHASHSIZE;
+	else
+	  max = l;
+	for (;l <= max; l++)
+	  for (i = 0, tmp = (aChannel *)channelTable[l].list; tmp;
+	       i++, tmp = tmp->hnextch)
+	    sendto_one(sptr,"NOTICE %s :Node: %d #%d %s",
+		       parv[0], l, i, tmp->chname);
+	return (0);
+      }
+    case 'S' :
+#endif
+      return 0;
+#ifdef	DEBUGMODE
+    case 'z' :
+      {
+	register aClient *acptr;
+
+	if (parc <= 2)
+	  return 0;
+	l = atoi(parv[2]);
+	if (l < 256)
+	  return 0;
+	MyFree((char *)clientTable);
+	clientTable = (aHashEntry *)MyMalloc(sizeof(aHashEntry) * l);
+	HASHSIZE = l;
+	clear_client_hash_table();
+	for (acptr = client; acptr; acptr = acptr->next)
+	  {
+	    acptr->hnext = NULL;
+	    (void)add_to_client_hash_table(acptr->name, acptr);
+	  }
+	sendto_one(sptr, "NOTICE %s :HASHSIZE now %d", parv[0], l);
+	break;
+      }
+    case 'Z' :
+      {
+	register aChannel *acptr;
+	
+	if (parc <= 2)
+	  return 0;
+	l = atoi(parv[2]);
+	if (l < 256)
+	  return 0;
+	MyFree((char *)channelTable);
+	channelTable = (aHashEntry *)MyMalloc(sizeof(aHashEntry) * l);
+	CHANNELHASHSIZE = l;
+	clear_channel_hash_table();
+	for (acptr = channel; acptr; acptr = acptr->nextch)
+	  {
+	    acptr->hnextch = NULL;
+	    (void)add_to_channel_hash_table(acptr->chname, acptr);
+	  }
+	sendto_one(sptr, "NOTICE %s :CHANNELHASHSIZE now %d",
+		   parv[0], l);
+	break;
+      }
+    default :
+      break;
+    }
+  sendto_one(sptr,"NOTICE %s :Entries Hashed: %d NonEmpty: %d of %d",
+	     parv[0], totlink, used_now, size);
+  if (!used_now)
+    used_now = 1;
+  sendto_one(sptr,"NOTICE %s :Hash Ratio (av. depth): %f %Full: %f",
+	     parv[0], (float)((1.0 * totlink) / (1.0 * used_now)),
+	     (float)((1.0 * used_now) / (1.0 * size)));
+  sendto_one(sptr,"NOTICE %s :Deepest Link: %d Links: %d",
+	     parv[0], deeplink, deepest);
+  if (!used)
+    used = 1;
+  sendto_one(sptr,"NOTICE %s :Total Hits: %d Unhit: %d Av Hits: %f",
+	     parv[0], tothits, size-used,
+	     (float)((1.0 * tothits) / (1.0 * used)));
+  sendto_one(sptr,"NOTICE %s :Entry Most Hit: %d Hits: %d",
+	     parv[0], mosthit, mosthits);
+  sendto_one(sptr,"NOTICE %s :Client hits %d miss %d",
+	     parv[0], clhits, clmiss);
+  sendto_one(sptr,"NOTICE %s :Channel hits %d miss %d",
+	     parv[0], chhits, chmiss);
   return 0;
+#endif
 }
 
-/*
-client_stats()
-
-inputs		- 
-output		-
-side effects
-*/
-
-static void client_stats(aClient *cptr, aClient *sptr,int parc, char *parv[])
-{
-  int i;
-  aHashEntry *p;
-  aClient *client_ptr;
-  int collision_count;
-
-  sendto_one(sptr,":%s NOTICE %s :*** hash stats for client",
-	     me.name,cptr->name);
-
-  for(i = 0; i < U_MAX; i++)
-    {
-      p = &clientTable[i];
-
-      collision_count = 0;
-      if(p->list)
-	{
-	  client_ptr = (aClient *)p->list;
-	  collision_count++;
-	  while(client_ptr->hnext)
-	    {
-	      collision_count++;
-	      client_ptr = client_ptr->hnext;
-	    }
-	}
-      if(collision_count)
-        sendto_one(sptr,":%s NOTICE %s :Entry %d (0x%X) Collisions %d",
-		   me.name,cptr->name,i,i,collision_count);
-    }
-}
-
-/*
-channel_stats()
-
-inputs		- 
-output		-
-side effects
-*/
-
-static void channel_stats(aClient *cptr, aClient *sptr,int parc, char *parv[])
-{
-  int i;
-  aHashEntry *p;
-  aChannel *channel_ptr;
-  int collision_count;
-
-  sendto_one(sptr,":%s NOTICE %s :*** hash stats for channel",
-	     me.name,cptr->name);
-
-  for(i = 0; i < CH_MAX; i++)
-    {
-      p = &channelTable[i];
-
-      collision_count = 0;
-      if(p->list)
-	{
-	  channel_ptr = (aChannel *)p->list;
-	  collision_count++;
-	  while(channel_ptr->hnextch)
-	    {
-	      collision_count++;
-	      channel_ptr = channel_ptr->hnextch;
-	    }
-	}
-      if(collision_count)
-        sendto_one(sptr,":%s NOTICE %s :Entry %d (0x%X) Collisions %d",
-		   me.name,cptr->name,i,i,collision_count);
-    }
-}
 

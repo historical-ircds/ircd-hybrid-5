@@ -1967,7 +1967,11 @@ int	m_stats(aClient *cptr,
 
     case 'B' : case 'b' :
 #ifdef B_LINES_OPER_ONLY
-      if (!IsAnOper(sptr)) break;
+      if (!IsAnOper(sptr))
+	{
+	  sendto_one(sptr, err_str(ERR_NOPRIVILEGES), me.name, parv[0]);
+	  break;
+	}
 #endif
       report_conf_links(sptr, &BList1, RPL_STATSBLINE, 'B');
       report_conf_links(sptr, &BList2, RPL_STATSBLINE, 'B');
@@ -1975,13 +1979,21 @@ int	m_stats(aClient *cptr,
       break;
 
     case 'D': case 'd':
-      if (!IsAnOper(sptr)) break;
+      if (!IsAnOper(sptr))
+	{
+	  sendto_one(sptr, err_str(ERR_NOPRIVILEGES), me.name, parv[0]);
+	  break;
+	}
       report_dline_hash(sptr, RPL_STATSDLINE);
       break;
 
     case 'E' : case 'e' :
 #ifdef E_LINES_OPER_ONLY
-      if (!IsAnOper(sptr)) break;
+      if (!IsAnOper(sptr))
+	{
+	  sendto_one(sptr, err_str(ERR_NOPRIVILEGES), me.name, parv[0]);
+	  break;
+	}
 #endif
       report_conf_links(sptr, &EList1, RPL_STATSELINE, 'E');
       report_conf_links(sptr, &EList2, RPL_STATSELINE, 'E');
@@ -1990,7 +2002,11 @@ int	m_stats(aClient *cptr,
 
     case 'F' : case 'f' :
 #ifdef F_LINES_OPER_ONLY
-      if (!IsAnOper(sptr)) break;
+      if (!IsAnOper(sptr))
+	{
+	  sendto_one(sptr, err_str(ERR_NOPRIVILEGES), me.name, parv[0]);
+	  break;
+	}
 #endif
       report_conf_links(sptr, &FList1, RPL_STATSFLINE, 'F');
       report_conf_links(sptr, &FList2, RPL_STATSFLINE, 'F');
