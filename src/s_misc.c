@@ -767,6 +767,10 @@ void	tstats(aClient *cptr,char *name)
   sendto_one(cptr, ":%s %d %s :CTCP Floods Blocked %u",
              me.name, RPL_STATSDEBUG, name, sp->is_flud);
 #endif /* FLUD */
+#ifdef ANTI_IP_SPOOF
+  sendto_one(cptr, ":%s %d %s :IP Spoofers %u",
+             me.name, RPL_STATSDEBUG, name, sp->is_ipspoof);
+#endif /* ANTI_IP_SPOOF */
 }
 
 

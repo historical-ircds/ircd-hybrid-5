@@ -2619,8 +2619,10 @@ int	m_pong(aClient *cptr,
 	      
 		  (void)add_to_client_hash_table(sptr->name, sptr);
 		}
-	      else
+	      else {
+                ircstp->is_ipspoof++;
 		return exit_client(cptr,sptr,&me,"Wrong random PONG response");
+              }
 	    }
 	}
       return 0;

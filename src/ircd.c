@@ -558,6 +558,10 @@ static	time_t	check_pings(time_t currenttime)
 	    sendto_ops("Restricting %s, closing link.",
 		       get_client_name(cptr,FALSE));
 #endif
+#ifdef ANTI_IP_SPOOF
+	  if(!IsRegistered(cptr) && (cptr->name[0]) && (cptr->user))
+	    ircstp->is_ipspoof++;
+#endif /* ANTI_IP_SPOOF */
 	  (void)exit_client(cptr, cptr, &me,"Ping timeout");
 
 	  /*

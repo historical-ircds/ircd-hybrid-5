@@ -493,6 +493,9 @@ struct	stats {
 #ifdef FLUD
 	unsigned int	is_flud;	/* users/channels flood protected */
 #endif /* FLUD */
+#ifdef ANTI_IP_SPOOF
+	unsigned int	is_ipspoof;	/* IP Spoofers Caught */
+#endif /* ANTI_IP_SPOOF */
 };
 
 /* mode structure for channels */
