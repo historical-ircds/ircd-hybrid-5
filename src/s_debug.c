@@ -485,7 +485,7 @@ void	count_memory(aClient *cptr,char *nick)
 
   sendto_one(cptr, ":%s %d %s :TOTAL: %d sbrk(0)-etext: %u",
 	     me.name, RPL_STATSDEBUG, nick, tot,
-	     (u_int)sbrk((size_t)0)-(u_int)sbrk0);
+	     (u_long)sbrk((size_t)0)-(u_long)sbrk0);
 
   return;
 }

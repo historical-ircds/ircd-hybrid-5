@@ -270,7 +270,7 @@ struct Message msgtab[] = {
   { MSG_OPERWALL, m_operwall,0, MAXPARA, 1, 0, 0, 0L },
   { MSG_CLOSE,   m_close,    0, MAXPARA, 1, 0, 0, 0L },
   { MSG_KLINE,   m_kline,    0, MAXPARA, 1, 0, 0, 0L },
-#ifdef UNKLINE
+#ifdef UNKLINE 
   { MSG_UNKLINE, m_unkline,  0, MAXPARA, 1, 0, 0, 0L },
 #endif
   { MSG_DLINE,   m_dline,    0, MAXPARA, 1, 0, 0, 0L },
@@ -288,7 +288,7 @@ struct Message msgtab[] = {
 #endif
   { MSG_HTM,	m_htm,	     0, MAXPARA, 1, 0, 0, 0L },
   { MSG_SET,	m_set,	     0, MAXPARA, 1, 0, 0, 0L },
-  { (char *) 0, (int (*)()) 0 , 0, 0,    0, 0, 0, 0L}
+  { (char *) 0, (int (*)()) 0 , 0, 0,    0, 0, 0, 0L }
 };
 
 MESSAGE_TREE *msg_tree_root;

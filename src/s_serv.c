@@ -227,10 +227,60 @@ int	m_version(aClient *cptr,
 		  char *parv[])
 {
   extern char serveropts[];
+  /* anti flooding code,
+   * I did have this in parse.c with a table lookup
+   * but I think this will be less inefficient doing it in each
+   * function that absolutely needs it
+   * -Dianora
+   */
 
-  if (hunt_server(cptr,sptr,":%s VERSION :%s",1,parc,parv)==HUNTED_ISME)
-    sendto_one(sptr, rpl_str(RPL_VERSION), me.name,
-	       parv[0], version, debugmode, me.name, serveropts);
+  static time_t last_used=0L;
+  static int last_count=0;
+
+  if(!IsAnOper(sptr))
+    {
+      if((last_used + MOTD_WAIT) > NOW)
+	{
+	  last_used = NOW;
+	  if(last_count >= MOTD_MAX)
+	    return 0;
+	  else
+	    {
+	      if(last_count < MOTD_MAX)
+		last_count++;
+	    }
+	}
+      else
+	{
+	  if(last_count > 0)
+	    {
+	      int dec_count;
+	      if( NOW <= last_used)	/* eek! clock is running
+					 * backwards or something!
+					 */
+		return 0;
+	      
+	      dec_count = (NOW - last_used) / MOTD_WAIT;
+	      
+	      if(dec_count > last_count)
+		last_count = 0;
+	      else
+		last_count -= dec_count;
+	    }
+	  last_used = NOW;
+	}
+    }
+
+  if(IsAnOper(sptr))
+     {
+       if (hunt_server(cptr,sptr,":%s VERSION :%s",1,parc,parv)==HUNTED_ISME)
+	 sendto_one(sptr, rpl_str(RPL_VERSION), me.name,
+		    parv[0], version, debugmode, me.name, serveropts);
+     }
+   else
+     sendto_one(sptr, rpl_str(RPL_VERSION), me.name,
+		parv[0], version, debugmode, me.name, serveropts);
+
   return 0;
 }
 
@@ -338,13 +388,11 @@ int	m_squit(aClient *cptr,
       return 0;
     }
 
-#ifdef 0
   if (MyClient(sptr) && !IsOperRemote(sptr) && !MyConnect(acptr))
     {
       sendto_one(sptr,":%s NOTICE %s :You have no R flag",me.name,parv[0]);
       return 0;
     }
-#endif
 
   /*
   **  Notify all opers, if my local link is remotely squitted
@@ -1046,22 +1094,53 @@ int	m_info(aClient *cptr,
 {
   char **text = infotext;
   char outstr[241];
-  static time_t last_info=0;
+  /* anti flooding code,
+   * I did have this in parse.c with a table lookup
+   * but I think this will be less inefficient doing it in each
+   * function that absolutely needs it
+   * -Dianora
+   */
 
-  if(!MyConnect(sptr))
-    return 0;
+  static time_t last_used=0L;
+  static int last_count=0;
 
   if(!IsAnOper(sptr))
     {
-      if((last_info + MOTD_WAIT) > NOW)
-	return 0;
-
-      last_info = NOW;
-
-      sendto_realops_lev(SPY_LEV, "info requested by %s (%s@%s) [%s]",
-			 sptr->name, sptr->user->username, sptr->user->host,
-			 sptr->user->server);
+      if((last_used + MOTD_WAIT) > NOW)
+	{
+	  last_used = NOW;
+	  if(last_count >= MOTD_MAX)
+	    return 0;
+	  else
+	    {
+	      if(last_count < MOTD_MAX)
+		last_count++;
+	    }
+	}
+      else
+	{
+	  if(last_count > 0)
+	    {
+	      int dec_count;
+	      if( NOW <= last_used)	/* eek! clock is running
+					 * backwards or something!
+					 */
+		return 0;
+	      
+	      dec_count = (NOW - last_used) / MOTD_WAIT;
+	      
+	      if(dec_count > last_count)
+		last_count = 0;
+	      else
+		last_count -= dec_count;
+	    }
+	  last_used = NOW;
+	}
     }
+
+  sendto_realops_lev(SPY_LEV, "info requested by %s (%s@%s) [%s]",
+		     sptr->name, sptr->user->username, sptr->user->host,
+		     sptr->user->server);
 
   if (hunt_server(cptr,sptr,":%s INFO :%s",1,parc,parv) == HUNTED_ISME)
     {
@@ -1600,7 +1679,7 @@ int	m_info(aClient *cptr,
 	ircsprintf(outstr,"HARD_FDLIMIT_=%d HYBRID_SOMAXCONN=%d",HARD_FDLIMIT_,HYBRID_SOMAXCONN);
 	sendto_one(sptr, rpl_str(RPL_INFO),
 		me.name, parv[0], outstr);
-	ircsprintf(outstr,"LINK_WAIT=%d MAXIMUM_LINKS=%d",LINK_WAIT,MAXIMUM_LINKS);
+	ircsprintf(outstr,"MOTD_WAIT=%d MAXIMUM_LINKS=%d",MOTD_WAIT,MAXIMUM_LINKS);
 	sendto_one(sptr, rpl_str(RPL_INFO),
                 me.name, parv[0], outstr);
 	ircsprintf(outstr,"MAX_NICK_CHANGES=%d MAX_NICK_TIME=%d",MAX_NICK_CHANGES,MAX_NICK_TIME);
@@ -1643,25 +1722,63 @@ int	m_links(aClient *cptr,
 {
   char *mask;
   aClient *acptr;
-  static  time_t last_links=0;
   char clean_mask[(2*HOSTLEN)+1];
   char *s;
   char *d;
   int  n;
+  /* anti flooding code,
+   * I did have this in parse.c with a table lookup
+   * but I think this will be less inefficient doing it in each
+   * function that absolutely needs it
+   * -Dianora
+   */
 
-  if ( ( (last_links + LINK_WAIT) < NOW) || IsAnOper(sptr) )
+  static time_t last_used=0L;
+  static int last_count=0;
+
+  if(!IsAnOper(sptr))
     {
-      last_links = NOW;
-
-      if (parc > 2)
+      if((last_used + MOTD_WAIT) > NOW)
 	{
-	  if (hunt_server(cptr, sptr, ":%s LINKS %s :%s", 1, parc, parv)
-	      != HUNTED_ISME)
+	  last_used = NOW;
+	  if(last_count >= MOTD_MAX)
 	    return 0;
-	  mask = parv[2];
+	  else
+	    {
+	      if(last_count < MOTD_MAX)
+		last_count++;
+	    }
 	}
       else
-	mask = parc < 2 ? NULL : parv[1];
+	{
+	  if(last_count > 0)
+	    {
+	      int dec_count;
+	      if( NOW <= last_used)	/* eek! clock is running
+					 * backwards or something!
+					 */
+		return 0;
+	      
+	      dec_count = (NOW - last_used) / MOTD_WAIT;
+	      
+	      if(dec_count > last_count)
+		last_count = 0;
+	      else
+		last_count -= dec_count;
+	    }
+	  last_used = NOW;
+	}
+    }
+
+  if (parc > 2)
+    {
+      if (hunt_server(cptr, sptr, ":%s LINKS %s :%s", 1, parc, parv)
+	  != HUNTED_ISME)
+	return 0;
+      mask = parv[2];
+    }
+  else
+    mask = parc < 2 ? NULL : parv[1];
 
 /*
  * *sigh* Before the kiddies find this new and exciting way of 
@@ -1698,31 +1815,28 @@ int	m_links(aClient *cptr,
       *d = '\0';
     }
 
-      if (MyConnect(sptr))
-	sendto_realops_lev(SPY_LEV,
-			   "LINKS '%s' requested by %s (%s@%s) [%s]",
-			   mask?clean_mask:"",
-			   sptr->name, sptr->user->username,
-			   sptr->user->host, sptr->user->server);
+  if (MyConnect(sptr))
+    sendto_realops_lev(SPY_LEV,
+		       "LINKS '%s' requested by %s (%s@%s) [%s]",
+		       mask?clean_mask:"",
+		       sptr->name, sptr->user->username,
+		       sptr->user->host, sptr->user->server);
   
-      for (acptr = client, (void)collapse(mask); acptr; acptr = acptr->next) 
-	{
-	  if (!IsServer(acptr) && !IsMe(acptr))
-	    continue;
-	  if (!BadPtr(mask) && matches(mask, acptr->name))
-	    continue;
-	  sendto_one(sptr, rpl_str(RPL_LINKS),
-		     me.name, parv[0], acptr->name, acptr->serv->up,
-		     acptr->hopcount, (acptr->info[0] ? acptr->info :
-				       "(Unknown Location)"));
-	}
-
-      sendto_one(sptr, rpl_str(RPL_ENDOFLINKS), me.name, parv[0],
-		 BadPtr(mask) ? "*" : clean_mask);
-      return 0;
+  for (acptr = client, (void)collapse(mask); acptr; acptr = acptr->next) 
+    {
+      if (!IsServer(acptr) && !IsMe(acptr))
+	continue;
+      if (!BadPtr(mask) && matches(mask, acptr->name))
+	continue;
+      sendto_one(sptr, rpl_str(RPL_LINKS),
+		 me.name, parv[0], acptr->name, acptr->serv->up,
+		 acptr->hopcount, (acptr->info[0] ? acptr->info :
+				   "(Unknown Location)"));
     }
-  else
-    return 0;
+  
+  sendto_one(sptr, rpl_str(RPL_ENDOFLINKS), me.name, parv[0],
+	     BadPtr(mask) ? "*" : clean_mask);
+  return 0;
 }
 
 /*
@@ -1838,7 +1952,6 @@ int	m_stats(aClient *cptr,
 		char *parv[])
 {
   static	char	Lformat[]  = ":%s %d %s %s %u %u %u %u %u :%u %u %s";
-  static	time_t	last = 0;
   static	int	num = 0;
   struct	Message	*mptr;
   aClient	*acptr;
@@ -1846,6 +1959,49 @@ int	m_stats(aClient *cptr,
   Reg	int	i;
   int	doall = 0, wilds = 0;
   char	*name;
+  /* anti flooding code,
+   * I did have this in parse.c with a table lookup
+   * but I think this will be less inefficient doing it in each
+   * function that absolutely needs it
+   * -Dianora
+   */
+
+  static time_t last_used=0L;
+  static int last_count=0;
+
+  if(!IsAnOper(sptr))
+    {
+      if((last_used + MOTD_WAIT) > NOW)
+	{
+	  last_used = NOW;
+	  if(last_count >= MOTD_MAX)
+	    return 0;
+	  else
+	    {
+	      if(last_count < MOTD_MAX)
+		last_count++;
+	    }
+	}
+      else
+	{
+	  if(last_count > 0)
+	    {
+	      int dec_count;
+	      if( NOW <= last_used)	/* eek! clock is running
+					 * backwards or something!
+					 */
+		return 0;
+	      
+	      dec_count = (NOW - last_used) / MOTD_WAIT;
+	      
+	      if(dec_count > last_count)
+		last_count = 0;
+	      else
+		last_count -= dec_count;
+	    }
+	  last_used = NOW;
+	}
+    }
 
   if (hunt_server(cptr,sptr,":%s STATS %s :%s",2,parc,parv)!=HUNTED_ISME)
     return 0;
@@ -1862,51 +2018,6 @@ int	m_stats(aClient *cptr,
     }
   else
     name = me.name;
-
-
-  /*
-   * If a normal client does a /stats, increase the counter, and
-   * check to see if there have been more than 5 /stats in the last
-   * 15s
-   */
-  if (!IsAnOper(sptr)) num++;
-
-  /*
-   * one stats generates a nice long "RPL_LOAD2HI" for very few characters
-   * in. Nice way of flooding a server off the net. Changed to only
-   * occasionally report.
-   * I have decided to totally remove the RPL_LOAD2HI
-   * sep 14 1998
-   * -Dianora
-   */
-
-  if ((num > 5) && !IsAnOper(sptr))
-    {
-      if( num == 6 )
-	{
-	  if (stat != (char)0)
-	    sendto_realops_lev(SPY_LEV, 
-			       "STATS %c DENIED to %s (%s@%s) [%s] (%d in 15s)",
-			       stat,sptr->name, sptr->user->username,
-			       sptr->user->host, sptr->user->server, num);
-	}
-
-      /*
-       * After 15s has passed, reset the counter time, and if we were already
-       * in "defensive" mode, allow only 1 /stats in the next 15s
-       */
-      if (timeofday > (last + 15))
-	{
-	  last = timeofday;
-	  num = (num > 5) ? 4 : 0;
-	}
-      return 0;
-    }
-  if (timeofday > (last + 15))
-    {
-      last = timeofday;
-      num = (num > 5) ? 4 : 0;
-    }
 
   if (stat != (char)0)
     sendto_realops_lev(SPY_LEV, "STATS %c requested by %s (%s@%s) [%s]", stat,
@@ -2205,6 +2316,49 @@ int	m_help(aClient *cptr,
 {
   int i;
   register aMessageFile *helpfile_ptr;
+  /* anti flooding code,
+   * I did have this in parse.c with a table lookup
+   * but I think this will be less inefficient doing it in each
+   * function that absolutely needs it
+   * -Dianora
+   */
+
+  static time_t last_used=0L;
+  static int last_count=0;
+
+  if(!IsAnOper(sptr))
+    {
+      if((last_used + MOTD_WAIT) > NOW)
+	{
+	  last_used = NOW;
+	  if(last_count >= MOTD_MAX)
+	    return 0;
+	  else
+	    {
+	      if(last_count < MOTD_MAX)
+		last_count++;
+	    }
+	}
+      else
+	{
+	  if(last_count > 0)
+	    {
+	      int dec_count;
+	      if( NOW <= last_used)	/* eek! clock is running
+					 * backwards or something!
+					 */
+		return 0;
+	      
+	      dec_count = (NOW - last_used) / MOTD_WAIT;
+	      
+	      if(dec_count > last_count)
+		last_count = 0;
+	      else
+		last_count -= dec_count;
+	    }
+	  last_used = NOW;
+	}
+    }
 
   if ( !IsAnOper(sptr) || (helpfile == (aMessageFile *)NULL))
     {
@@ -2686,6 +2840,50 @@ int	m_time(aClient *cptr,
 	       int parc,
 	       char *parv[])
 {
+  /* anti flooding code,
+   * I did have this in parse.c with a table lookup
+   * but I think this will be less inefficient doing it in each
+   * function that absolutely needs it
+   * -Dianora
+   */
+
+  static time_t last_used=0L;
+  static int last_count=0;
+
+  if(!IsAnOper(sptr))
+    {
+      if((last_used + MOTD_WAIT) > NOW)
+	{
+	  last_used = NOW;
+	  if(last_count >= MOTD_MAX)
+	    return 0;
+	  else
+	    {
+	      if(last_count < MOTD_MAX)
+		last_count++;
+	    }
+	}
+      else
+	{
+	  if(last_count > 0)
+	    {
+	      int dec_count;
+	      if( NOW <= last_used)	/* eek! clock is running
+					 * backwards or something!
+					 */
+		return 0;
+	      
+	      dec_count = (NOW - last_used) / MOTD_WAIT;
+	      
+	      if(dec_count > last_count)
+		last_count = 0;
+	      else
+		last_count -= dec_count;
+	    }
+	  last_used = NOW;
+	}
+    }
+
   if (hunt_server(cptr,sptr,":%s TIME :%s",1,parc,parv) == HUNTED_ISME)
     sendto_one(sptr, rpl_str(RPL_TIME), me.name,
 	       parv[0], me.name, date((long)0));
@@ -2704,6 +2902,49 @@ int	m_admin(aClient *cptr,
 		char *parv[])
 {
   aConfItem *aconf;
+  /* anti flooding code,
+   * I did have this in parse.c with a table lookup
+   * but I think this will be less inefficient doing it in each
+   * function that absolutely needs it
+   * -Dianora
+   */
+
+  static time_t last_used=0L;
+  static int last_count=0;
+
+  if(!IsAnOper(sptr))
+    {
+      if((last_used + MOTD_WAIT) > NOW)
+	{
+	  last_used = NOW;
+	  if(last_count >= MOTD_MAX)
+	    return 0;
+	  else
+	    {
+	      if(last_count < MOTD_MAX)
+		last_count++;
+	    }
+	}
+      else
+	{
+	  if(last_count > 0)
+	    {
+	      int dec_count;
+	      if( NOW <= last_used)	/* eek! clock is running
+					 * backwards or something!
+					 */
+		return 0;
+	      
+	      dec_count = (NOW - last_used) / MOTD_WAIT;
+	      
+	      if(dec_count > last_count)
+		last_count = 0;
+	      else
+		last_count -= dec_count;
+	    }
+	  last_used = NOW;
+	}
+    }
 
   if (hunt_server(cptr,sptr,":%s ADMIN :%s",1,parc,parv) != HUNTED_ISME)
     return 0;
@@ -5008,7 +5249,65 @@ int	m_trace(aClient *cptr,
   char	*tname;
   int	doall, link_s[MAXCONNECTIONS], link_u[MAXCONNECTIONS];
   int	cnt = 0, wilds, dow;
-  
+  static time_t last_trace=0L;
+  /* anti flooding code,
+   * I did have this in parse.c with a table lookup
+   * but I think this will be less inefficient doing it in each
+   * function that absolutely needs it
+   * -Dianora
+   */
+
+  static time_t last_used=0L;
+  static int last_count=0;
+
+  if(!IsAnOper(sptr))
+    {
+      if((last_used + MOTD_WAIT) > NOW)
+	{
+	  last_used = NOW;
+	  if(last_count >= MOTD_MAX)
+	    return 0;
+	  else
+	    {
+	      if(last_count < MOTD_MAX)
+		last_count++;
+	    }
+	}
+      else
+	{
+	  if(last_count > 0)
+	    {
+	      int dec_count;
+	      if( NOW <= last_used)	/* eek! clock is running
+					 * backwards or something!
+					 */
+		return 0;
+	      
+	      dec_count = (NOW - last_used) / MOTD_WAIT;
+	      
+	      if(dec_count > last_count)
+		last_count = 0;
+	      else
+		last_count -= dec_count;
+	    }
+	  last_used = NOW;
+	}
+    }
+
+  if(!IsAnOper(sptr))
+    {
+      if((last_trace + MOTD_WAIT) > NOW)
+	{
+	  return 0;
+	}
+      else
+	last_trace = NOW;
+    }
+
+  sendto_realops_lev(SPY_LEV, "trace requested by %s (%s@%s) [%s]",
+		     sptr->name, sptr->user->username, sptr->user->host,
+		     sptr->user->server);
+
   if (parc > 2)
     if (hunt_server(cptr, sptr, ":%s TRACE %s :%s",
 		    2, parc, parv))
@@ -5196,8 +5495,51 @@ int	m_motd(aClient *cptr,
 	       int parc,
 	       char *parv[])
 {
-  static time_t last_motd=0;
   aMessageFile *motd_ptr=motd;
+  /* anti flooding code,
+   * I did have this in parse.c with a table lookup
+   * but I think this will be less inefficient doing it in each
+   * function that absolutely needs it
+   * -Dianora
+   */
+
+  static time_t last_used=0L;
+  static int last_count=0;
+
+  if(!IsAnOper(sptr))
+    {
+      if((last_used + MOTD_WAIT) > NOW)
+	{
+	  last_used = NOW;
+	  if(last_count >= MOTD_MAX)
+	    return 0;
+	  else
+	    {
+	      if(last_count < MOTD_MAX)
+		last_count++;
+	    }
+	}
+      else
+	{
+	  if(last_count > 0)
+	    {
+	      int dec_count;
+	      if( NOW <= last_used)	/* eek! clock is running
+					 * backwards or something!
+					 */
+		return 0;
+	      
+	      dec_count = (NOW - last_used) / MOTD_WAIT;
+	      
+	      if(dec_count > last_count)
+		last_count = 0;
+	      else
+		last_count -= dec_count;
+	    }
+	  last_used = NOW;
+	}
+    }
+
 
   /* Yes, its a kludge, but it works -Dianora */
 #ifdef AMOTD
@@ -5208,37 +5550,14 @@ int	m_motd(aClient *cptr,
     }
 #endif
 
-  if(!MyConnect(sptr))
+  if (hunt_server(cptr, sptr, ":%s MOTD :%s", 1,parc,parv)!=HUNTED_ISME)
     return 0;
 
-  if(IsAnOper(sptr))	
-    {
-      /* Don't penalize non opers by setting last_motd here */
+  sendto_realops_lev(SPY_LEV, "motd requested by %s (%s@%s) [%s]",
+		     sptr->name, sptr->user->username, sptr->user->host,
+		     sptr->user->server);
 
-      if (hunt_server(cptr, sptr, ":%s MOTD :%s", 1,parc,parv)!=HUNTED_ISME)
-	return 0;
-
-      sendto_realops_lev(SPY_LEV, "motd requested by %s (%s@%s) [%s]",
-			 sptr->name, sptr->user->username, sptr->user->host,
-			 sptr->user->server);
-
-      return(send_motd(cptr,sptr,parc,parv,motd_ptr));
-    }
-  else if( ( (last_motd + MOTD_WAIT) < NOW))
-    {
-      last_motd = NOW;
-
-      if (hunt_server(cptr, sptr, ":%s MOTD :%s", 1,parc,parv)!=HUNTED_ISME)
-	return 0;
-
-      sendto_realops_lev(SPY_LEV, "motd requested by %s (%s@%s) [%s]",
-			 sptr->name, sptr->user->username, sptr->user->host,
-			 sptr->user->server);
-
-      return(send_motd(cptr,sptr,parc,parv,motd_ptr));
-    }
-  else
-    return 0;
+  return(send_motd(cptr,sptr,parc,parv,motd_ptr));
 }
 
 /*
