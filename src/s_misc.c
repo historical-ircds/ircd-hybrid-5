@@ -767,9 +767,7 @@ static	void	exit_one_client(aClient *cptr,
 				   sptr->name, comment);
 	  else
 	    {
-	      if( (sptr->from == from ) && /* local client, MyConnect
-					      no longer valid! */
-		  (sptr->firsttime + ANTI_SPAM_EXIT_MESSAGE_TIME) > NOW)
+	      if((sptr->firsttime + ANTI_SPAM_EXIT_MESSAGE_TIME) > NOW)
 		sendto_common_channels(sptr, ":%s QUIT :%s",
 				       sptr->name, "Client Quit");
 	      else
