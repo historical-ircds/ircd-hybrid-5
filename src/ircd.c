@@ -350,6 +350,25 @@ static	time_t	try_connections(time_t currenttime)
 }
 
 
+/*
+ * I re-wrote check_pings a tad
+ *
+ * check_pings()
+ * inputs	- current time
+ * output	- next time_t when check_pings() should be called again
+ *
+ * side effects	- 
+ *
+ * Clients can be k-lined/d-lined/g-lined/r-lined and exit_client
+ * called for each of these.
+ *
+ * A PING can be sent to clients as necessary.
+ *
+ * Client/Server ping outs are handled.
+ *
+ * -Dianora
+ */
+
 /* Note, that dying_clients and dying_clients_reason
  * really don't need to be any where near as long as MAXCONNECTIONS
  * but I made it this long for now. If its made shorter,
@@ -365,13 +384,16 @@ char *dying_clients_reason[MAXCONNECTIONS];
 
 static	time_t	check_pings(time_t currenttime)
 {		
-  Reg	aClient	*cptr;
-  aConfItem *aconf = (aConfItem *)NULL;
-  int	ping = 0, i, rflag = 0;
-  time_t	oldest = 0, timeout;
-  int die_index=0;				/* index into list */
-						/* of dying clients */
-  dying_clients[0] = (aClient *)NULL;
+  register	aClient	*cptr;		/* current local cptr being examined */
+  aConfItem 	*aconf = (aConfItem *)NULL;
+  int		ping = 0;		/* ping time value from client */
+  int		i;			/* used to index through fd/cptr's */
+  time_t	oldest = 0;		/* next ping time */
+  time_t	timeout;		/* found necessary ping time */
+  char *reason;				/* pointer to reason string */
+  int die_index=0;			/* index into list */
+					/* of dying clients */
+  dying_clients[0] = (aClient *)NULL;	/* mark first one empty */
 
   /*
    * I re-wrote the way klines are handled. Instead of rescanning
@@ -388,7 +410,7 @@ static	time_t	check_pings(time_t currenttime)
   for (i = 0; i <= highest_fd; i++)
     {
       if (!(cptr = local[i]) || IsMe(cptr) || IsLog(cptr))
-	continue;
+	continue;		/* and go examine next fd/cptr */
 
       /*
       ** Note: No need to notify opers here. It's
@@ -406,13 +428,13 @@ static	time_t	check_pings(time_t currenttime)
 
 	  dying_clients[die_index++] = cptr;
 	  dying_clients[die_index] = (aClient *)NULL;
-	  continue;
+	  continue;		/* and go examine next fd/cptr */
 	}
 
       /*
        * To make the exit reason have the kline reason
        * I have to keep a copy of the reason in dying_clients_reason[]
-       * IF KLINE_WITH_REASON is defined. Its' going to be slightly
+       * IF KLINE_WITH_REASON is defined. It is going to be slightly
        * faster if KLINE_WITH_REASON is #undef'ed
        *
        * -Dianora
@@ -422,7 +444,6 @@ static	time_t	check_pings(time_t currenttime)
 	{
 	  if(dline_in_progress)
 	    {
-	      char *reason;
 	      if(IsPerson(cptr))
 		{
 		  if( (aconf = find_dkill(cptr)) ) /* if there is a returned 
@@ -442,14 +463,12 @@ static	time_t	check_pings(time_t currenttime)
 #endif
 		      sendto_one(cptr, err_str(ERR_YOUREBANNEDCREEP),
 				 me.name, cptr->name, reason);
-		      continue;
+		      continue;		/* and go examine next fd/cptr */
 		    }
 		}
 	    }
 	  else
 	    {
-	      char *reason;
-
 	      if(IsPerson(cptr))
 		{
 #ifdef GLINES
@@ -469,7 +488,7 @@ static	time_t	check_pings(time_t currenttime)
 #endif
 		      sendto_one(cptr, err_str(ERR_YOUREBANNEDCREEP),
 				 me.name, cptr->name, reason);
-		      continue;
+		      continue;		/* and go examine next fd/cptr */
 		    }
 		  else
 #endif
@@ -496,14 +515,31 @@ static	time_t	check_pings(time_t currenttime)
 #endif
 		      sendto_one(cptr, err_str(ERR_YOUREBANNEDCREEP),
 				 me.name, cptr->name, reason);
-		      continue;
+		      continue;		/* and go examine next fd/cptr */
 		    }
 		}
 	    }
 	}
 
-#ifdef R_LINES_OFTEN
-      rflag = IsPerson(cptr) ? find_restrict(cptr) : 0;
+#if defined(R_LINES) && defined(R_LINES_OFTEN)
+      /*
+       * this is used for KILL lines with time restrictions
+       * on them - send a message to the user being killed
+       * first.
+       * *** Moved up above  -taner ***
+       *
+       * Moved here, no more rflag -Dianora 
+       */
+      if (IsPerson(cptr) && find_restrict(cptr))
+	{
+	  sendto_ops("Restricting %s, closing link.",
+		     get_client_name(cptr,FALSE));
+
+	  dying_clients[die_index++] = cptr;
+	  dying_clients[die_index] = (aClient *)NULL;
+	  cptr->flags2 |= FLAGS2_RESTRICTED;
+	  continue;			/* and go examine next fd/cptr */
+	}
 #endif
 
       if (!IsRegistered(cptr))
@@ -512,26 +548,19 @@ static	time_t	check_pings(time_t currenttime)
 	ping = get_client_ping(cptr);
 
       /*
-       * Ok, so goto's are ugly and can be avoided here but this code
-       * is already indented enough so I think its justified. -avalon
-       */
-      if (!rflag &&
-	  (ping >= currenttime - cptr->lasttime))
-	goto ping_timeout;
-
-      /*
-       * If the server hasnt talked to us in 2*ping seconds
+       * If the server or client hasnt talked to us in 2*ping seconds
        * and it has a ping time, then close its connection.
-       * If the client is a user and a KILL line was found
-       * to be active, close this connection too.
        */
       if (((currenttime - cptr->lasttime) >= (2 * ping) &&
 	   (cptr->flags & FLAGS_PINGSENT)) ||
-	  ((!IsRegistered(cptr) && (currenttime - cptr->since) >= ping)) ||
-	  (rflag && !IsUnknown(cptr)) )
+	  ((!IsRegistered(cptr) && (currenttime - cptr->since) >= ping)) )
 	{
 	  /* ok. There has been a ping time out. determine what sort
-	   *  of ping timeout -Dianora
+	   *  of ping timeout
+	   * Can be one of client ping out, server ping out, or time
+	   * out on authd or DNS
+	   *
+	   * -Dianora
 	   */
 
 	  if (!IsRegistered(cptr) &&
@@ -572,18 +601,7 @@ static	time_t	check_pings(time_t currenttime)
 	      sendto_ops("No response from %s, closing link",
 			 get_client_name(cptr, FALSE));
 	    }
-	  /*
-	   * this is used for KILL lines with time restrictions
-	   * on them - send a messgae to the user being killed
-	   * first.
-	   * *** Moved up above  -taner ***
-	   */
 
-#if defined(R_LINES) && defined(R_LINES_OFTEN)
-	  if (IsPerson(cptr) && rflag)
-	    sendto_ops("Restricting %s, closing link.",
-		       get_client_name(cptr,FALSE));
-#endif
 #ifdef ANTI_IP_SPOOF
 	  if(!IsRegistered(cptr) && (cptr->name[0]) && (cptr->user))
 	    ircstp->is_ipspoof++;
@@ -595,9 +613,15 @@ static	time_t	check_pings(time_t currenttime)
 	  continue;			/* and go examine next fd/cptr */
 	}
 
-      /* Not a ping time out */
+      /* I'm allowing a client who isn't registered to PONG
+       * and thusly stay connected for at least 100s.
+       * If we (being the hybrid team) don't want that
+       * then the next if should be:
+       * if (IsRegistered(cptr) && ((cptr->flags & FLAGS_PINGSENT) == 0))
+       * -Dianora
+       */
 
-      else if ((cptr->flags & FLAGS_PINGSENT) == 0)
+      if ((cptr->flags & FLAGS_PINGSENT) == 0)
 	{
 	  /*
 	   * if we havent PINGed the connection and we havent
@@ -609,36 +633,45 @@ static	time_t	check_pings(time_t currenttime)
 	  cptr->lasttime = currenttime - ping;
 	  sendto_one(cptr, "PING :%s", me.name);
 	}
-ping_timeout:
-      timeout = cptr->lasttime + ping;
+
+      if(IsUnknown(cptr))
+	{
+	  /*
+	   * Check UNKNOWN connections - if they have been in this state
+	   * for > 100s, close them.
+	   * (Regardless of whether they have kept replying PONG to PING
+	   * requests from this server!)
+	   */
+	  if (cptr->firsttime ? ((timeofday - cptr->firsttime) > 100) : 0)
+	    {
+	      /* Lets for the time being, make sure this cptr hasn't already 
+	       * been marked for exit
+	       */
+
+	      if( cptr->flags2 && (FLAGS2_RESTRICTED|
+				   FLAGS2_PING_TIMEOUT|
+				   FLAGS2_KILLFLAG|
+				   FLAGS2_GKILLFLAG|
+				   FLAGS2_DKILLFLAG))
+		{
+		  /* This should never happen /me paranoid -Dianora */
+		  sendto_ops("cptr already marked for exit! cptr->flags2 = %x",
+			     cptr->flags2);
+		}
+	      else
+		{
+		  dying_clients[die_index++] = cptr;
+		  dying_clients[die_index] = (aClient *)NULL;
+		  cptr->flags2 |= FLAGS2_CONNECTION_TIMEDOUT;
+		}
+	    }
+	}
+#ifndef SIMPLE_PINGFREQUENCY
       while (timeout <= currenttime)
 	timeout += ping;
       if (timeout < oldest || !oldest)
 	oldest = timeout;
-      /*
-       * Check UNKNOWN connections - if they have been in this state
-       * for > 100s, close them.
-       */
-      if (IsUnknown(cptr))
-	if (cptr->firsttime ? ((timeofday - cptr->firsttime) > 100) : 0)
-	  {
-	    /* Lets for the time being, make sure this cptr hasn't already 
-	       been marked for exit */
-
-	    if( cptr->flags2 && (FLAGS2_PING_TIMEOUT|FLAGS2_KILLFLAG|
-				 FLAGS2_GKILLFLAG|FLAGS2_DKILLFLAG))
-	      {
-		sendto_ops("cptr already marked for exit! cptr->flags2 = %x",
-			   cptr->flags2);
-	      }
-	    else
-	      /* end of temporary debug */
-	      {
-		dying_clients[die_index++] = cptr;
-		dying_clients[die_index] = (aClient *)NULL;
-		cptr->flags2 |= FLAGS2_CONNECTION_TIMEDOUT;
-	      }
-	  }
+#endif
     }
 
   /* Now exit clients marked for exit above.
@@ -647,7 +680,7 @@ ping_timeout:
    * -Dianora
    */
 
-  for(die_index = 0; (cptr = dying_clients[die_index]) ; die_index++)
+  for(die_index = 0; (cptr = dying_clients[die_index]); die_index++)
     {
       if(cptr->flags & FLAGS_DEADSOCKET)
 	{
@@ -680,8 +713,18 @@ ping_timeout:
 	}
       else if(cptr->flags2 & FLAGS2_PING_TIMEOUT)
 	{
-	  (void)exit_client(cptr, cptr, &me,"Ping timeout");
+	  char ping_time_out_buffer[64];
+	  (void)sprintf(ping_time_out_buffer,
+			"Ping timeout: %i seconds",
+			currenttime - cptr->lasttime);
+	  (void)exit_client(cptr, cptr, &me,ping_time_out_buffer);
 	}
+#if defined(R_LINES) && defined(R_LINES_OFTEN)
+      else if(cptr->flags2 & FLAGS2_RESTRICTED)
+	{
+	  (void)exit_client(cptr, cptr, &me,"you have been R-lined");
+	}
+#endif
       else if(cptr->flags2 & FLAGS2_CONNECTION_TIMEDOUT)
 	{
 	  (void)exit_client(cptr, cptr, &me, "Connection Timed Out");
@@ -691,11 +734,14 @@ ping_timeout:
   rehashed = 0;
   dline_in_progress = 0;
 
+#ifdef SIMPLE_PINGFREQUENCY
+  oldest =  currenttime + PINGFREQUENCY;
+#else
   if (!oldest || oldest < currenttime)
     oldest = currenttime + PINGFREQUENCY;
+#endif
   Debug((DEBUG_NOTICE,"Next check_ping() call at: %s, %d %d %d",
 	 myctime(oldest), ping, oldest, currenttime));
-  
   return (oldest);
 }
 
@@ -1317,7 +1363,7 @@ time_t io_loop(time_t delay)
   ** ping times) --msa
   */
 
-  if ((timeofday >= nextping) && !lifesux)
+  if ((timeofday >= nextping))	/* && !lifesux ) */
     nextping = check_pings(timeofday);
 
   if (dorehash && !lifesux)

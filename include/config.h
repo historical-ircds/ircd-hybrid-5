@@ -27,8 +27,8 @@
 /***************** MAKE SURE THIS IS CORRECT!!!!!!!!! **************/
 /* ONLY EDIT "HARD_FDLIMIT_" and "INIT_MAXCLIENTS" */
 
-#define HARD_FDLIMIT_	1024
-#define INIT_MAXCLIENTS	800
+#define HARD_FDLIMIT_   1024
+#define INIT_MAXCLIENTS 800
 
 /*
  * This is how many 'buffer connections' we allow... 
@@ -82,8 +82,8 @@
  * -Dianora
  */
 
-#define	DPATH	"/usr/local/ircd/"
-#define	SPATH	"/usr/local/ircd/ircd"
+#define DPATH   "/usr/local/ircd/"
+#define SPATH   "/usr/local/ircd/ircd"
 #define	CPATH	"ircd.conf"
 #define KPATH   "kline.conf"
 #define	MPATH	"ircd.motd"
@@ -547,8 +547,23 @@
  * To use m4 as a preprocessor on the ircd.conf file, define M4_PREPROC.
  * The server will then call m4 each time it reads the ircd.conf file,
  * reading m4 output as the server's ircd.conf file.
+ * m4 support is being moved into viconf.c
+ * m4 will be run on ircd.conf.m4 producing ircd.conf
  */
 #undef	M4_PREPROC
+
+/* USE_REJECT_HOLD
+ * clients that reconnect but are k-lined will have their connections
+ * "held" for REJECT_HOLD_TIME seconds, they cannot PRIVMSG. The idea
+ * is to keep a reconnecting client from forcing the ircd to re-scan
+ * dich_conf. There is one possible serious hitch with this...
+ * If it is a mass cloner, your attacker can "REJECT_HOLD" a number
+ * of local fd's on your server. Against normal bots this code will
+ * be a "win", against mass cloners, it could lose.
+ */
+
+#undef USE_REJECT_HOLD
+#define REJECT_HOLD_TIME 60
 
 /* USE_SYSLOG - log errors and such to syslog()
  * If you wish to have the server send 'vital' messages about server

@@ -604,6 +604,17 @@ static	int	register_user(aClient *cptr,
 	  sendto_realops("K-lined %s@%s. for %s",sptr->user->username,
 			 sptr->sockhost,reason);
 #endif
+
+#ifdef USE_REJECT_HOLD
+	  cptr->flags |= FLAGS_REJECT_HOLD;
+#ifdef KLINE_WITH_REASON
+	  sendto_one(sptr, ":%s NOTICE %s :*** K-lined for %s",
+		     me.name,cptr->name,reason);
+#else
+	  sendto_one(sptr, ":%s NOTICE %s :*** K-lined",
+		     me.name,cptr->name);
+#endif
+#else
 	  ircstp->is_ref++;
 
 #ifdef KLINE_WITH_REASON
@@ -611,7 +622,7 @@ static	int	register_user(aClient *cptr,
 #else
 	  return exit_client(cptr, sptr, &me, "K-lined");
 #endif
-
+#endif
 	}
 #ifdef R_LINES
       if (find_restrict(sptr))
@@ -2737,6 +2748,7 @@ int	m_away(aClient *cptr,
     MyFree(away);
 
   away = (char *)MyMalloc(strlen(awy2)+1);
+  strcpy(away,awy2);
 
   sptr->user->away = away;
 
