@@ -957,9 +957,11 @@
  */
 #undef CHROOTDIR
 
-/* DEBUGMODE is a bad bad bad evil thing that probably won't even compile
- * on this release.  Don't define it!
- */
+ /*
+ * DEBUGMODE is used mostly for internal development, it is likely
+ * to make your client server very sluggish.
+ * You usually shouldn't need this. -db
+*/
 #undef  DEBUGMODE               /* define DEBUGMODE to enable debugging mode.*/
 
 /*

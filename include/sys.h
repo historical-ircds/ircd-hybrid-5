@@ -70,11 +70,7 @@ extern	char	*rindex (char *, char);
 #include <sys/time.h>
 #endif
 
-#if !defined(DEBUGMODE)
 #define MyFree(x)       if ((x) != NULL) free(x)
-#else
-#define	free(x)		MyFree(x)
-#endif
 
 #ifdef NEXT
 #define VOIDSIG int	/* whether signal() returns int of void */

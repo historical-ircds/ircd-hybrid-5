@@ -1673,7 +1673,9 @@ int read_packet(aClient *cptr, int msg_ready)
 #endif
       if((timeofday = time(NULL)) == -1)
         {
+#ifdef USE_SYSLOG
           syslog(LOG_WARNING, "Clock Failure (%d), TS can be corrupted", errno);
+#endif
           sendto_ops("Clock Failure (%d), TS can be corrupted", errno);
         }   
 
@@ -1910,10 +1912,13 @@ int read_packet(aClient *cptr, int msg_ready)
 #ifdef USE_FAST_FD_ISSET
       if (!NoNewLine(cptr) || 
 	  (read_set->fds_bits[fd_read_offset] & fd_read_mask))
-	length = read_packet(cptr, read_set);
+	  length = read_packet(cptr, read_set);
 #else
       if (!NoNewLine(cptr) || FD_ISSET(i, read_set))
-	length = read_packet(cptr, read_set);
+          length = read_packet(cptr, read_set);
+#endif
+#ifdef DEBUGMODE
+       readcalls++;
 #endif
 
       if ((length != FLUSH_BUFFER) && IsDead(cptr))
@@ -2307,7 +2312,10 @@ int	read_message(time_t delay, fdlist *listp)
 	}
       length = 1;     /* for fall through case */
       if (!NoNewLine(cptr) || rr)
-	length = read_packet(cptr, rr);
+          length = read_packet(cptr, rr);
+#ifdef DEBUGMODE
+          readcalls++;
+#endif
       if (length == FLUSH_BUFFER)
 	continue;
       if (IsDead(cptr))
