@@ -2733,7 +2733,8 @@ int	m_quit(aClient *cptr,
 	}
 #endif
 #ifdef ANTI_SPAM_EXIT_MESSAGE
-      if((sptr->firsttime + ANTI_SPAM_EXIT_MESSAGE_TIME) > NOW)
+      if(MyConnect(sptr) && 
+	 (sptr->firsttime + ANTI_SPAM_EXIT_MESSAGE_TIME) > NOW)
 	comment = "Client Quit";
 #endif
     }
