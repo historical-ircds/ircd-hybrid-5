@@ -28,6 +28,7 @@ static char *version = "$Id$";
 extern	void	count_whowas_memory(int *, u_long *);
 extern	u_long	cres_mem(aClient *);
 extern  void    count_ip_hash(int *,u_long *);	/* defined in s_conf.c */
+extern	void	count_dline_hash(int *,u_long *); /* defined in s_conf.c */
 
 /*
  * Option string.  Must be before #ifdef DEBUGMODE.
@@ -329,6 +330,7 @@ void	count_memory(aClient *cptr,char *nick)
   int usc = 0;		/* users in channels */
   int aw = 0;		/* aways set */
   int number_ips_stored;	/* number of ip addresses hashed */
+  int number_dlines_stored;	/* number of dlines hashed */
   int number_servers_cached; /* number of servers cached by scache */
 
   u_long chm = 0;	/* memory used by channels */
@@ -342,6 +344,7 @@ void	count_memory(aClient *cptr,char *nick)
   u_long rm = 0;	/* res memory used */
   u_long mem_servers_cached; /* memory used by scache */
   u_long mem_ips_stored;	/* memory used by ip address hash */
+  u_long mem_dlines_stored;	/* memory used by dline hash */
 
   u_long totcl = 0;
   u_long totch = 0;
@@ -465,6 +468,12 @@ void	count_memory(aClient *cptr,char *nick)
 	     me.name, RPL_STATSDEBUG, nick,
 	     number_ips_stored,
 	     mem_ips_stored);
+
+  count_dline_hash(&number_dlines_stored,&mem_dlines_stored);
+  sendto_one(cptr, ":%s %d %s :dhash %d(%d)",
+	     me.name, RPL_STATSDEBUG, nick,
+	     number_dlines_stored,
+	     mem_dlines_stored);
 
   tot = totww + totch + totcl + com + cl*sizeof(aClass) + db + rm;
   tot += sizeof(aHashEntry) * U_MAX;
