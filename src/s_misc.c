@@ -396,7 +396,8 @@ char	*comment	/* Reason for the exit */
 	  Count.myserver--;
 	  delfrom_fdlist(sptr->fd, &serv_fdlist);
 #ifdef NO_CHANOPS_WHEN_SPLIT
-	  if(serv_fdlist.entry[1] <= serv_fdlist.last_entry)
+	  /*	  if(serv_fdlist.entry[1] <= serv_fdlist.last_entry) */
+	  if(Count.myserver == 0)
 	    {
 	      server_was_split = YES;
 	      server_split_time = NOW;

@@ -51,7 +51,7 @@ static	Numeric	numeric_replies[] = {
 /* 202 */	RPL_TRACEHANDSHAKE, ":%s 202 %s H.S. %d %s",
 /* 203 */	RPL_TRACEUNKNOWN, ":%s 203 %s ???? %d %s %d",
 /* 204 */	RPL_TRACEOPERATOR, ":%s 204 %s Oper %d %s",
-/* 205 */	RPL_TRACEUSER, ":%s 205 %s User %d %s",
+/* 205 */	RPL_TRACEUSER, ":%s 205 %s User %d %s 0 %d",
 /* 206 */	RPL_TRACESERVER, ":%s 206 %s Serv %d %dS %dC %s %s!%s@%s",
 /* 207 */	0, (char *)NULL,
 /* 208 */	RPL_TRACENEWTYPE, ":%s 208 %s <newtype> 0 %s",

@@ -4789,8 +4789,8 @@ int	m_trace(aClient *cptr,
 			   parv[0], class, name);
 	      else
 		sendto_one(sptr,rpl_str(RPL_TRACEUSER),
-			   me.name, parv[0],
-			   class, name);
+			   me.name, parv[0], class, name,
+			   (acptr->user)?(timeofday - acptr->user->last):0);
 	      cnt++;
 	    }
 	  break;

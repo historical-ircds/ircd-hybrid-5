@@ -512,7 +512,7 @@ void remove_one_ip(unsigned long ip_in)
 	    {
 	      if(cur_link->value.cptr == cptr)
 		{
-		  if(prev_link == ptr->ptr_clients_on_this_ip)
+		  if(prev_link == cur_link)
 		    {
 		      ptr->ptr_clients_on_this_ip = cur_link->next;
 		      free_link(cur_link);
