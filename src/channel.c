@@ -146,7 +146,7 @@ static	char	*check_string(char *s)
 	break;
       }
 
-  return (BadPtr(str)) ? star : str;
+  return (str);
 }
 
 /*
