@@ -266,7 +266,7 @@ typedef struct	MotdItem aMotd;
 /*
  * flags2 macros.
  */
-#define IsRestricted(x)		((x)->flags2 &= FLAGS2_RESTRICTED)
+#define IsRestricted(x)		((x)->flags2 & FLAGS2_RESTRICTED)
 #define SetRestricted(x)	((x)->flags2 |= FLAGS2_RESTRICTED)
 
 /*
