@@ -744,6 +744,23 @@ static	void	exit_one_client(aClient *cptr,
       */
       if (sptr->user)
 	{
+#ifdef ANTI_SPAMBOT_EXTRA
+	  /* catch the "one shot" spambots, they appear
+	   * to message a client, then exit. We can't do anything
+	   * to them since they are now exiting, but at least
+	   * we know about them now
+	   * -Dianora
+	   */
+
+	if( sptr->person_privmsgs && !sptr->channel_privmsgs)
+	  {
+	    sendto_realops("Possible spambot exiting %s [%s@%s] : privmsgs to clients %d privmsgs to channels %d",
+			   sptr->name, sptr->user->username,
+			   sptr->user->host,
+			   sptr->person_privmsgs,sptr->channel_privmsgs);
+	  }
+#endif
+
 #ifdef ANTI_SPAM_EXIT_MESSAGE
 	  if(sptr->flags & FLAGS_KILLED)
 	    sendto_common_channels(sptr, ":%s QUIT :%s",
