@@ -3421,6 +3421,9 @@ int     m_kline(aClient *cptr,
       if (!(acptr = find_chasing(sptr, argv, NULL)))
 	return 0;
 
+      if(!acptr->user)
+	return 0;
+
       if (IsServer(acptr))
 	{
 	  sendto_one(sptr,
@@ -4193,6 +4196,9 @@ int     m_dline(aClient *cptr,
 	  if(!isdigit(*p))
 	    {
 	      if (!(acptr = find_chasing(sptr, parv[1], NULL)))
+		return 0;
+
+	      if(!acptr->user)
 		return 0;
 
 	      if (IsServer(acptr))

@@ -36,7 +36,8 @@ static char *rcs_version = "$Id$";
 
 
 /*
-re-written to use jolo's block allocator routines. very nicely done jolo
+re-written to use Wohali (joant@cadence.com)
+block allocator routines. very nicely done Wohali
 
 -Dianora
 
