@@ -1568,7 +1568,8 @@ int spam_num = MAX_JOIN_LEAVE_COUNT;
 	      return 0;
 	    }
 #ifdef ANTI_SPAMBOT 	  /* Dianora */
-          successful_join_count++;
+          if(flags == 0)	/* if channel doesn't exist, don't penalize */
+            successful_join_count++;
           if( sptr->join_leave_count >= spam_num)
             { 
               /* Its already known as a possible spambot */
