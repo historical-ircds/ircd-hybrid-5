@@ -83,7 +83,7 @@ extern void count_memory(aClient *,char *);
 extern void rehash_ip_hash();		/* defined in s_conf.c */
 
 /* Local function prototypes */
-static int isnumber(char *);	/* return -1 if not, else return number */
+static int isnumber(char *);	/* return 0 if not, else return number */
 static char *cluster(char *);
 void read_motd(char *);
 
@@ -2813,9 +2813,8 @@ int     m_kline(aClient *cptr,
     }
 
   argv = parv[1];
-  temporary_kline_time = 0;
 
-  if((temporary_kline_time = isnumber(argv)) != -1)
+  if(temporary_kline_time = isnumber(argv))
     {
       if(parc < 3)
 	{
@@ -2849,7 +2848,6 @@ int     m_kline(aClient *cptr,
       if (!*host)		/* duh. no host found, assume its '*' host */
 	host = "*";
       strncpyzt(tempuser, user, USERLEN+2); /* allow for '*' in front */
-      tempuser[USERLEN+1] = '\0';
       strncpyzt(temphost, host, HOSTLEN);
       user = tempuser;
       host = temphost;
@@ -3143,7 +3141,7 @@ int     m_kline(aClient *cptr,
 isnumber()
 
 inputs		- pointer to ascii string in
-output		- (-1) if not an integer number, else the number
+output		- 0 if not an integer number, else the number
 side effects	- none
 */
 
@@ -3160,8 +3158,15 @@ static int isnumber(char *p)
           p++;
         }
       else
-        return(-1);
+        return(0);
     }
+  /* in the degenerate case where oper does a /quote kline 0 user@host :reason 
+     i.e. they specifically use 0, I am going to return 1 instead
+     as a return value of non-zero is used to flag it as a temporary kline
+  */
+
+  if(result == 0)
+    result = 1;
   return(result);
 }
 
