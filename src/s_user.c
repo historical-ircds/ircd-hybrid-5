@@ -1076,8 +1076,17 @@ static	int	register_user(aClient *cptr,
 #ifdef USE_LINKLIST
         /* LINKLIST */
         /* add to local client link list -Dianora */
-        sptr->next_local_client = local_cptr_list;
-        local_cptr_list = sptr;
+	/* I really want to move this add to link list
+	 * inside the if (MyConnect(sptr)) up above
+	 * but I also want to make sure its really good and registered
+	 * local client
+	 * -Dianora
+	 */
+	if (MyConnect(sptr))
+	  {
+	    sptr->next_local_client = local_cptr_list;
+	    local_cptr_list = sptr;
+	  }
 #endif
  
 	sendto_serv_butone(cptr, "NICK %s %d %ld %s %s %s %s :%s",
