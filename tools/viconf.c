@@ -27,6 +27,12 @@ int main(int argc, char *argv[])
 	int fd;
 	char s[20], *ed, *p, *filename = CONFIGFILE;
 
+	if( chdir(DPATH) < 0 )
+	  {
+	    fprintf(stderr,"Cannot chdir to %s\n", DPATH);
+	    exit(errno);
+	  }
+
 	if((p = strrchr(argv[0], '/')) == NULL)
 		p = argv[0];
 	else
