@@ -30,7 +30,7 @@
 * added /quote set SPAMNUM SPAMTIME to control ANTI_SPAMBOT behaviour (Dianora)
 * hybrid option flags removed from m_version and replaced
   by full listing of server defines in m_info (oper only)
-
+* poll() code mods ported from CSr30 (comstud) by cbongo
 +hybrid-5 (9/26/97)
 * LOTS AND LOTS OF CHANGES IN CONFIG.H
 * reorganized source tree, eliminating common subdir

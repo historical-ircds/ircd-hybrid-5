@@ -1341,14 +1341,19 @@ int	m_info(aClient *cptr,
 #endif
 	sendto_one(sptr, rpl_str(RPL_INFO),
 		me.name, parv[0], outstr);
-	ircsprintf(outstr,"FLUD_BLOCK=%d",FLUD_BLOCK);
-	ircsprintf(tmpstr," FLUD_NUM=%d",FLUD_NUM);
-	strcat(outstr,tmpstr);
-	ircsprintf(tmpstr," FLUD_TIME=%d",FLUD_TIME);
-	strcat(outstr,tmpstr);
+#ifdef FLUD
+	ircsprintf(outstr,"FLUD=1 FLUD_BLOCK=%d FLUD_NUM=%d FLUD_TIME=%d",
+	  FLUD_BLOCK,FLUD_NUM,FLUD_TIME);
+#else
+	ircsprintf(outstr,"FLUD=0");
+#endif
 	sendto_one(sptr, rpl_str(RPL_INFO),
 		me.name, parv[0], outstr);
-	ircsprintf(outstr,"GLINE_TIME=%d",GLINE_TIME);
+#ifdef GLINE
+	ircsprintf(outstr,"GLINE=1 GLINE_TIME=%d",GLINE_TIME);
+#else
+	ircsprintf(outstr,"GLINE=0");
+#endif
 	ircsprintf(tmpstr," HARD_FDLIMIT_=%d",HARD_FDLIMIT_);
 	strcat(outstr,tmpstr);
 	ircsprintf(tmpstr," HYBRID_SOMAXCONN=%d",HYBRID_SOMAXCONN);
@@ -2611,10 +2616,13 @@ int spam_num = MAX_JOIN_LEAVE_COUNT;
                              me.name, parv[0]);
                   return 0;
                 }
-              spam_num = newval;
+              if(newval < MIN_SPAM_NUM)
+		spam_num = MIN_SPAM_NUM;
+	      else
+		spam_num = newval;
               sendto_ops("%s has changed spam NUM to %i", parv[0], spam_num);
-              sendto_one(sptr, ":%s NOTICE %s :flud NUM is now set to %i",
-                         me.name, parv[0], flud_num);
+              sendto_one(sptr, ":%s NOTICE %s :spam NUM is now set to %i",
+                         me.name, parv[0], spam_num);
               return 0;
             }
           else
@@ -2636,7 +2644,10 @@ int spam_num = MAX_JOIN_LEAVE_COUNT;
                              me.name, parv[0]);
                   return 0;
                 }
-              spam_time = newval;
+              if(newval < MIN_SPAM_TIME)
+		spam_time = MIN_SPAM_TIME;
+	      else
+		spam_time = newval;
               sendto_ops("%s has changed spam TIME to %i", parv[0], spam_time);
               sendto_one(sptr, ":%s NOTICE %s :SPAM TIME is now set to %i",
                          me.name, parv[0], spam_time);
@@ -3010,6 +3021,7 @@ int     m_gline(aClient *cptr,
 			 oper_nick,
 			 oper_username,
 			 oper_host,
+			 oper_server,
 			 reason);
     }
   else
@@ -3017,24 +3029,26 @@ int     m_gline(aClient *cptr,
       if(!IsServer(sptr))
         return(0);
 
-      if(parc < 7)
+      if(parc < 8)
 	return 0;
 
-      oper_server = sptr->name;
+
       user = parv[1];
       host = parv[2];
       oper_nick = parv[3];
       oper_username = parv[4];
       oper_host = parv[5];
       reason = parv[6];
+      oper_server = parv[7];
 
-      sendto_serv_butone(NULL, ":%s GLINE %s %s %s %s %s :%s",
+      sendto_serv_butone(sptr, ":%s GLINE %s %s %s %s %s :%s",
                          me.name,
                          user,
                          host,
                          oper_nick,
                          oper_username,
                          oper_host,
+			 oper_server,
                          reason);
     }
 
