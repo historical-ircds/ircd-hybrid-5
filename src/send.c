@@ -1388,7 +1388,7 @@ va_dcl
 #endif
  
         /*
-        ** if we're runnign with TS_WARNINGS enabled and someone does
+        ** if we're running with TS_WARNINGS enabled and someone does
         ** something silly like (remotely) connecting a nonTS server,
         ** we'll get a ton of warnings, so we make sure we don't send
         ** more than 5 every 5 seconds.  -orabidoo

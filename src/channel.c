@@ -1286,8 +1286,8 @@ void	clean_channelname(unsigned char *cn)
 }
 
 /*
-**  Get Channel block for i (and allocate a new channel
-**  block, if it didn't exists before).
+**  Get Channel block for chname (and allocate a new channel
+**  block, if it didn't exist before).
 */
 static	aChannel *get_channel(aClient *cptr,
 			      char *chname,

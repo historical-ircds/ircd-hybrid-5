@@ -802,7 +802,7 @@ int	main(int argc, char *argv[])
   R_fin_dns	= strlen(REPORT_FIN_DNS);
   R_fin_dnsc	= strlen(REPORT_FIN_DNSC);
   R_fail_dns	= strlen(REPORT_FAIL_DNS);
-  R_do_id		= strlen(REPORT_DO_ID);
+  R_do_id	= strlen(REPORT_DO_ID);
   R_fin_id	= strlen(REPORT_FIN_ID);
   R_fail_id	= strlen(REPORT_FAIL_ID);
 
@@ -1089,7 +1089,8 @@ normal user.\n");
 	(void)printf("Couldn't open kline file %s\n",
 		     filename);
       }
-    (void)initconf(0,fd);
+    else
+      (void)initconf(0,fd);
   }
 #else
 #ifdef KPATH
@@ -1100,7 +1101,8 @@ normal user.\n");
       (void)printf("Couldn't open kline file %s\n",
 		   klinefile);
     }
-  (void)initconf(0,fd);
+  else
+    (void)initconf(0,fd);
 #endif
 #endif
   if (!(bootopt & BOOT_INETD))

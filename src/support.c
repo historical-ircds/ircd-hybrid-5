@@ -30,10 +30,7 @@ static char *rcs_version = "$Id$";
 #define FOREVER for(;;)
 
 extern	int errno; /* ...seems that errno.h doesn't define this everywhere */
-#ifndef	CLIENT_COMPILE
 extern	void	outofmemory();
-#define	timeofday	time(NULL);
-#endif
 
 #if !defined( HAVE_STRTOKEN )
 /*
