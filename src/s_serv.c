@@ -56,6 +56,11 @@ static char *rcs_version = "$Id$";
 #endif
 #include "dich_conf.h"
 #include "fdlist.h"
+
+/* internal variables */
+static	char	buf[BUFSIZE]; 
+
+/* external variables */
 /* FDLIST */
 extern fdlist serv_fdlist;
 
@@ -67,17 +72,15 @@ extern aClient *serv_cptr_list;
 #endif
 
 extern int lifesux;
-static	char	buf[BUFSIZE]; 
 extern int rehashed;
 extern int dline_in_progress;
 #ifdef HIGHEST_CONNECTION
 int     max_connection_count = 1, max_client_count = 1;
 #endif
 
-/* external variables */
-
+extern aConfItem *temporary_klines;	/* defined in s_conf.c */
 #ifdef IDLE_CHECK
-extern int idle_time;	/* defined in ircd.c */
+extern int idle_time;			/* defined in ircd.c */
 #endif
 
 /* external functions */
@@ -154,6 +157,7 @@ static int majority_gline(aClient *, char *,
 
 #ifdef UNKLINE
 static int flush_write(aClient *,char *,int,char *,int,char *);
+static int remove_tkline_match(char *,char *);
 #endif
 
 #ifdef LOCKFILE
@@ -348,6 +352,13 @@ int	m_squit(aClient *cptr,
       sendto_one(sptr, err_str(ERR_NOPRIVILEGES), me.name, parv[0]);
       return 0;
     }
+
+  if (!IsOperRemote(sptr) && !MyConnect(acptr))
+    {
+      sendto_one(sptr,":%s NOTICE %s You have no R flag",me.name,parv[0]);
+      return 0;
+    }
+
   /*
   **  Notify all opers, if my local link is remotely squitted
   */
@@ -2483,6 +2494,12 @@ int	m_connect(aClient *cptr,
   if (IsLocOp(sptr) && parc > 3)	/* Only allow LocOps to make */
     return 0;		/* local CONNECTS --SRB      */
 
+  if (!IsOperRemote(sptr) && parc > 3)
+    {
+      sendto_one(sptr,":%s NOTICE %s You have no R flag",me.name,parv[0]);
+      return 0;
+    }
+
   if (hunt_server(cptr,sptr,":%s CONNECT %s %s :%s",
 		  3,parc,parv) != HUNTED_ISME)
     return 0;
@@ -2850,20 +2867,21 @@ int   m_set(aClient *cptr,
 
 	      if(newval < MIN_IDLETIME)
 		{
-		  sendto_one(sptr, ":%s NOTICE %s :IDLETIME must be > %d",
-			     me.name, parv[0],MIN_IDLETIME);
+		  sendto_one(sptr, ":%s NOTICE %s :IDLETIME must be >= %d",
+			     me.name, parv[0],MIN_IDLETIME/60);
 		  return 0;
 		}       
 	      idle_time = newval;
 	      sendto_ops("%s has changed IDLETIME to %i", parv[0], idle_time);
 	      sendto_one(sptr, ":%s NOTICE %s :IDLETIME is now set to %i",
-			 me.name, parv[0], idle_time);
+			 me.name, parv[0], newval);
+	      idle_time = (newval*60);
 	      return 0;       
 	    }
 	  else
 	    {
 	      sendto_one(sptr, ":%s NOTICE %s :IDLETIME is currently %i",
-			 me.name, parv[0], idle_time);
+			 me.name, parv[0], idle_time/60);
 	      return 0;
 	    }
 	}
@@ -4410,6 +4428,15 @@ int m_unkline (aClient *cptr,aClient *sptr,int parc,char *parv[])
       return 0;
     }
 
+  if(remove_tkline_match(host,user))
+    {
+      sendto_one(sptr, ":%s NOTICE %s :Un-klined [%s@%s] from temporary k-lines",
+		 me.name, parv[0],user, host);
+      sendto_ops("%s has removed the temporary K-Line for; [%s@%s]",
+		 parv[0], user, host );
+      return 0;
+    }
+
 #if defined(LOCKFILE) && !defined(SEPARATE_QUOTE_KLINES_BY_DATE)
   if(lock_kline_file() < 0 )
     {
@@ -4782,6 +4809,45 @@ static int flush_write(aClient *sptr,char *opernick,
   return(error_on_write);
 }
 
+/*
+** remove_tkline_match()
+*
+* un-kline a temporary k-line. 
+*
+*/
+static int remove_tkline_match(char *host,char *user)
+{
+  aConfItem *kill_list_ptr;
+  aConfItem *last_kill_ptr=(aConfItem *)NULL;
+
+  if(!temporary_klines)
+    return NO;
+
+  kill_list_ptr = temporary_klines;
+
+  while(kill_list_ptr)
+    {
+      if( !strcasecmp(kill_list_ptr->host,host)
+	  && !strcasecmp(kill_list_ptr->name,user))	/* match */
+	{
+	  if(last_kill_ptr)
+	    last_kill_ptr->next = kill_list_ptr->next;
+	  else
+	    temporary_klines = kill_list_ptr->next;
+	  MyFree(kill_list_ptr->host);
+	  MyFree(kill_list_ptr->name);
+	  MyFree(kill_list_ptr->passwd);
+	  MyFree(kill_list_ptr);
+	  return YES;
+	}
+      else
+	{
+	  last_kill_ptr = kill_list_ptr;
+	  kill_list_ptr = kill_list_ptr->next;
+	}
+    }
+  return NO;
+}
 #endif
 
 /*

@@ -59,11 +59,11 @@ char	specific_virtual_host;
 
 static	int	lookup_confhost (aConfItem *);
 static  int     attach_iline(aClient *, aConfItem *);
-static  aConfItem *temporary_klines = (aConfItem *)NULL;
+aConfItem *temporary_klines = (aConfItem *)NULL;
 static	int	find_port_in_use(aConfItem *);
 
 static  char *set_conf_flags(aConfItem *,char *);
-static  int  get_oper_privs(char *);
+static  int  get_oper_privs(int,char *);
 
 /* externally defined functions */
 extern  void    outofmemory(void);	/* defined in list.c */
@@ -141,6 +141,28 @@ void	det_confs_butmask(aClient *cptr,int mask)
 	(void)detach_conf(cptr, tmp->value.aconf);
     }
 }
+
+/*
+ * Match address by #IP bitmask (10.11.12.128/27)
+ * (from ircd2.9.5)
+ */
+int    match_ipmask(mask, cptr)
+char   *mask;
+aClient *cptr;
+{
+        int i1, i2, i3, i4, m;
+        u_long lmask, baseip;
+ 
+        if (sscanf(mask, "%d.%d.%d.%d/%d", &i1, &i2, &i3, &i4, &m) != 5 ||
+           m < 1 || m > 31) {
+               sendto_ops("Ignoring bad mask: %s", mask);
+                return -1;
+        }
+        lmask = htonl(0xfffffffful << (32 - m)); /* /24 -> 0xffffff00ul */
+        baseip = htonl(i1 * 0x1000000 + i2 * 0x10000 + i3 * 0x100 + i4);
+        return ((cptr->ip.s_addr & lmask) == baseip) ? 0 : 1;
+}
+
 
 /*
  * find the first (best) I line to attach.
@@ -226,7 +248,14 @@ int	attach_Iline(aClient *cptr,
       if (index(uhost, '@'))
 	cptr->flags |= FLAGS_DOID;
       get_sockhost(cptr, uhost);
-      if (match(aconf->host, uhost) == 0)
+
+      /* ircd 2.9.5 ip mask matching */
+      if (strchr(aconf->host, '/'))		/* 1.2.3.0/24 */
+	{
+	  if (match_ipmask(aconf->host, cptr) == 0)
+	    return(attach_iline(cptr,aconf));
+	}
+      else if (match(aconf->host, uhost) == 0)	/* 1.2.3.* */
 	return(attach_iline(cptr,aconf));
     }
 
@@ -1614,27 +1643,17 @@ int 	initconf(int opt, int fd)
 	      aconf->port = 
 		CONF_OPER_GLOBAL_KILL|CONF_OPER_REMOTE|CONF_OPER_UNKLINE|
 		CONF_OPER_GLINE;
+	      if ((tmp = getfield(NULL)) == NULL)
+		break;
+	      aconf->port = get_oper_privs(aconf->port,tmp);
 	    }
 	  else if(aconf->status & CONF_LOCOP)
 	    {
 	      Debug((DEBUG_DEBUG,"Setting defaults for local oper"));
 	      aconf->port = CONF_OPER_UNKLINE;
-	    }
-
-	  if ((tmp = getfield(NULL)) == NULL)
-	    break;
-
-	  if(aconf->status == CONF_OPERATOR)
-	    {
-	      if(*tmp)
-		aconf->port = get_oper_privs(tmp);
-	    }
-	  else if(aconf->status == CONF_LOCOP)
-	    {
-	      if(*tmp)
-		aconf->port = get_oper_privs(tmp);
-	      aconf->port &= ~(CONF_OPER_GLOBAL_KILL|CONF_OPER_REMOTE|
-			       CONF_OPER_GLINE);
+	      if ((tmp = getfield(NULL)) == NULL)
+		break;
+	      aconf->port = get_oper_privs(aconf->port,tmp);
 	    }
 	  else
 	    aconf->port = atoi(tmp);
@@ -3161,10 +3180,18 @@ void dhash_stats(aClient *cptr, aClient *sptr,int parc, char *parv[],int out)
     }
 }
 
-int get_oper_privs(char *privs)
-{
-  int int_privs = 0;
+/* get_oper_privs
+ *
+ * inputs	- default privs
+ * 		- privs as string
+ * output	- default privs as modified by privs string
+ * side effects -
+ *
+ * -Dianora
+ */
 
+int get_oper_privs(int int_privs,char *privs)
+{
   Debug((DEBUG_DEBUG,"get_oper_privs called privs = [%s]",privs));
 
   while(*privs)
@@ -3181,6 +3208,8 @@ int get_oper_privs(char *privs)
 	int_privs |= CONF_OPER_REMOTE;	/* squit/connect etc. */
       else if(*privs == 'r')
 	int_privs &= ~CONF_OPER_REMOTE;	/* squit/connect etc. */
+      else if(*privs == 'T')
+	int_privs |= CONF_OPER_TCM;
 #ifdef GLINES
       else if(*privs == 'G')
 	int_privs |= CONF_OPER_GLINE;
@@ -3247,6 +3276,13 @@ char *oper_privs(aClient *cptr,int port)
     }
   else
     *privs_ptr++ = 'g';
+
+  if(port & CONF_OPER_TCM)
+    {
+      if(cptr)
+	SetOpertcm(cptr);
+      *privs_ptr++ = 'T';
+    }
 
   *privs_ptr = '\0';
 

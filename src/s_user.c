@@ -3196,7 +3196,7 @@ int	m_oper(aClient *cptr,
 	  /* You are =nuts= if you run NFS at all on a modern EFnet server
 	   * ewwwwwwwww so I am commenting it out for now
 	   * it should all be deleted, but ya. there is history here :-)
-	   * pjg,wumpus,avalon avalon cannot spell "courtesy" either
+	   * pjg,wumpus,avalon. avalon cannot spell "courtesy" either.
 	   * -Dianora
 	   */
 	  /*	  (void)alarm(3); */
@@ -3576,6 +3576,13 @@ int	m_umode(aClient *cptr,
   if (!(setflags & (FLAGS_OPER|FLAGS_LOCOP)) && IsAnOper(sptr))
     {
       Count.oper++;
+    }
+
+  if ((setflags & FLAGS_NCHANGE) && !IsSetOpertcm(sptr))
+    {
+      sendto_one(sptr,":%s NOTICE %s :*** You need oper and T flag for +n",
+		 me.name,parv[0]);
+      sptr->flags &= ~FLAGS_NCHANGE; /* only tcm's really need this */
     }
 
   if ((setflags & (FLAGS_OPER|FLAGS_LOCOP)) && !IsAnOper(sptr))

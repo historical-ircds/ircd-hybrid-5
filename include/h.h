@@ -360,5 +360,5 @@ void	free_fludees();
 #endif
 
 #ifdef IDLE_CHECK
-#define MIN_IDLETIME 60
+#define MIN_IDLETIME 1800
 #endif

@@ -1683,7 +1683,17 @@ int read_packet(aClient *cptr, int msg_ready)
 	restart("too many select errors");
       sleep(10);
     }
-  
+
+#ifdef USE_FAST_FD_ISSET
+  fd_read_mask = 1;
+  fd_read_offset = 0;
+  fd_write_mask = 1;
+  fd_write_offset = 0;
+
+  /*
+   * Check the name resolver
+   */
+
   if (resfd >= 0 && FD_ISSET(resfd, read_set))
     {
       do_dns_async();
@@ -1691,11 +1701,6 @@ int read_packet(aClient *cptr, int msg_ready)
       FD_CLR(resfd, read_set);
     }
 
-#ifdef USE_FAST_FD_ISSET
-  fd_read_mask = 1;
-  fd_read_offset = 0;
-  fd_write_mask = 1;
-  fd_write_offset = 0;
 
   for ( i = 0; i <= highest_fd; i++ )
 #else
@@ -1721,6 +1726,7 @@ int read_packet(aClient *cptr, int msg_ready)
 #endif
 	  continue;
 	}
+      
       /*
        * Check the auth fd's first...
        */
