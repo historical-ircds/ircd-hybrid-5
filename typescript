@@ -1,0 +1,31 @@
+Script started on Mon Sep 29 00:23:38 1997
+sh-2.00$ cvs --help-commands
+CVS commands are:
+        add          Adds a new file/directory to the repository
+        admin        Administration front end for rcs
+        annotate     Show revision where each line was modified
+        checkout     Checkout sources for editing
+        commit       Checks files into the repository
+        diff         Runs diffs between revisions
+        edit         Get ready to edit a watched file
+        editors      See who is editing a watched file
+        history      Shows status of files and users
+        import       Import sources into CVS, using vendor branches
+        export       Export sources from CVS, similar to checkout
+        init         Initialize a new CVS repository
+        log          Prints out 'rlog' information for files
+        login        Prompt for password for authenticating server.
+        rdiff        'patch' format diffs between releases
+        release      Indicate that a Module is no longer in use
+        remove       Removes an entry from the repository
+        status       Status info on the revisions
+        tag          Add a symbolic tag to checked out version of RCS file
+        unedit       Undo an edit command
+        rtag         Add a symbolic tag to the RCS file
+        update       Brings work tree in sync with repository
+        watch        Set watches
+        watchers     See who is watching a file
+sh-2.00$ exit
+exit
+
+Script done on Mon Sep 29 00:23:47 1997

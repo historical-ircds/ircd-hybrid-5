@@ -1,0 +1,40 @@
+# Generated automatically from Makefile.in by configure.
+CC=gcc
+RM=/bin/rm
+IRCDLIBS=-lcrypt 
+INCLUDEDIR=-I../include
+
+mkpasswd_SOURCES = mkpasswd.c
+mkpasswd_OBJECTS = mkpasswd.o
+chkconf_SOURCES = chkconf.c
+chkconf_OBJECTS = chkconf.o
+viconf_SOURCES = viconf.c
+viconf_OBJECTS = viconf.o
+
+all_OBJECTS = $(viconf_OBJECTS) $(mkpasswd_OBJECTS) $(chkconf_OBJECTS)
+
+all: viconf chkconf mkpasswd
+
+build: all
+
+chkconf: $(chkconf_OBJECTS)
+	$(CC) -o chkconf $(chkconf_OBJECTS) ${IRCDLIBS}
+
+mkpasswd: $(mkpasswd_OBJECTS)
+	$(CC) -o mkpasswd $(mkpasswd_OBJECTS) $(IRCDLIBS)
+
+viconf: viconf.o
+	$(CC) -o viconf viconf.o ${IRCDLIBS}
+
+clean:
+	$(RM) -f $(all_OBJECTS) viconf chkconf mkpasswd *~ core
+
+distclean: clean
+	$(RM) -f Makefile
+
+.c.o:
+	$(CC) $(CFLAGS) $(INCLUDEDIR) -c $<
+
+install: build
+	@echo "Please do a make install from the top level directory"
+

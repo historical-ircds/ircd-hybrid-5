@@ -1,0 +1,273 @@
+This file contains any messages produced by compilers while
+running configure, to aid debugging if configure makes a mistake.
+
+configure:531: checking for gcc
+configure:608: checking whether the C compiler (gcc  ) works
+configure:622: gcc -o conftest    conftest.c  1>&5
+configure:642: checking whether the C compiler (gcc  ) is a cross-compiler
+configure:647: checking whether we are using GNU C
+configure:656: gcc -E conftest.c
+configure:671: checking whether gcc accepts -g
+configure:699: checking for POSIXized ISC
+configure:766: checking host system type
+configure:787: checking target system type
+configure:805: checking build system type
+configure:828: checking how to run the C preprocessor
+configure:849: gcc -E  conftest.c >/dev/null 2>conftest.out
+configure:889: checking for AIX
+configure:913: checking whether make sets ${MAKE}
+configure:942: checking for rm
+configure:973: checking for cp
+configure:1012: checking for a BSD compatible install
+configure:1063: checking for gethostbyname in -lnsl
+configure:1082: gcc -o conftest -g -O2   conftest.c -lnsl   1>&5
+ld: -lnsl: no match
+configure: failed program was:
+#line 1071 "configure"
+#include "confdefs.h"
+/* Override any gcc2 internal prototype to avoid an error.  */
+/* We use char because int might match the return type of a gcc2
+    builtin and then its argument prototype would still apply.  */
+char gethostbyname();
+
+int main() {
+gethostbyname()
+; return 0; }
+configure:1110: checking for res_mkquery
+configure:1138: gcc -o conftest -g -O2   conftest.c  1>&5
+configure:1205: checking for socket in -lsocket
+configure:1224: gcc -o conftest -g -O2   conftest.c -lsocket   1>&5
+ld: -lsocket: no match
+configure: failed program was:
+#line 1213 "configure"
+#include "confdefs.h"
+/* Override any gcc2 internal prototype to avoid an error.  */
+/* We use char because int might match the return type of a gcc2
+    builtin and then its argument prototype would still apply.  */
+char socket();
+
+int main() {
+socket()
+; return 0; }
+configure:1252: checking for crypt
+configure:1280: gcc -o conftest -g -O2   conftest.c  1>&5
+configure:1274: Undefined symbol `_crypt' referenced from text segment
+configure: failed program was:
+#line 1257 "configure"
+#include "confdefs.h"
+/* System header to define __stub macros and hopefully few prototypes,
+    which can conflict with char crypt(); below.  */
+#include <assert.h>
+/* Override any gcc2 internal prototype to avoid an error.  */
+/* We use char because int might match the return type of a gcc2
+    builtin and then its argument prototype would still apply.  */
+char crypt();
+
+int main() {
+
+/* The GNU C library defines this for functions which it implements
+    to always fail with ENOSYS.  Some functions are actually named
+    something starting with __ and the normal name is an alias.  */
+#if defined (__stub_crypt) || defined (__stub___crypt)
+choke me
+#else
+crypt();
+#endif
+
+; return 0; }
+configure:1298: checking for crypt in -ldescrypt
+configure:1317: gcc -o conftest -g -O2   conftest.c -ldescrypt   1>&5
+ld: -ldescrypt: no match
+configure: failed program was:
+#line 1306 "configure"
+#include "confdefs.h"
+/* Override any gcc2 internal prototype to avoid an error.  */
+/* We use char because int might match the return type of a gcc2
+    builtin and then its argument prototype would still apply.  */
+char crypt();
+
+int main() {
+crypt()
+; return 0; }
+configure:1343: checking for crypt in -lcrypt
+configure:1362: gcc -o conftest -g -O2   conftest.c -lcrypt   1>&5
+configure:1395: checking for ANSI C header files
+configure:1408: gcc -E  conftest.c >/dev/null 2>conftest.out
+configure:1475: gcc -o conftest -g -O2   conftest.c -lcrypt  1>&5
+configure:1502: checking for sys/param.h
+configure:1512: gcc -E  conftest.c >/dev/null 2>conftest.out
+configure:1502: checking for unistd.h
+configure:1512: gcc -E  conftest.c >/dev/null 2>conftest.out
+configure:1502: checking for string.h
+configure:1512: gcc -E  conftest.c >/dev/null 2>conftest.out
+configure:1502: checking for strings.h
+configure:1512: gcc -E  conftest.c >/dev/null 2>conftest.out
+configure:1502: checking for sys/syslog.h
+configure:1512: gcc -E  conftest.c >/dev/null 2>conftest.out
+configure:1502: checking for stdlib.h
+configure:1512: gcc -E  conftest.c >/dev/null 2>conftest.out
+configure:1502: checking for stddef.h
+configure:1512: gcc -E  conftest.c >/dev/null 2>conftest.out
+configure:1540: checking for malloc.h
+configure:1550: gcc -E  conftest.c >/dev/null 2>conftest.out
+In file included from configure:1546:
+/usr/include/malloc.h:2: warning: #warning "this file includes <malloc.h> which is obsoleted, use <stdlib.h> instead"
+configure: failed program was:
+#line 1545 "configure"
+#include "confdefs.h"
+#include <malloc.h>
+configure:1575: checking MIN and MAX definition
+configure:1605: checking whether gcc needs -traditional
+configure:1630: termio.h: No such file or directory
+configure:1653: checking for index
+configure:1681: gcc -o conftest -g -O2   conftest.c -lcrypt  1>&5
+configure:1653: checking for strerror
+configure:1681: gcc -o conftest -g -O2   conftest.c -lcrypt  1>&5
+configure:1653: checking for strtoken
+configure:1681: gcc -o conftest -g -O2   conftest.c -lcrypt  1>&5
+configure:1675: Undefined symbol `_strtoken' referenced from text segment
+configure: failed program was:
+#line 1658 "configure"
+#include "confdefs.h"
+/* System header to define __stub macros and hopefully few prototypes,
+    which can conflict with char strtoken(); below.  */
+#include <assert.h>
+/* Override any gcc2 internal prototype to avoid an error.  */
+/* We use char because int might match the return type of a gcc2
+    builtin and then its argument prototype would still apply.  */
+char strtoken();
+
+int main() {
+
+/* The GNU C library defines this for functions which it implements
+    to always fail with ENOSYS.  Some functions are actually named
+    something starting with __ and the normal name is an alias.  */
+#if defined (__stub_strtoken) || defined (__stub___strtoken)
+choke me
+#else
+strtoken();
+#endif
+
+; return 0; }
+configure:1653: checking for strtok
+configure:1681: gcc -o conftest -g -O2   conftest.c -lcrypt  1>&5
+configure:1653: checking for inet_addr
+configure:1681: gcc -o conftest -g -O2   conftest.c -lcrypt  1>&5
+configure:1653: checking for inet_ntoa
+configure:1681: gcc -o conftest -g -O2   conftest.c -lcrypt  1>&5
+configure:1653: checking for inet_netof
+configure:1681: gcc -o conftest -g -O2   conftest.c -lcrypt  1>&5
+configure:1653: checking for inet_aton
+configure:1681: gcc -o conftest -g -O2   conftest.c -lcrypt  1>&5
+configure:1708: checking for gettimeofday
+configure:1736: gcc -o conftest -g -O2   conftest.c -lcrypt  1>&5
+configure:1708: checking for lrand48
+configure:1736: gcc -o conftest -g -O2   conftest.c -lcrypt  1>&5
+configure:1708: checking for sigaction
+configure:1736: gcc -o conftest -g -O2   conftest.c -lcrypt  1>&5
+configure:1708: checking for bzero
+configure:1736: gcc -o conftest -g -O2   conftest.c -lcrypt  1>&5
+configure:1708: checking for bcmp
+configure:1736: gcc -o conftest -g -O2   conftest.c -lcrypt  1>&5
+configure:1708: checking for bcopy
+configure:1736: gcc -o conftest -g -O2   conftest.c -lcrypt  1>&5
+configure:1763: checking for dn_skipname
+configure:1791: gcc -o conftest -g -O2   conftest.c -lcrypt  1>&5
+configure:1785: Undefined symbol `_dn_skipname' referenced from text segment
+configure: failed program was:
+#line 1768 "configure"
+#include "confdefs.h"
+/* System header to define __stub macros and hopefully few prototypes,
+    which can conflict with char dn_skipname(); below.  */
+#include <assert.h>
+/* Override any gcc2 internal prototype to avoid an error.  */
+/* We use char because int might match the return type of a gcc2
+    builtin and then its argument prototype would still apply.  */
+char dn_skipname();
+
+int main() {
+
+/* The GNU C library defines this for functions which it implements
+    to always fail with ENOSYS.  Some functions are actually named
+    something starting with __ and the normal name is an alias.  */
+#if defined (__stub_dn_skipname) || defined (__stub___dn_skipname)
+choke me
+#else
+dn_skipname();
+#endif
+
+; return 0; }
+configure:1763: checking for __dn_skipname
+configure:1791: gcc -o conftest -g -O2   conftest.c -lcrypt  1>&5
+configure:1816: checking for non-blocking socket implementation
+configure:1852: gcc -o conftest -g -O2   conftest.c -lcrypt  1>&5
+configure: In function `main':
+configure:1840: warning: passing arg 2 of `signal' from incompatible pointer type
+configure:1842: warning: passing arg 5 of `recvfrom' from incompatible pointer type
+configure:1901: gcc -o conftest -g -O2   conftest.c -lcrypt  1>&5
+configure: failed program was:
+#line 1870 "configure"
+#include "confdefs.h"
+
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <fcntl.h>
+#include <sys/ioctl.h>
+#include <sys/file.h>
+#include <signal.h>
+alarmed()
+{
+	exit(1);
+}
+int main()
+{
+#if defined( O_NDELAY ) && !defined( NBLOCK_POSIX )
+	char b[12], x[32];
+	int f, l = sizeof(x);
+	f = socket(AF_INET, SOCK_DGRAM, 0);
+	if (f >= 0 && !(fcntl(f, F_SETFL, O_NDELAY))) {
+		signal(SIGALRM, alarmed);
+		alarm(3);
+		recvfrom(f, b, 12, 0, x, &l);
+		alarm(0);
+		exit(0);
+	}
+#endif
+	exit(1);
+}
+
+configure:1950: gcc -o conftest -g -O2   conftest.c -lcrypt  1>&5
+configure: failed program was:
+#line 1919 "configure"
+#include "confdefs.h"
+
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <fcntl.h>
+#include <sys/ioctl.h>
+#include <sys/file.h>
+#include <signal.h>
+alarmed()
+{
+	exit(1);
+}
+int main()
+{
+#if !defined(NBLOCK_BSD) && !defined(NBLOCK_POSIX) && defined(FIONBIO)
+	char b[12], x[32];
+	int f, l = sizeof(x);
+	f = socket(AF_INET, SOCK_DGRAM, 0);
+	if (f >= 0 && !(fcntl(f, F_SETFL, FIONBIO))) {
+		signal(SIGALRM, alarmed);
+		alarm(3);
+		recvfrom(f, b, 12, 0, x, &l);
+		alarm(0);
+		exit(0);
+	}
+#endif /* !NBLOCK_POSIX && !NBLOCK_BSD && FIONBIO */
+	exit(1);
+}
+
+configure:1965: checking signal implementation
+configure:1983: gcc -o conftest -g -O2   conftest.c -lcrypt  1>&5
+configure:2041: checking operating system
