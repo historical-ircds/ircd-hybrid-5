@@ -967,9 +967,16 @@ int	m_nick(aClient *cptr,
 		     (parc >= 7) ? parv[6] : "-",
 		     (parc >= 8) ? parv[7] : "-", parv[0]);
       
-      ircstp->is_kill++;
-      sendto_one(sptr, ":%s KILL %s :Invalid hostname", me.name, parv[1]);
-      return 0;
+      if(MyConnect(sptr))
+        {
+          ircstp->is_kill++;
+          sendto_one(sptr, ":%s KILL %s :Invalid hostname", me.name, parv[1]);
+          sptr->flags |= FLAGS_KILLED;
+          return exit_client(sptr, sptr, &me,
+            "Invalid hostname");
+        }
+/* for an user not on this server pulling this stunt, we could send
+   a global kill */
     }
 	  
   if ((parc >= 7) && (!strchr(parv[6], '.')))
@@ -983,9 +990,16 @@ int	m_nick(aClient *cptr,
       sendto_realops("BAD HOSTNAME: %s[%s@%s] on %s (from %s)",
 		     parv[0], parv[5], parv[6], parv[7], parv[0]);
       
-      ircstp->is_kill++;
-      sendto_one(sptr, ":%s KILL %s :Invalid hostname", me.name, parv[1]);
-      return 0;
+      if(MyConnect(sptr))
+        {
+          ircstp->is_kill++;
+          sendto_one(sptr, ":%s KILL %s :Invalid hostname", me.name, parv[1]);
+          sptr->flags |= FLAGS_KILLED;
+          return exit_client(sptr, sptr, &me,
+            "Invalid hostname");
+        }
+/* for an user not on this server pulling this stunt, we could send
+   a global kill */
     }
 
 

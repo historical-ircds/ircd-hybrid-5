@@ -829,12 +829,18 @@ static	int	set_mode(aClient *cptr,
 	    *t = '\0';
 	    if (abuse)
 	      {
-                ircstp->is_kill++;
                 if(MyClient(sptr))
-		  sendto_one(sptr,
-                  ":%s KILL %s :Trying to abuse +k bug", me.name, sptr->name);
-	        /* sendto_ops("User %s trying to abuse +k bug, killed",
-			 sptr->name); */
+		  {
+		    ircstp->is_kill++;
+		    sendto_one(sptr,
+                    ":%s KILL %s :Trying to abuse +k bug", me.name, sptr->name);
+		    sptr->flags |= FLAGS_KILLED;
+                    return exit_client(sptr, sptr, &me,
+                                  "Trying to abuse +k bug");
+ 		  }
+		else
+	          sendto_ops("User %s trying to abuse +k bug",
+			 sptr->name);
                 return 0;
               }
 	    if (t == (u_char *)*parv) break;
