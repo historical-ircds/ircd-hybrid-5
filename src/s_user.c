@@ -1438,10 +1438,10 @@ nickkilldone:
 	  if(MyConnect(sptr))
 	    {
 	      (void)strcpy(sptr->name,nick);
-	      sptr->random_ping = my_rand();
-	      sendto_one(sptr, "PING :%d", sptr->random_ping);
-	      sptr->flags |= FLAGS_PINGSENT;
-	      return 0;
+              sptr->random_ping = my_rand();
+              sendto_one(sptr, "PING :%d", sptr->random_ping);
+              sptr->flags |= FLAGS_PINGSENT;
+              return 0;
 	    }
           else
 #endif
@@ -1449,6 +1449,13 @@ nickkilldone:
 		== FLUSH_BUFFER)
 	      return FLUSH_BUFFER;
 	}
+#ifdef ANTI_IP_SPOOF
+/* If its a local client, setting NICK for first time but
+   we have not received USER yet, defer it until we do
+*/
+    if(MyConnect(sptr))
+       return 0;
+#endif
     }
 
   /*
@@ -2575,11 +2582,9 @@ int	m_pong(aClient *cptr,
 	      (void)add_to_client_hash_table(sptr->name, sptr);
 	    }
 	  else
-	    {
-	      return exit_client(cptr,sptr,&me,"Wrong random PONG response");
-	    }
+	    return exit_client(cptr,sptr,&me,"Wrong random PONG response");
 	}
-      return 0;	/* spurious PONG , ignore it */
+      return 0;
     }
 #endif
 
