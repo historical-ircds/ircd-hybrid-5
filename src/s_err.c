@@ -619,9 +619,6 @@ char	*rpl_str(int numeric)
 
   nptr = replies[numeric];
   
-  Debug((DEBUG_NUM, "rpl_str: numeric %d nptr %x",
-	 numeric, nptr ));
-
   if (!nptr)
     {
       (void)ircsprintf(numbuff,

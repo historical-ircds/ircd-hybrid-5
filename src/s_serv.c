@@ -81,6 +81,11 @@ int     max_connection_count = 1, max_client_count = 1;
 extern	void	reset_sock_opts();
 #endif
 extern char *smalldate(time_t);		/* defined in s_misc.c */
+
+#if defined(GLINES) || defined(SEPARATE_QUOTE_KLINES_BY_DATE)
+extern char *small_file_date(time_t);	/* defined in s_misc.c */
+#endif
+
 extern void outofmemory(void);		/* defined in list.c */
 extern void s_die(void);		/* defined in ircd.c as VOIDSIG */
 extern int match(char *,char *);	/* defined in match.c */
@@ -101,7 +106,6 @@ void read_motd(char *);
 char motd_last_changed_date[MAX_DATE_STRING];	/* enough room for date */
 
 #ifdef GLINES
-
 typedef struct gline_pending
 {
   char oper_nick1[NICKLEN+1];
@@ -122,6 +126,10 @@ typedef struct gline_pending
 
   struct gline_pending *next;
 }GLINE_PENDING;
+
+static void log_gline_request(
+			      char *,char *,char *,char *,
+			      char *,char *,char *);
 
 static void log_gline(aClient *,char *,GLINE_PENDING *,
 		      char *,char *,char *,char *,char *,char *,char *);
@@ -3404,6 +3412,8 @@ int     m_gline(aClient *cptr,
                          host,
                          reason);
     }
+   log_gline_request(oper_name,oper_username,oper_host,oper_server,
+		     user,host,reason);
 
    sendto_realops("%s!%s@%s on %s is requesting gline for [%s@%s] [%s]",
 		  oper_name,
@@ -3603,6 +3613,49 @@ static int majority_gline(aClient *sptr,
 }
 
 /*
+ * log_gline_request()
+ *
+ */
+static void log_gline_request(
+		      char *oper_nick,
+		      char *oper_user,
+		      char *oper_host,
+		      char *oper_server,
+		      char *user,
+		      char *host,
+		      char *reason)
+{
+  char buffer[512];
+  char filenamebuf[1024];
+  static  char    timebuffer[MAX_DATE_STRING];
+  struct tm *tmptr;
+  int out;
+
+  (void)sprintf(filenamebuf, "%s.%s", glinefile, small_file_date((time_t)0));
+  if ((out = open(filenamebuf, O_RDWR|O_APPEND|O_CREAT,0644))==-1)
+    {
+      return;
+    }
+
+  tmptr = localtime(&NOW);
+  strftime(timebuffer, MAX_DATE_STRING, "%y/%m/%d %H:%M:%S", tmptr);
+
+  (void)ircsprintf(buffer,
+		   "#Gline for %s@%s [%s] requested by %s!%s@%s on %s at %s\n",
+		   user,host,reason,
+		   oper_nick,oper_user,oper_host,oper_server,
+		   timebuffer);
+
+  if (write(out,buffer,strlen(buffer)) <= 0)
+    {
+      sendto_realops("*** Problem writing to %s",filenamebuf);
+      (void)close(out);
+      return;
+    }
+  return;
+}
+
+/*
  * log_gline()
  *
  */
@@ -3619,19 +3672,19 @@ static void log_gline(
 		      char *reason)
 {
   char buffer[512];
-  char timebuffer[MAX_DATE_STRING];
   char filenamebuf[1024];
+  static  char    timebuffer[MAX_DATE_STRING];
   struct tm *tmptr;
   int out;
 
-  tmptr = localtime(&NOW);
-  strftime(timebuffer, MAX_DATE_STRING, "%y%m%d", tmptr);
+  (void)sprintf(filenamebuf, "%s.%s", glinefile, small_file_date((time_t) 0));
+  if ((out = open(filenamebuf, O_RDWR|O_APPEND|O_CREAT,0644))==-1)
+    {
+      return;
+    }
 
-  (void)sprintf(filenamebuf, "%s.%s", glinefile, timebuffer);
-  if ((out = open(filenamebuf, O_RDWR|O_APPEND|O_CREAT,0644))==-1)return;
-
   tmptr = localtime(&NOW);
-  strftime(timebuffer, MAX_DATE_STRING, "%y%m%d%H%M%S", tmptr);
+  strftime(timebuffer, MAX_DATE_STRING, "%y/%m/%d %H:%M:%S", tmptr);
 
   (void)ircsprintf(buffer,"#Gline for %s@%s %s added by the following\n",
 		   user,host,timebuffer);
@@ -3755,9 +3808,7 @@ int     m_kline(aClient *cptr,
   char buffer[512];
 
 #ifdef SEPARATE_QUOTE_KLINES_BY_DATE
-  char timebuffer[MAX_DATE_STRING];
   char filenamebuf[1024];
-  struct tm *tmptr;
 #endif
   char *filename;		/* filename to use for kline */
 
@@ -3999,11 +4050,12 @@ int     m_kline(aClient *cptr,
 
 /* comstud's SEPARATE_QUOTE_KLINES_BY_DATE code */
 /* Note, that if SEPARATE_QUOTE_KLINES_BY_DATE is defined,
-   it doesn't make sense to have LOCKFILE on the kline file */
+ *  it doesn't make sense to have LOCKFILE on the kline file
+ */
 
 #ifdef SEPARATE_QUOTE_KLINES_BY_DATE
-  tmptr = localtime(&NOW);
-  strftime(timebuffer, MAX_DATE_STRING, "%y%m%d", tmptr);
+  timebuffer = small_file_date(NOW);
+
   (void)sprintf(filenamebuf, "%s.%s", klinefile, timebuffer);
   filename = filenamebuf;
   sendto_one(sptr, ":%s NOTICE %s :Added K-Line [%s@%s] to %s",
@@ -5011,6 +5063,16 @@ int	m_rehash(aClient *cptr,
 		 parv[0]);
 	  return 0;
 	}
+#ifdef GLINES
+      else if(mycmp(parv[1],"GLINES") == 0)
+	{
+	  sendto_one(sptr, rpl_str(RPL_REHASHING), me.name, parv[0], "g-lines");
+	  flush_glines();
+	  sendto_ops("%s is clearing G-lines while whistling innocently",
+		 parv[0]);
+	  return 0;
+	}
+#endif
       else if(mycmp(parv[1],"GC") == 0)
 	{
 	  sendto_one(sptr, rpl_str(RPL_REHASHING), me.name, parv[0], "garbage collecting");
@@ -5028,6 +5090,18 @@ int	m_rehash(aClient *cptr,
       else if(mycmp(parv[1],"dump") == 0)
 	{
 	  rehash_dump(sptr,parv[0]);
+	  return(0);
+	}
+      else
+	{
+#undef OUT
+
+#ifdef GLINES
+#define OUT "rehash one of :DNS TKLINES GLINES GC MOTD DUMP"
+#else
+#define OUT "rehash one of :DNS TKLINES GC MOTD DUMP"
+#endif
+	  sendto_one(sptr,":%s NOTICE %s : " OUT,me.name,sptr->name);
 	  return(0);
 	}
     }

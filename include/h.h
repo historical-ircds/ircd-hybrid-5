@@ -132,6 +132,7 @@ extern  void	flush_temp_klines(void);
 extern  void    report_temp_klines(aClient *);
 
 #ifdef  GLINES
+extern  void	flush_glines(void);
 extern  void	report_glines(aClient *);
 extern  void    add_gline(aConfItem *);
 #endif

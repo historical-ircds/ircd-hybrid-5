@@ -117,6 +117,7 @@ char	*date(time_t clock)
   return buf;
 }
 
+
 /*
 
 */
@@ -139,6 +140,26 @@ char    *smalldate(time_t clock)
   
   return buf;
 }
+
+
+#if defined(GLINES) || defined(SEPARATE_QUOTE_KLINES_BY_DATE)
+/*
+ * small_file_date
+ * Make a small YYMMDD formatted string suitable for a
+ * dated file stamp. 
+ */
+char    *small_file_date(time_t clock)
+{
+  static  char    timebuffer[MAX_DATE_STRING];
+  struct tm *tmptr;
+
+  if (!clock)
+    time(&clock);
+  tmptr = localtime(&clock);
+  strftime(timebuffer, MAX_DATE_STRING, "%y%m%d", tmptr);
+  return timebuffer;
+}
+#endif
 
 /**
  ** myctime()

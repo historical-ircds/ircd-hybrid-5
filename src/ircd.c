@@ -417,11 +417,10 @@ static	time_t	check_pings(time_t currenttime)
    * -Dianora
    */
 
-  for (i = 0; i <= highest_fd; i++)
+   for (i = 0; i <= highest_fd; i++)
     {
       if (!(cptr = local[i]) || IsMe(cptr) || IsLog(cptr))
 	continue;		/* and go examine next fd/cptr */
-
       /*
       ** Note: No need to notify opers here. It's
       ** already done when "FLAGS_DEADSOCKET" is set.

@@ -1139,7 +1139,7 @@ int	rehash_dump(aClient *sptr,char *parv0)
       return -1;
     }
   else
-    sendto_one(sptr, ":%s NOTICE %s :Writing ircd.conf dump to %s ",
+    sendto_one(sptr, ":%s NOTICE %s :Dump ircd.conf to %s ",
 	       me.name, parv0, ircd_dump_file);
 
   for(aconf=conf; aconf; aconf = aconf->next)
@@ -2343,6 +2343,9 @@ output		- NONE
 side effects	- All temporary klines are flushed out. 
 		  really should be used only for cases of extreme
 		  goof up for now.
+
+		  Note, you can't free an object, and expect to
+		  be able to dereference it under some malloc systems.
 */
 void flush_temp_klines()
 {
@@ -2362,7 +2365,36 @@ void flush_temp_klines()
     }
 }
 
+
 #ifdef GLINES
+/*
+ * flush_glines
+ * 
+ * inputs	- NONE
+ * output	- NONE
+ * side effects	-
+ *
+ * Get rid of all placed G lines, hopefully to be replaced by gline.log
+ * placed k-lines
+ */
+void flush_glines()
+{
+  aConfItem *kill_list_ptr;
+
+  if(kill_list_ptr = glines)
+    {
+      while(kill_list_ptr)
+        {
+          glines = kill_list_ptr->next;
+          MyFree(kill_list_ptr->host);
+          MyFree(kill_list_ptr->name);
+	  MyFree(kill_list_ptr->passwd);
+          MyFree(kill_list_ptr);
+	  kill_list_ptr = glines;
+        }
+    }
+}
+
 aConfItem *find_gkill(aClient *cptr)
 {
   char *host, *name;
