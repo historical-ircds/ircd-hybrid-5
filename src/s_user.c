@@ -3420,6 +3420,9 @@ botwarn(char *host,
   if (!strcmp(host,"null"))
     sendto_realops_lev(CCONN_LEV,"Possible ComBot: %s (%s@%s) [B-lined]",
 		       nick, user, realhost);
+  if (!strcmp(host,"x"))
+    sendto_realops_lev(CCONN_LEV,"Possible SpamBot: %s (%s@%s) [B-lined]",
+		       nick, user, realhost);
 #ifdef CHECK_FOR_ANNOYOJNK
   if (!strcmp(host,"."))
     sendto_realops_lev(CCONN_LEV,"Possible AnnoyBot: %s (%s@%s) [B-lined]",
