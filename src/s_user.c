@@ -1151,7 +1151,7 @@ int	m_nick(aClient *cptr,
     }
   /*
   ** NICK was coming from a server connection. Means that the same
-  ** nick is registerd for different users by different server.
+  ** nick is registered for different users by different server.
   ** This is either a race condition (two users coming online about
   ** same time, or net reconnecting) or just two net fragments becoming
   ** joined and having same nicks in use. We cannot have TWO users with
@@ -2029,9 +2029,16 @@ int	m_whois(aClient *cptr,
 	   * - only send replies about common or public channels
 	   *   the target user(s) are on;
 	   */
+#ifdef ANTI_IP_SPOOF
+          if(!IsRegistered(acptr))
+	    {
+	      user = &UnknownUser;
+	      name = "?";
+	    }
+#else
 	  user = acptr->user ? acptr->user : &UnknownUser;
 	  name = (!*acptr->name) ? "?" : acptr->name;
-
+#endif
 	  invis = IsInvisible(acptr);
 	  member = (user->channel) ? 1 : 0;
 	  showperson = (wilds && !invis && !member) || !wilds;
@@ -2217,6 +2224,7 @@ int	do_user(char *nick,
   strncpyzt(sptr->info, realname, sizeof(sptr->info));
 
 #ifdef ANTI_IP_SPOOF
+  user->last = timeofday;
   if(MyConnect(sptr))
      {
        if (sptr->name[0]) /* NICK already received, now I have USER... */
@@ -2631,7 +2639,7 @@ int	m_pong(aClient *cptr,
 
   /* Now attempt to route the PONG, comstud pointed out routable PING
      is used for SPING.
-     routable PONG should also probably be left in -Dianora */
+     routable PING should also probably be left in -Dianora */
 
   if (!BadPtr(destination) && mycmp(destination, me.name) != 0)
     {
