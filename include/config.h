@@ -91,22 +91,18 @@
 #define	PPATH	"ircd.pid"
 #define HPATH	"opers.txt"
 
-/* Contributed by Shadowfax */
-/* LOCKFILE
+/* LOCKFILE - Exclusive use of ircd.conf and kline.conf during writes
  *
- * There is a saying  about too many cooks in the kitchen.  It happens quite
- * often while one person is editting the ircd.conf, another person adds a
- * kline using the /quote kline command.  Or, another person tries to edit
- * the config file at the same time you are.  This should deal with the
- * problem.  When a kline is added, rather than writing it to a file, it is
- * stuck into a list.  At rehash time, the list is checked, and klines are
- * added to the file if it can be locked.  This way, every time a kline is
- * added or the server is rehashed (which often happens after editting the
- * conf file), pending klines will be added.
+ * This creates a lockfile prior to writes to ircd.conf or kline.conf, and
+ * can be used in conjunction with viconf (included in the tools directory).
+ * This prevents loss of data when klines are added while someone is manually
+ * editting the file.  File writes will be retried at the next KLINE, DLINE,
+ * REHASH, or after CHECK_PENDING_KLINES minutes have elapsed.
  *
  * If you do not wish to use this feature, leave LOCKFILE #undef 
  */
 #define LOCKFILE "/tmp/ircd.conf.lock"
+#define	CHECK_PENDING_KLINES	10	/* in minutes */
 
 /* SEPARATE_QUOTE_KLINES_BY_DATE
  * If you define this, then klines will be read and written
@@ -122,13 +118,6 @@
  * of an exact matching KLINE to remove the kline
  */
 #define UNKLINE
-
-/* CHECK_PENDING_KLINES - a timer (IN MINUTES)
- * that will try to write out pending klines if
- * there are still klines in queue
- */
-#define	CHECK_PENDING_KLINES	10	/* in minutes */
-
 
 /* FNAME_USERLOG and FNAME_OPERLOG - logs of local USERS and OPERS
  * Define this filename to maintain a list of persons who log
@@ -154,7 +143,15 @@
 #undef ANTI_IP_SPOOF
 
 /* FOLLOW_IDENT_RFC
- * Defining this allows all users to set whatever username they wish.
+ * 
+ * From RFC 1413, "The Identification Protocol is not intended as an
+ * authorization or access control protocol ... The use of the information
+ * returned by this protocol for other than auditing is strongly discouraged."
+ * 
+ * Defining this allows all users to set whatever username they wish, despite
+ * what may be discovered by ident.  While we may get a valid ident response
+ * with a different username than submitted by the client, this option will
+ * cause the ident response to be discarded.
  */
 #undef FOLLOW_IDENT_RFC 
 
@@ -763,37 +760,25 @@
  */
 #define	SENDQ_ALWAYS
 
-/* -------------------------------------------------------------------------
-   Shadowfax's anti flud code... Michael took great care to minimize
-   the effect of this code on the server CPU wise. However, you may not
-   wish to take the risk. It should certainly not be deffed for a HUB
-   You may also have objections to the fact it "sneaks a peek" at PRIVMSG's
-   sneaking a peek at the inside contents of messages is already done by
-   bot catching code, and no privacy is breached..
-
-   You choose.
-   - Dianora
-*/
-
-/* FLUD - define this if you wish to enable server CTCP flood detection and
- * protection for your clients.  This works well against fludnets
- * and flood clones.  You may choose to tweak the following default
- * thresholds, but these seem to work well.  Not useful for routing
- * only servers. (Shadowfax)
+/* FLUD - CTCP Flood Detection and Protection
  * 
- * The hybrid team strongly recommends you not use FLUD with HUB
- * if you do, you are on your own.
+ * This enables server CTCP flood detection and protection for local clients.
+ * It works well against fludnets and flood clones.  The effect of this code
+ * on server CPU and memory usage is minimal, however you may not wish to
+ * take the risk, or be fundamentally opposed to checking the contents of
+ * PRIVMSG's (though no privacy is breached).  This code is not useful for
+ * routing only servers (ie, HUB's with little or no local client base), and
+ * the hybrid team strongly recommends that you do not use FLUD with HUB.
+ * The following default thresholds may be tweaked, but these seem to work
+ * well.
  */
 #define FLUD
-
 
 #ifdef HUB
 #undef FLUD
 #endif
 
 #ifdef FLUD
-/* FLUD_NUM FLUD_TIME FLUD_BLOCK - control behavior of FLUD protection
- */
 #define FLUD_NUM	4	/* Number of flud messages to trip alarm */
 #define FLUD_TIME	3	/* Seconds in which FLUD_NUM msgs must occur */
 #define FLUD_BLOCK	15	/* Seconds to block fluds */
