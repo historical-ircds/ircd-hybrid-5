@@ -1539,7 +1539,7 @@ nickkilldone:
       else
 	{
 	  sendto_common_channels(sptr, ":%s NICK :%s", parv[0], nick);
-	  if (sptr->user)
+	  if ((sptr->user)&&(sptr->flags & FLAGS_GOT_ANTI_SPOOF_PING))
 	    {
 	      add_history(sptr,1);
 	      

@@ -1,3 +1,6 @@
++hybrid-5-current
+- fix to ANTI_IP_SPOOF in s_user.c sent in by jailbird@alcatraz.fdf.net
+
 +hybrid-5.3 (6/13/98)
 added NO_CHANOPS_WHEN_SPLIT code back in (Rodder/Dianora)
 fixed SEPARATE_QUOTE_KLINES_BY_DATE so it compiles (Rodder)
