@@ -78,6 +78,10 @@ typedef struct ip_entry
   unsigned long ip;
   int	count;
   struct ip_entry *next;
+#ifdef LIMIT_UH
+  Link  *ptr_clients_on_this_ip;
+  int  count_of_idented_users_on_this_ip;
+#endif
 }IP_ENTRY;
 
 typedef struct d_line_entry
@@ -96,7 +100,11 @@ static void clear_dlines(void);		/* clear current d lines */
 static int hash_ip(unsigned long);
 static int hash_dline_ip(unsigned long);
 
+#ifdef LIMIT_UH
+static IP_ENTRY *find_or_add_ip(aClient *);
+#else
 static IP_ENTRY *find_or_add_ip(unsigned long);
+#endif
 
 /* externally defined routines */
 int find_conf_match(aClient *,aConfList *,aConfList *,aConfList *);
@@ -239,13 +247,27 @@ static int attach_iline(
 /* every conf when created, has a class pointer set up. 
    if it isn't, well.  *BOOM* ! */
 
+  /* if LIMIT_UH is set, limit clients by idented usernames not by ip */
+
+#ifdef LIMIT_UH
+  ip_found = find_or_add_ip(cptr);
+  cptr->flags |= FLAGS_IPHASH;
+  ip_found->count++;
+#else
   ip_found = find_or_add_ip(cptr->ip.s_addr);
   cptr->flags |= FLAGS_IPHASH;
   ip_found->count++;
+#endif
 
+#ifdef LIMIT_UH
+  if ((aconf->class->conFreq) && (ip_found->count_of_idented_users_on_this_ip
+				  > aconf->class->conFreq))
+    return -4; /* Already at maximum allowed idented users@host */
+#else
   /* only check it if its non zero */
   if ((aconf->class->conFreq) && (ip_found->count > aconf->class->conFreq))
     return -4; /* Already at maximum allowed ip#'s */
+#endif
 
   if(IsLimitIp(aconf) && (ip_found->count > 1))
     return -4; /* Already at maximum allowed ip#'s */
@@ -305,7 +327,12 @@ void clear_ip_hash_table()
 /* 
 find_or_add_ip()
 
+ifdef LIMIT_UH
+inputs		- cptr
+ else
 inputs		- unsigned long IP address value
+endif
+
 output		- pointer to an IP_ENTRY element
 side effects	-
 
@@ -313,8 +340,18 @@ If the ip # was not found, a new IP_ENTRY is created, and the ip
 count set to 0.
 */
 
+#ifdef LIMIT_UH
+static IP_ENTRY *find_or_add_ip(aClient *cptr)
+#else
 static IP_ENTRY *find_or_add_ip(unsigned long ip_in)
+#endif
 {
+#ifdef LIMIT_UH
+  unsigned long ip_in=cptr->ip.s_addr;	
+  Link *old_link;
+  Link *new_link;
+#endif
+
   int hash_index;
   IP_ENTRY *ptr, *newptr;
 
@@ -323,7 +360,17 @@ static IP_ENTRY *find_or_add_ip(unsigned long ip_in)
   while(ptr)
     {
       if(ptr->ip == ip_in)
-        return(ptr);
+	{
+#ifdef LIMIT_UH
+	  new_link = make_link();
+	  new_link->value.cptr = cptr;
+	  new_link->next = ptr->ptr_clients_on_this_ip;
+	  ptr->ptr_clients_on_this_ip = new_link;
+	  ptr->count_of_idented_users_on_this_ip =
+	    count_users_on_this_ip(ptr,cptr);
+#endif
+	  return(ptr);
+	}
       else
 	ptr = ptr->next;
     }
@@ -343,6 +390,13 @@ static IP_ENTRY *find_or_add_ip(unsigned long ip_in)
       newptr->ip = ip_in;
       newptr->count = 0;
       newptr->next = ptr;
+#ifdef LIMIT_UH
+      newptr->count_of_idented_users_on_this_ip = 0;
+      new_link = make_link();
+      new_link->value.cptr = cptr;
+      new_link->next = (Link *)NULL;
+      newptr->ptr_clients_on_this_ip = new_link;
+#endif
       return(newptr);
     }
   else
@@ -359,9 +413,61 @@ static IP_ENTRY *find_or_add_ip(unsigned long ip_in)
       ptr->ip = ip_in;
       ptr->count = 0;
       ptr->next = (IP_ENTRY *)NULL;
-      return (ptr);
+#ifdef LIMIT_UH
+      ptr->count_of_idented_users_on_this_ip = 0;
+      new_link = make_link();
+      new_link->value.cptr = cptr;
+      new_link->next = (Link *)NULL;
+      ptr->ptr_clients_on_this_ip = new_link;
+#endif
+     return (ptr);
     }
 }
+
+#ifdef LIMIT_UH
+int count_users_on_this_ip(IP_ENTRY *ip_list,aClient *this_client)
+{
+  char *my_user_name;
+  int count=0;
+  Link *ptr;
+
+  if( (ptr = ip_list->ptr_clients_on_this_ip) == (Link *)NULL)
+    return(0);
+  
+  if(this_client->user)
+    {
+      my_user_name = this_client->user->username;
+      if(*my_user_name == '~')
+	my_user_name++;
+    }
+  else
+    {
+      /* nasty shouldn't happen, but this is better than coring */
+      sendto_ops("s_conf.c count_users_on_this_ip my_user_name->user NULL");
+      sendto_ops("Please report to the hybrid team! ircd-hybrid@vol.com");
+      return 0;
+    }
+
+  while(ptr)
+    {
+      if(ptr->value.cptr->user)
+	{
+	  if(ptr->value.cptr->user->username[0] == '~')
+	    {
+	      if(!strcasecmp(ptr->value.cptr->user->username+1,my_user_name))
+		  count++;
+	    }
+	  else
+	    {
+	      if(!strcasecmp(ptr->value.cptr->user->username,my_user_name))
+		  count++;
+	    }
+	}
+      ptr = ptr->next;
+    }
+  return(count);
+}
+#endif
 
 /* 
 remove_one_ip
@@ -374,12 +480,21 @@ side effects	- ip address listed, is looked up in ip hash table
 		  to the free_ip_enties link list.
 */
 
+#ifdef LIMIT_UH
+void remove_one_ip(aClient *cptr)
+#else
 void remove_one_ip(unsigned long ip_in)
+#endif
 {
   int hash_index;
   IP_ENTRY *last_ptr;
   IP_ENTRY *ptr;
   IP_ENTRY *old_free_ip_entries;
+#ifdef LIMIT_UH
+  unsigned long ip_in=cptr->ip.s_addr;
+  Link *prev_link;
+  Link *cur_link;
+#endif
 
   last_ptr = ptr = ip_hash_table[hash_index = hash_ip(ip_in)];
   while(ptr)
@@ -388,6 +503,32 @@ void remove_one_ip(unsigned long ip_in)
 	{
           if(ptr->count != 0)
             ptr->count--;
+#ifdef LIMIT_UH
+
+	      /* remove the corresponding pointer to this cptr as well */
+	  cur_link = prev_link = ptr->ptr_clients_on_this_ip;
+
+	  while(cur_link)
+	    {
+	      if(cur_link->value.cptr == cptr)
+		{
+		  if(prev_link == ptr->ptr_clients_on_this_ip)
+		    {
+		      ptr->ptr_clients_on_this_ip = cur_link->next;
+		      free_link(cur_link);
+		      break;
+		    }
+		  else
+		    {
+		      prev_link->next = cur_link->next;
+		      free_link(cur_link);
+		      break;
+		    }
+		}
+	      prev_link = cur_link;
+	      cur_link = cur_link->next;
+	    }
+#endif
 	  if(ptr->count == 0)
 	    {
               if(ip_hash_table[hash_index] == ptr)

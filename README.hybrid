@@ -1,8 +1,9 @@
 +hybrid-5.4 (7/8/98)
+- added LIMIT_UH code (Dianora)
 - fixed missing USE_SYLOG in ircd.c (ThemBones)
 - use Count.local instead of sptr->fd in s_user for SET MAX (ThemBones)
 - remove unnecessary report if for D lines in dich_conf.c (Dianora)
-- reworked s_err.c/numeric.h no more CUSTOM_ERR for now (Dianora)
+- reworked s_err.c/numeric.h (Dianora)
 - added hash debug on /quote hash (Dianora)
 - d-line hash, use a hash table for numeric ip's allows use of CIDR style
 masks in /quote dlines i.e. "/quote dline 192.168.1.0/30 :test" (Dianora)

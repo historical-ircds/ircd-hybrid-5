@@ -334,7 +334,11 @@ extern	void	count_memory (aClient *, char *);
 #endif
 
 /* iphash code */
+#ifdef LIMIT_UH
+void remove_one_ip(aClient *);
+#else
 void remove_one_ip(unsigned long);
+#endif
 void clear_ip_hash_table(void);
 
 #ifdef FLUD

@@ -379,8 +379,13 @@ char	*comment	/* Reason for the exit */
   char	comment1[HOSTLEN + HOSTLEN + 2];
   if (MyConnect(sptr))
     {
+#ifdef LIMIT_UH
+      if(sptr->flags & FLAGS_IPHASH)
+        remove_one_ip(sptr);
+#else
       if(sptr->flags & FLAGS_IPHASH)
         remove_one_ip(sptr->ip.s_addr);
+#endif
       if (IsAnOper(sptr))
 	{
 	  delfrom_fdlist(sptr->fd, &oper_fdlist);

@@ -173,6 +173,15 @@
  */
 #define WARN_NO_NLINE
 
+/* CUSTOM_ERR - colorful notice/error/messages
+ * Defining this will use custom notice/error/messages from include/s_err.h
+ * instead of stock ones in ircd/s_err.c.  If you prefer the "colorful"
+ * messages that Hybrid was known for, or if you wish to customize the
+ * messages, define this.  Otherwise leave it undef'd for plain ole
+ * boring messages.
+ */
+#undef CUSTOM_ERR
+
 /* FAILED_OPER_NOTICE - send a notice to all opers when someone
  * tries to /oper and uses an incorrect password.
  */
@@ -643,6 +652,18 @@
  */
 
 #define NO_PRIORITY
+
+/* LIMIT_UH
+ * If this is defined, Y line limit is made against the actual
+ * username not the ip. i.e. if you limit the connect frequency line
+ * to 1, that allows only 1 username to connect instead of 1 client per ip
+ * i.e. you can have 10 clients all with different usernames, but each user
+ * can only connect once. This is only useful if you only allow identd
+ * from that host. (The code strips non identd '~' as it stands)
+ * Its a tad slower then the ip limited code.
+ *
+ */
+#undef LIMIT_UH
 
 /*   STOP STOP STOP STOP STOP STOP STOP STOP STOP STOP STOP STOP STOP STOP  */
 
