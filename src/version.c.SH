@@ -68,6 +68,7 @@ char *infotext[] =
         "",
 	"chris               Chris Portman       cjp@unix.org",
 	"common              Keith Fralick       fralick@gate.net",
+        "comstud             Chris Behrens       cbehrens@concentric.net",
         "Dianora             Diane Bruce         db@db.net",
 	"johan               Johannes Erdfelt    jerdfelt@eng.mindspring.net",
         "Jolo                J. LoCicero         jolo@cadence.com",
