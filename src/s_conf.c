@@ -1841,6 +1841,7 @@ void report_matching_host_klines(aClient *cptr,char *host)
 {
   char *pass;
   char *name = (char *)NULL;
+  char *found_host = (char *)NULL;
   int  port;
   aConfItem *tmp;
   aConfList *list;
@@ -1859,16 +1860,17 @@ void report_matching_host_klines(aClient *cptr,char *host)
     {
       pass = BadPtr(tmp->passwd) ? null : tmp->passwd;
       name = BadPtr(tmp->name) ? null : tmp->name;
-      port = (int)tmp->port;
+      found_host = BadPtr(tmp->host) ? null : tmp->host;
 #ifdef K_COMMENT_ONLY
       if (tmp->status == CONF_KILL)
 	sendto_one(cptr, rpl_str(RPL_STATSKLINE), me.name,
-		   cptr->name, 'K', host,
+		   cptr->name, 'K', found_host,
 		   name, pass);
 #else
+      port = BadPtr(tmp->port) ? 0 : tmp->port;
       if (tmp->status == CONF_KILL)
 	sendto_one(cptr, rpl_str(RPL_STATSKLINE), me.name,
-		   cptr->name, 'K', host,
+		   cptr->name, 'K', found_host,
 		   pass, name, port, get_conf_class(tmp));
 #endif
       list = NULL;
@@ -1880,16 +1882,17 @@ void report_matching_host_klines(aClient *cptr,char *host)
     {
       pass = BadPtr(tmp->passwd) ? null : tmp->passwd;
       name = BadPtr(tmp->name) ? null : tmp->name;
-      port = (int)tmp->port;
+      found_host = BadPtr(tmp->host) ? null : tmp->host;
 #ifdef K_COMMENT_ONLY
       if (tmp->status == CONF_KILL)
 	sendto_one(cptr, rpl_str(RPL_STATSKLINE), me.name,
-		   cptr->name, 'K', host,
+		   cptr->name, 'K', found_host,
 		   name, pass);
 #else
+      port = BadPtr(tmp->port) ? 0 : tmp->port;
       if (tmp->status == CONF_KILL)
 	sendto_one(cptr, rpl_str(RPL_STATSKLINE), me.name,
-		   cptr->name, 'K', host,
+		   cptr->name, 'K', found_host,
 		   pass, name, port, get_conf_class(tmp));
 #endif
       list = NULL;
@@ -1901,16 +1904,17 @@ void report_matching_host_klines(aClient *cptr,char *host)
     {
       pass = BadPtr(tmp->passwd) ? null : tmp->passwd;
       name = BadPtr(tmp->name) ? null : tmp->name;
-      port = (int)tmp->port;
+      found_host = BadPtr(tmp->host) ? null : tmp->host;
 #ifdef K_COMMENT_ONLY
       if (tmp->status == CONF_KILL)
 	sendto_one(cptr, rpl_str(RPL_STATSKLINE), me.name,
-		   cptr->name, 'K', host,
+		   cptr->name, 'K', found_host,
 		   name, pass);
 #else
+      port = BadPtr(tmp->port) ? 0 : tmp->port;
       if (tmp->status == CONF_KILL)
 	sendto_one(cptr, rpl_str(RPL_STATSKLINE), me.name,
-		   cptr->name, 'K', host,
+		   cptr->name, 'K', found_host,
 		   pass, name, port, get_conf_class(tmp));
 #endif
       list = NULL;
