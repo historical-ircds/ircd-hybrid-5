@@ -1055,372 +1055,495 @@ int	m_info(aClient *cptr,
       if (IsAnOper(cptr))
       {
 #ifdef ANTI_NICK_FLOOD
-        strcpy(outstr,"ANTI_NICK_FLOOD=1");
+#define OUT1	"ANTI_NICK_FLOOD=1"
 #else
-        strcpy(outstr,"ANTI_NICK_FLOOD=0");
+#define OUT1	"ANTI_NICK_FLOOD=0"
 #endif
 #ifdef ANTI_IP_SPOOF
-	strcat(outstr," ANTI_IP_SPOOF=1");
+#define OUT2	" ANTI_IP_SPOOF=1"
 #else
-	strcat(outstr," ANTI_IP_SPOOF=0");
+#define OUT2	" ANTI_IP_SPOOF=0"
 #endif
 #ifdef ANTI_SPAMBOT
-	strcat(outstr," ANTI_SPAMBOT=1");
+#define OUT3	" ANTI_SPAMBOT=1"
 #else
-	strcat(outstr," ANTI_SPAMBOT=0");
+#define OUT3	" ANTI_SPAMBOT=0"
 #endif
 #ifdef BAN_INFO
-	strcat(outstr," BAN_INFO=1");
+#define OUT4 " BAN_INFO=1"
 #else
-	strcat(outstr," BAN_INFO=0");
+#define OUT4 " BAN_INFO=0"
 #endif
 	sendto_one(sptr, rpl_str(RPL_INFO),
-		me.name, parv[0], outstr);
+		me.name, parv[0], OUT1 OUT2 OUT3 OUT4 );
+#undef OUT1
+#undef OUT2
+#undef OUT3
+#undef OUT4
+
 #ifdef BOTCHECK
-	strcpy(outstr,"BOTCHECK=1");
+#define OUT1 "BOTCHECK=1"
 #else
-	strcpy(outstr,"BOTCHECK=0");
+#define OUT1 "BOTCHECK=0"
 #endif
 #ifdef BOT_GCOS_WARN
-	strcat(outstr," BOT_GCOS_WARN=1");
+#define OUT2 " BOT_GCOS_WARN=1"
 #else
-	strcat(outstr," BOT_GCOS_WARN=0");
+#define OUT2 " BOT_GCOS_WARN=0"
 #endif
 #ifdef B_LINES_OPER_ONLY
-	strcat(outstr," B_LINES_OPER_ONLY=1");
+#define OUT3 " B_LINES_OPER_ONLY=1"
 #else
-	strcat(outstr," B_LINES_OPER_ONLY=0");
+#define OUT3 " B_LINES_OPER_ONLY=0"
 #endif
 	sendto_one(sptr, rpl_str(RPL_INFO),
-		me.name, parv[0], outstr);
+		me.name, parv[0], OUT1 OUT2 OUT3 );
+#undef OUT1
+#undef OUT2
+#undef OUT3
+#undef OUT4
+
 #ifdef CLIENT_COUNT
-	strcpy(outstr,"CLIENT_COUNT=1");
+#define OUT1 "CLIENT_COUNT=1"
 #else
-	strcpy(outstr,"CLIENT_COUNT=0");
+#define OUT1 "CLIENT_COUNT=0"
 #endif
 #ifdef CLIENT_FLOOD
-	strcat(outstr," CLIENT_FLOOD=1");
+#define OUT2 " CLIENT_FLOOD=1"
 #else
-	strcat(outstr," CLIENT_FLOOD=0");
+#define OUT2 " CLIENT_FLOOD=0"
 #endif
 #ifdef CLIENT_SERVER
-	strcat(outstr," CLIENT_SERVER=1");
+#define OUT3 " CLIENT_SERVER=1"
 #else
-	strcat(outstr," CLIENT_SERVER=0");
+#define OUT3 " CLIENT_SERVER=0"
 #endif
 	sendto_one(sptr, rpl_str(RPL_INFO),
-		me.name, parv[0], outstr);
+		me.name, parv[0], OUT1 OUT2 OUT3);
+#undef OUT1
+#undef OUT2
+#undef OUT3
+#undef OUT4
+
 #ifdef CUSTOM_ERR
-	strcpy(outstr,"CUSTOM_ERR=1");
+#define OUT1 "CUSTOM_ERR=1"
 #else
-	strcpy(outstr,"CUSTOM_ERR=0");
+#define OUT1 "CUSTOM_ERR=0"
 #endif
 #ifdef DLINES_IN_KPATH
-	strcat(outstr," DLINES_IN_KPATH=1");
+#define OUT2 " DLINES_IN_KPATH=1"
 #else
-	strcat(outstr," DLINES_IN_KPATH=0");
+#define OUT2 " DLINES_IN_KPATH=0"
 #endif
 #ifdef DNS_DEBUG
-	strcat(outstr," DNS_DEBUG=1");
+#define OUT3 " DNS_DEBUG=1"
 #else
-	strcat(outstr," DNS_DEBUG=0");
+#define OUT3 " DNS_DEBUG=0"
 #endif
 	sendto_one(sptr, rpl_str(RPL_INFO),
-		me.name, parv[0], outstr);
+		me.name, parv[0], OUT1 OUT2 OUT3 );
+
+#undef OUT1
+#undef OUT2
+#undef OUT3
+#undef OUT4
+
 #ifdef DO_IDENTD
-	strcpy(outstr,"DO_IDENTD=1");
+#define OUT1 "DO_IDENTD=1"
 #else
-	strcpy(outstr,"DO_IDENTD=0");
+#define OUT1 "DO_IDENTD=0"
 #endif
 #ifdef EXTRA_BOT_NOTICES
-	strcat(outstr," EXTRA_BOT_NOTICES=1");
+#define OUT2 " EXTRA_BOT_NOTICES=1"
 #else
-	strcat(outstr," EXTRA_BOT_NOTICES=0");
+#define OUT2 " EXTRA_BOT_NOTICES=0"
 #endif
 #ifdef E_LINES_OPER_ONLY
-	strcat(outstr," E_LINES_OPER_ONLY=1");
+#define OUT3 " E_LINES_OPER_ONLY=1"
 #else
-	strcat(outstr," E_LINES_OPER_ONLY=0");
+#define OUT3 " E_LINES_OPER_ONLY=0"
 #endif
 	sendto_one(sptr, rpl_str(RPL_INFO),
-		me.name, parv[0], outstr);
+		me.name, parv[0], OUT1 OUT2 OUT3);
+
+#undef OUT1
+#undef OUT2
+#undef OUT3
+#undef OUT4
+
 #ifdef FAILED_OPER_NOTICE
-	strcpy(outstr,"FAILED_OPER_NOTICE=1");
+#define OUT1 "FAILED_OPER_NOTICE=1"
 #else
-	strcpy(outstr,"FAILED_OPER_NOTICE=0");
+#define OUT1 "FAILED_OPER_NOTICE=0"
 #endif
 #ifdef FLUD
-	strcat(outstr," FLUD=1");
+#define OUT2 " FLUD=1"
 #else
-	strcat(outstr," FLUD=0");
+#define OUT2 " FLUD=0"
 #endif
 #ifdef SHORT_MOTD
-	strcat(outstr," SHORT_MOTD=1");
+#define OUT3 " SHORT_MOTD=1"
 #else
-	strcat(outstr," SHORT_MOTD=0");
+#define OUT3 " SHORT_MOTD=0"
 #endif
 	sendto_one(sptr, rpl_str(RPL_INFO),
-		me.name, parv[0], outstr);
+		me.name, parv[0], OUT1 OUT2 OUT3 );
+
+#undef OUT1
+#undef OUT2
+#undef OUT3
+#undef OUT4
+
 #ifdef F_LINES_OPER_ONLY
-	strcpy(outstr,"F_LINES_OPER_ONLY=1");
+#define OUT1 "F_LINES_OPER_ONLY=1"
 #else
-	strcpy(outstr,"F_LINES_OPER_ONLY=0");
+#define OUT1 "F_LINES_OPER_ONLY=0"
 #endif
 #ifdef GLINES
-	strcat(outstr," GLINES=1");
+#define OUT2 " GLINES=1"
 #else
-	strcat(outstr," GLINES=0");
+#define OUT2 " GLINES=0"
 #endif
 #ifdef HIGHEST_CONNECTION
-	strcat(outstr," HIGHEST_CONNECTION=1");
+#define OUT3 " HIGHEST_CONNECTION=1"
 #else
-	strcat(outstr," HIGHEST_CONNECTION=0");
+#define OUT3 " HIGHEST_CONNECTION=0"
 #endif
 	sendto_one(sptr, rpl_str(RPL_INFO),
-		me.name, parv[0], outstr);
+		me.name, parv[0], OUT1 OUT2 OUT3 );
+
+#undef OUT1
+#undef OUT2
+#undef OUT3
+#undef OUT4
+
 #ifdef HUB
-	strcpy(outstr,"HUB=1");
+#define OUT1 "HUB=1"
 #else
-	strcpy(outstr,"HUB=0");
+#define OUT1 "HUB=0"
 #endif
 #ifdef IDENTD_COMPLAIN
-	strcat(outstr," IDENTD_COMPLAIN=1");
+#define OUT2 " IDENTD_COMPLAIN=1"
 #else
-	strcat(outstr," IDENTD_COMPLAIN=0");
+#define OUT2 " IDENTD_COMPLAIN=0"
 #endif
 #ifdef IDLE_FROM_MSG
-        strcat(outstr," IDLE_FROM_MSG=1");
+#define OUT3 " IDLE_FROM_MSG=1"
 #else
-        strcat(outstr," IDLE_FROM_MSG=0");
+#define OUT3 " IDLE_FROM_MSG=0"
 #endif
 #ifdef IGNORE_FIRST_CHAR
-	strcat(outstr," IGNORE_FIRST_CHAR=1");
+#define OUT4 " IGNORE_FIRST_CHAR=1"
 #else
-	strcat(outstr," IGNORE_FIRST_CHAR=0");
+#define OUT4 " IGNORE_FIRST_CHAR=0"
 #endif
 	sendto_one(sptr, rpl_str(RPL_INFO),
-		me.name, parv[0], outstr);
+		me.name, parv[0], OUT1 OUT2 OUT3 OUT4);
+
+#undef OUT1
+#undef OUT2
+#undef OUT3
+#undef OUT4
+
 #ifdef KLINE_WITH_REASON
-	strcpy(outstr,"KLINE_WITH_REASON=1");
+#define OUT1 "KLINE_WITH_REASON=1"
 #else
-	strcpy(outstr,"KLINE_WITH_REASON=0");
+#define OUT1 "KLINE_WITH_REASON=0"
 #endif
 #ifdef KPATH
-	strcat(outstr," KPATH=1");
+#define OUT2 " KPATH=1"
 #else
-	strcat(outstr," KPATH=0");
+#define OUT2 " KPATH=0"
 #endif
 #ifdef K_COMMENT_ONLY
-	strcat(outstr," K_COMMENT_ONLY=1");
+#define OUT3 " K_COMMENT_ONLY=1"
 #else
-	strcat(outstr," K_COMMENT_ONLY=0");
+#define OUT3 " K_COMMENT_ONLY=0"
 #endif
         sendto_one(sptr, rpl_str(RPL_INFO),
-                me.name, parv[0], outstr);
+                me.name, parv[0], OUT1 OUT2 OUT3);
+
+#undef OUT1
+#undef OUT2
+#undef OUT3
+#undef OUT4
+
 #ifdef LITTLE_I_LINES
-        strcpy(outstr,"LITTLE_I_LINES=1");
+#define OUT1 "LITTLE_I_LINES=1"
 #else
-        strcpy(outstr,"LITTLE_I_LINES=0");
+#define OUT1 "LITTLE_I_LINES=0"
 #endif
 #ifdef LOCKFILE
-	strcat(outstr," LOCKFILE=1");
+#define OUT2 " LOCKFILE=1"
 #else
-	strcat(outstr," LOCKFILE=0");
+#define OUT2 " LOCKFILE=0"
 #endif
 #ifdef MAXBUFFERS
-        strcat(outstr," MAXBUFFERS=1");
+#define OUT3 " MAXBUFFERS=1"
 #else
-        strcat(outstr," MAXBUFFERS=0");
+#define OUT3 " MAXBUFFERS=0"
 #endif
 	sendto_one(sptr, rpl_str(RPL_INFO),
-		me.name, parv[0], outstr);
+		me.name, parv[0], OUT1 OUT2 OUT3 );
+
+#undef OUT1
+#undef OUT2
+#undef OUT3
+#undef OUT4
+
 #ifdef NON_REDUNDANT_KLINES
-	strcpy(outstr,"NON_REDUNDANT_KLINES=1");
+#define OUT1 "NON_REDUNDANT_KLINES=1"
 #else
-	strcpy(outstr,"NON_REDUNDANT_KLINES=0");
+#define OUT1 "NON_REDUNDANT_KLINES=0"
 #endif
 #ifdef NO_CHANOPS_WHEN_SPLIT
-        strcat(outstr," NO_CHANOPS_WHEN_SPLIT=1");
+#define OUT2 " NO_CHANOPS_WHEN_SPLIT=1"
 #else
-        strcat(outstr," NO_CHANOPS_WHEN_SPLIT=0");
+#define OUT2 " NO_CHANOPS_WHEN_SPLIT=0"
 #endif
 #ifdef NO_DEFAULT_INVISIBLE
-        strcat(outstr," NO_DEFAULT_INVISIBLE=1");
+#define OUT3 " NO_DEFAULT_INVISIBLE=1"
 #else
-        strcat(outstr," NO_DEFAULT_INVISIBLE=0");
+#define OUT3 " NO_DEFAULT_INVISIBLE=0"
 #endif
         sendto_one(sptr, rpl_str(RPL_INFO),
-                me.name, parv[0], outstr);
+                me.name, parv[0], OUT1 OUT2 OUT3);
+
+#undef OUT1
+#undef OUT2
+#undef OUT3
+#undef OUT4
+
 #ifdef NO_LOCAL_KLINE
-	strcpy(outstr,"NO_LOCAL_KLINE=1");
+#define OUT1 "NO_LOCAL_KLINE=1"
 #else
-	strcpy(outstr,"NO_LOCAL_KLINE=0");
+#define OUT1 "NO_LOCAL_KLINE=0"
 #endif
 #ifdef NO_DEFAULT_INVISIBLE
-        strcat(outstr," NO_DEFAULT_INVISIBLE=1");
+#define OUT2 " NO_DEFAULT_INVISIBLE=1"
 #else
-        strcat(outstr," NO_DEFAULT_INVISIBLE=0");
+#define OUT2 " NO_DEFAULT_INVISIBLE=0"
 #endif
 #ifdef NO_MIXED_CASE
-	strcat(outstr," NO_MIXED_CASE=1");
+#define OUT3 " NO_MIXED_CASE=1"
 #else
-	strcat(outstr," NO_MIXED_CASE=0");
+#define OUT3 " NO_MIXED_CASE=0"
 #endif
         sendto_one(sptr, rpl_str(RPL_INFO),
-                me.name, parv[0], outstr);
+                me.name, parv[0], OUT1 OUT2 OUT3 );
+
+#undef OUT1
+#undef OUT2
+#undef OUT3
+#undef OUT4
+
 #ifdef NO_OPER_FLOOD
-	strcpy(outstr,"NO_OPER_FLOOD=1");
+#define OUT1 "NO_OPER_FLOOD=1"
 #else
-	strcpy(outstr,"NO_OPER_FLOOD=0");
+#define OUT1 "NO_OPER_FLOOD=0"
 #endif
 #ifdef NO_PRIORITY
-        strcat(outstr," NO_PRIORITY=1");
+#define OUT2 " NO_PRIORITY=1"
 #else
-        strcat(outstr," NO_PRIORITY=0");
+#define OUT2 " NO_PRIORITY=0"
 #endif
 #ifdef NO_SPECIAL
-	strcat(outstr," NO_SPECIAL=1");
+#define OUT3 " NO_SPECIAL=1"
 #else
-	strcat(outstr," NO_SPECIAL=0");
+#define OUT3 " NO_SPECIAL=0"
 #endif
 #ifdef OLD_Y_LIMIT
-	strcat(outstr," OLD_Y_LIMIT=1");
+#define OUT4 " OLD_Y_LIMIT=1"
 #else
-	strcat(outstr," OLD_Y_LIMIT=0");
+#define OUT4 " OLD_Y_LIMIT=0"
 #endif
 	sendto_one(sptr, rpl_str(RPL_INFO),
-		me.name, parv[0], outstr);
+		me.name, parv[0], OUT1 OUT2 OUT3 OUT4 );
+
+#undef OUT1
+#undef OUT2
+#undef OUT3
+#undef OUT4
+
 #ifdef REJECT_HOLD
-	strcpy(outstr,"REJECT_HOLD=1 ");
+#define OUT1 "REJECT_HOLD=1 "
 #else
-	strcpy(outstr,"REJECT_HOLD=0 ");
+#define OUT1 "REJECT_HOLD=0 "
 #endif
 #ifdef REJECT_IPHONE
-	strcat(outstr," REJECT_IPHONE=1");
+#define OUT2 " REJECT_IPHONE=1"
 #else
-	strcat(outstr," REJECT_IPHONE=0");
+#define OUT2 " REJECT_IPHONE=0"
 #endif
 #ifdef RFC1035_ANAL
-	strcat(outstr," RFC1035_ANAL=1");
+#define OUT3 " RFC1035_ANAL=1"
 #else
-	strcat(outstr," RFC1035_ANAL=0");
+#define OUT3 " RFC1035_ANAL=0"
 #endif
 #ifdef RK_NOTICES
-	strcat(outstr," RK_NOTICES=1");
+#define OUT4 " RK_NOTICES=1"
 #else
-	strcat(outstr," RK_NOTICES=0");
+#define OUT4 " RK_NOTICES=0"
 #endif
 	sendto_one(sptr, rpl_str(RPL_INFO),
-		me.name, parv[0], outstr);
+		me.name, parv[0], OUT1 OUT2 OUT3 OUT4);
+
+#undef OUT1
+#undef OUT2
+#undef OUT3
+#undef OUT4
+
 #ifdef R_LINES
-	strcpy(outstr,"R_LINES=1");
+#define OUT1 "R_LINES=1"
 #else
-	strcpy(outstr,"R_LINES=0");
+#define OUT1 "R_LINES=0"
 #endif
 #ifdef R_LINES_OFTEN
-	strcat(outstr," R_LINES_OFTEN=1");
+#define OUT2 " R_LINES_OFTEN=1"
 #else
-	strcat(outstr," R_LINES_OFTEN=0");
+#define OUT2 " R_LINES_OFTEN=0"
 #endif
 #ifdef R_LINES_REHASH
-	strcat(outstr," R_LINES_REHASH=1");
+#define OUT3 " R_LINES_REHASH=1"
 #else
-	strcat(outstr," R_LINES_REHASH=0");
+#define OUT3 " R_LINES_REHASH=0"
 #endif
 	sendto_one(sptr, rpl_str(RPL_INFO),
-		me.name, parv[0], outstr);
+		me.name, parv[0], OUT1 OUT2 OUT3);
+
+#undef OUT1
+#undef OUT2
+#undef OUT3
+#undef OUT4
+
 #ifdef SEPARATE_QUOTE_KLINES_BY_DATE
-	strcpy(outstr,"SEPARATE_QUOTE_KLINES_BY_DATE=1");
+#define OUT1 "SEPARATE_QUOTE_KLINES_BY_DATE=1"
 #else
-	strcpy(outstr,"SEPARATE_QUOTE_KLINES_BY_DATE=0");
+#define OUT1 "SEPARATE_QUOTE_KLINES_BY_DATE=0"
 #endif
 #ifdef SHORT_MOTD
-        strcat(outstr," SHORT_MOTD=1");
+#define OUT2 " SHORT_MOTD=1"
 #else
-        strcat(outstr," SHORT_MOTD=0");
+#define OUT2 " SHORT_MOTD=0"
 #endif
 #ifdef SHOW_HEADERS
-	strcat(outstr," SHOW_HEADERS=1");
+#define OUT3 " SHOW_HEADERS=1"
 #else
-	strcat(outstr," SHOW_HEADERS=0");
+#define OUT3 " SHOW_HEADERS=0"
 #endif
         sendto_one(sptr, rpl_str(RPL_INFO),
-                me.name, parv[0], outstr);
+                me.name, parv[0], OUT1 OUT2 OUT3);
+
+#undef OUT1
+#undef OUT2
+#undef OUT3
+#undef OUT4
+
 #ifdef SHOW_INVISIBLE_LUSERS
-	strcpy(outstr,"SHOW_INVISIBLE_LUSERS=1");
+#define OUT1 "SHOW_INVISIBLE_LUSERS=1"
 #else
-	strcpy(outstr,"SHOW_INVISIBLE_LUSERS=0");
+#define OUT1 "SHOW_INVISIBLE_LUSERS=0"
 #endif
 #ifdef SHOW_UH
-        strcat(outstr," SHOW_UH=1");
+#define OUT2 " SHOW_UH=1"
 #else
-        strcat(outstr," SHOW_UH=0");
+#define OUT2 " SHOW_UH=0"
 #endif
 	sendto_one(sptr, rpl_str(RPL_INFO),
-		me.name, parv[0], outstr);
+		me.name, parv[0], OUT1 OUT2);
+
+#undef OUT1
+#undef OUT2
+#undef OUT3
+#undef OUT4
+
 #ifdef SUNDBE
-	strcpy(outstr,"SUNDBE=1");
+#define OUT1 "SUNDBE=1"
 #else
-	strcpy(outstr,"SUNDBE=0");
+#define OUT1 "SUNDBE=0"
 #endif
 #ifdef SUN_GSO_BUG
-	strcat(outstr," SUN_GSO_BUG=1");
+#define OUT2 " SUN_GSO_BUG=1"
 #else
-	strcat(outstr," SUN_GSO_BUG=0");
+#define OUT2 " SUN_GSO_BUG=0"
 #endif
 #ifdef TIMED_KLINES
-	strcat(outstr," TIMED_KLINES=1");
+#define OUT3 " TIMED_KLINES=1"
 #else
-	strcat(outstr," TIMED_KLINES=0");
+#define OUT3 " TIMED_KLINES=0"
 #endif
 	sendto_one(sptr, rpl_str(RPL_INFO),
-		me.name, parv[0], outstr);
+		me.name, parv[0], OUT1 OUT2 OUT3 );
+
+#undef OUT1
+#undef OUT2
+#undef OUT3
+#undef OUT4
+
 #ifdef TOPIC_INFO
-	strcpy(outstr,"TOPIC_INFO=1");
+#define OUT1 "TOPIC_INFO=1"
 #else
-	strcpy(outstr,"TOPIC_INFO=0");
+#define OUT1 "TOPIC_INFO=0"
 #endif
 #ifdef UNKLINE
-	strcat(outstr," UNKLINE=1");
+#define OUT2 " UNKLINE=1"
 #else
-	strcat(outstr," UNKLINE=0");
+#define OUT2 " UNKLINE=0"
 #endif
 #ifdef USERNAMES_IN_TRACE
-	strcat(outstr," USERNAMES_IN_TRACE=1");
+#define OUT3 " USERNAMES_IN_TRACE=1"
 #else
-	strcat(outstr," USERNAMES_IN_TRACE=0");
+#define OUT3 " USERNAMES_IN_TRACE=0"
 #endif
 	sendto_one(sptr, rpl_str(RPL_INFO),
-		me.name, parv[0], outstr);
+		me.name, parv[0], OUT1 OUT2 OUT3);
+
+#undef OUT1
+#undef OUT2
+#undef OUT3
+#undef OUT4
+
 #ifdef USE_FAST_FD_ISSET
-	strcpy(outstr,"USE_FAST_FD_ISSET=1");
+#define OUT1 "USE_FAST_FD_ISSET=1"
 #else
-	strcpy(outstr,"USE_FAST_FD_ISSET=0");
+#define OUT1 "USE_FAST_FD_ISSET=0"
 #endif
 #ifdef USE_SYSLOG
-	strcat(outstr," USE_SYSLOG=1");
+#define OUT2 " USE_SYSLOG=1"
 #else
-	strcat(outstr," USE_SYSLOG=0");
+#define OUT2 " USE_SYSLOG=0"
 #endif
 #ifdef USE_UH
-	strcat(outstr," USE_UH=1");
+#define OUT3 " USE_UH=1"
 #else
-	strcat(outstr," USE_UH=0");
+#define OUT3 " USE_UH=0"
 #endif
 	sendto_one(sptr, rpl_str(RPL_INFO),
-		me.name, parv[0], outstr);
+		me.name, parv[0], OUT1 OUT2 OUT3);
+
+#undef OUT1
+#undef OUT2
+#undef OUT3
+#undef OUT4
+
 #ifdef WARN_NO_NLINE
-	strcpy(outstr,"WARN_NO_NLINE=1");
+#define OUT1 "WARN_NO_NLINE=1"
 #else
-	strcpy(outstr,"WARN_NO_NLINE=0");
+#define OUT1 "WARN_NO_NLINE=0"
 #endif
 #ifdef WHOIS_NOTICE
-	strcat(outstr," WHOIS_NOTICE=1");
+#define OUT2 " WHOIS_NOTICE=1"
 #else
-	strcat(outstr," WHOIS_NOTICE=0");
+#define OUT2 " WHOIS_NOTICE=0"
 #endif
 	sendto_one(sptr, rpl_str(RPL_INFO),
-		me.name, parv[0], outstr);
+		me.name, parv[0], OUT1 OUT2);
+
+#undef OUT1
+#undef OUT2
+#undef OUT3
+#undef OUT4
+
 #ifdef FLUD
 	ircsprintf(outstr,"FLUD_BLOCK=%d FLUD_NUM=%d FLUD_TIME=%d",
 	  FLUD_BLOCK,FLUD_NUM,FLUD_TIME);
