@@ -55,6 +55,8 @@ int    do_user (char *, aClient *, aClient*, char *, char *, char *,
 int    botwarn (char *, char *, char *, char *);
 
 extern ts_val  timedelta;
+extern char motd_last_changed_date[];
+
 #ifdef MAXBUFFERS
 extern void reset_sock_opts();
 #endif
@@ -422,6 +424,7 @@ static	int	register_user(aClient *cptr,
 #ifdef ANTI_SPAMBOT
   char  spamchar = '\0';
 #endif
+
   user->last = timeofday;
   parv[0] = sptr->name;
   parv[1] = parv[2] = NULL;
@@ -823,6 +826,7 @@ static	int	register_user(aClient *cptr,
                     return exit_client(cptr, sptr, &me, "No IPhone users");
 		   }
 #endif /* REJECT_IPHONE */
+
 		sendto_realops_lev(CCONN_LEV,
 				   "Client connecting: %s (%s@%s) [%s] {%d}",
 				   nick,
@@ -871,7 +875,24 @@ static	int	register_user(aClient *cptr,
 		  sendto_one(sptr, rpl_str(RPL_MYINFO), me.name, parv[0],
 			     me.name, version);
 		  (void)m_lusers(sptr, sptr, 1, parv);
+
+		  sendto_one(sptr,"NOTICE %s :*** motd was last changed at %s",
+			     nick, motd_last_changed_date);
+#ifdef SHORT_MOTD
+		  sendto_one(sptr,"NOTICE %s :*** Please read motd if you haven't read it ",
+			     nick);
+#else
 		  (void)m_motd(sptr, sptr, 1, parv);
+#endif
+#ifdef LITTLE_I_LINES
+		  if(sptr->confs && sptr->confs->value.aconf &&
+		     (sptr->confs->value.aconf->
+		      flags & CONF_FLAGS_LITTLE_I_LINE))
+		    {
+		      sendto_one(sptr,"NOTICE %s :*** You are in a restricted access mode");
+		      sendto_one(sptr,"NOTICE %s :*** You can not be chanopped");
+		    }
+#endif
 		  nextping = timeofday;
 
 #if defined(EXTRA_BOT_NOTICES) && defined(BOT_GCOS_WARN)

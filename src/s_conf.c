@@ -137,6 +137,7 @@ int	attach_Iline(aClient *cptr,
     {
       if (aconf->status != CONF_CLIENT)
 	continue;
+
       if (aconf->port && aconf->port != cptr->acpt->port)
 	continue;
 
@@ -1240,11 +1241,21 @@ int 	initconf(int opt, char *conf_file)
 	  aconf->status = CONF_HUB;
 	  break;
 
-	case 'I': /* Just plain normal irc client trying  */
+#ifdef LITTLE_I_LINES
 	case 'i': /* to connect me */
 	  aconf->status = CONF_CLIENT;
+	  aconf->flags |= CONF_FLAGS_LITTLE_I_LINE;
 	  break;
 
+	case 'I': /* Just plain normal irc client trying  */
+	  aconf->status = CONF_CLIENT;
+	  break;
+#else
+	case 'i': /* to connect me */
+	case 'I': /* Just plain normal irc client trying  */
+	  aconf->status = CONF_CLIENT;
+	  break;
+#endif
 	case 'K': /* Kill user line on irc.conf           */
 	case 'k':
 	  aconf->status = CONF_KILL;

@@ -84,6 +84,9 @@ typedef struct	MotdItem aMotd;
 				** This preserves compatibility with old
 				** servers --msa
 				*/
+
+#define MAX_DATE_STRING 32	/* maximum string length for a date string */
+
 #define	USERLEN		10
 #define	REALLEN	 	50
 #define	TOPICLEN	90
@@ -134,6 +137,7 @@ typedef struct	MotdItem aMotd;
 /*
  * status macros.
  */
+
 #define	IsRegisteredUser(x)	((x)->status == STAT_CLIENT)
 #define	IsRegistered(x)		((x)->status >= STAT_SERVER)
 #define	IsConnecting(x)		((x)->status == STAT_CONNECTING)
@@ -249,7 +253,6 @@ typedef struct	MotdItem aMotd;
 #define	ClearDNS(x)		((x)->flags &= ~FLAGS_DOINGDNS)
 #define	ClearAuth(x)		((x)->flags &= ~FLAGS_AUTH)
 #define	ClearAccess(x)		((x)->flags &= ~FLAGS_CHKACCESS)
-
 /*
  * defined debugging levels
  */
@@ -313,6 +316,11 @@ typedef struct Whowas
 struct	ConfItem
 {
   unsigned int	status;	/* If CONF_ILLEGAL, delete when no clients */
+
+#ifdef LITTLE_I_LINES
+  unsigned int flags;	
+#endif
+
   int	clients;	/* Number of *LOCAL* clients using this */
   struct in_addr ipnum;	/* ip number of host field */
   char	*host;
@@ -324,9 +332,13 @@ struct	ConfItem
   struct ConfItem *next;
 };
 
+
 #define	CONF_ILLEGAL		0x80000000
 #define	CONF_MATCH		0x40000000
-#define	CONF_QUARANTINED_SERVER	0x0001
+
+/* #define	CONF_QUARANTINED_SERVER	0x0001 */
+
+
 #define	CONF_CLIENT		0x0002
 #define	CONF_CONNECT_SERVER	0x0004
 #define	CONF_NOCONNECT_SERVER	0x0008
@@ -354,6 +366,10 @@ struct	ConfItem
 				 CONF_SERVER_MASK)
 
 #define	IsIllegal(x)	((x)->status & CONF_ILLEGAL)
+
+#ifdef LITTLE_I_LINES
+#define CONF_FLAGS_LITTLE_I_LINE	0x0001
+#endif
 
 /*
  * Client structures

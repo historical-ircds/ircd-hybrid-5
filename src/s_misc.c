@@ -109,7 +109,7 @@ char	*date(time_t clock)
 */
 char    *smalldate(time_t clock)
 {
-  static  char    buf[20];
+  static  char    buf[MAX_DATE_STRING];
   Reg     struct  tm *lt, *gm;
   struct  tm      gmbuf;
 

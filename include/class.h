@@ -31,6 +31,7 @@ typedef struct Class {
 	struct Class *next;
 } aClass;
 
+
 #define	Class(x)	((x)->class)
 #define	ConFreq(x)	((x)->conFreq)
 #define	PingFreq(x)	((x)->pingFreq)

@@ -795,11 +795,29 @@ static	int	set_mode(aClient *cptr,
 	    break;
 	  if (whatt == MODE_ADD)
 	    {
-	      lp = &chops[opcnt++];
-	      lp->value.cptr = who;
-	      lp->flags = (*curr == 'o') ? MODE_CHANOP:
-		MODE_VOICE;
-	      lp->flags |= MODE_ADD;
+#ifdef LITTLE_I_LINES
+	      if(MyClient(who) && ischop && (*curr=='o') && who->confs &&
+		 who->confs->value.aconf &&
+		 (who->confs->value.aconf->flags & CONF_FLAGS_LITTLE_I_LINE))
+		{
+		  sendto_one(who, ":%s NOTICE %s :%s attempted to chanop you. You are restricted and cannot be chanopped",
+			     me.name,
+			     who->name,
+			     sptr->name);
+		  sendto_one(sptr, ":%s NOTICE %s :%s is restricted and cannot be chanopped",
+			     me.name,
+			     sptr->name,
+			     who->name);
+		}
+	      else
+#endif
+		{
+		  lp = &chops[opcnt++];
+		  lp->value.cptr = who;
+		  lp->flags = (*curr == 'o') ? MODE_CHANOP:
+		    MODE_VOICE;
+		  lp->flags |= MODE_ADD;
+		}
 	    }
 	  else if (whatt == MODE_DEL)
 	    {
@@ -1555,7 +1573,28 @@ int spam_num = MAX_JOIN_LEAVE_COUNT;
 	  ** Operator.
 	  */
 	  flags = (ChannelExists(name)) ? 0 : CHFL_CHANOP;
-      
+#ifdef NO_CHANOPS_WHEN_SPLIT
+	  if(!IsAnOper(sptr) && server_was_split)
+	    {
+	      if( (server_split_time + SERVER_SPLIT_RECOVERY_TIME) < now)
+		{
+		  server_was_split = 0;
+		}
+	      else
+		flags = 0;
+	    }
+#endif
+
+#ifdef LITTLE_I_LINES
+	  if(sptr->confs && sptr->confs->value.aconf && 
+	     (sptr->confs->value.aconf->flags & CONF_FLAGS_LITTLE_I_LINE))
+	    {
+	      flags = 0;
+		  sendto_one(sptr, ":%s NOTICE %s :You are restricted and cannot be chanopped",
+			     me.name,
+			     sptr->name);
+	    }
+#endif
 	  if ((sptr->user->joined >= MAXCHANNELSPERUSER) &&
 	     (!IsAnOper(sptr) || (sptr->user->joined >= MAXCHANNELSPERUSER*3)))
 	    {

@@ -235,11 +235,7 @@ static	Numeric	numeric_replies[] = {
 /* 374 */	RPL_ENDOFINFO, ":End of /INFO list.",
 /* 375 */	RPL_MOTDSTART, ":- %s Message of the Day - ",
 /* 376 */	RPL_ENDOFMOTD, ":End of /MOTD command.",
-#ifdef FORCE_MOTD
-/* 377 */	RPL_FORCE_MOTD, ":%s",
-#else
 		0, (char *)NULL,
-#endif
 		0, (char *)NULL, 0, (char *)NULL,
 		0, (char *)NULL,
 /* 381 */	RPL_YOUREOPER, ":You have entered... the Twilight Zone!.",

@@ -56,8 +56,6 @@ static	int	get_conf_ping(aConfItem *aconf)
   return (BAD_PING);
 }
 
-
-
 int	get_client_class(aClient *acptr)
 {
   Reg	Link	*tmp;

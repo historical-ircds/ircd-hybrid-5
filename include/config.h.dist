@@ -389,9 +389,12 @@
  */
 #define SHOW_HEADERS
 
-/* FORCE_MOTD - Force users to see the MOTD (use NOTICE)
+/* SHORT_MOTD
+ * There are client ignoring the FORCE_MOTD MOTD numeric, there is
+ * no point forcing MOTD on connecting clients IMO. Give them a short
+ * NOTICE telling them they should read the motd, and leave it at that.
  */
-#define FORCE_MOTD
+#define SHORT_MOTD
 
 /* NO_OPER_FLOOD - disable flood control for opers
  * define this to remove flood control for opers
@@ -612,6 +615,30 @@
  * should be YES or NO
  */
 #define NOISY_HTM NO
+
+/* NO_CHANOP_WHEN_SPLIT
+ * When this is defined, users will not be chanopped on empty channels
+ * if there are no servers presently connected to this server.
+ * opers are not affected. 
+ */
+#define NO_CHANOPS_WHEN_SPLIT
+
+/* LITTLE_I_LINES
+ * yes, a version of ircnet's i: line
+ * if you define this, you can use i: lines to give those clients
+ * limited rights, i.e. they cannot be chanopped
+ * No harm in leaving it defined, just be very careful not to use
+ * i instead of when you mean I in your conf file
+ * caveat. an I line for the same class as an i line gets overruled by
+ * the i line. i.e. if you have in your conf file:
+ *
+ * i:NOMATCH::*@*::4
+ * I:NOMATCH::*@*.foo.com::4
+ *
+ * users matching *.foo.com will still be restricted
+ * 
+*/
+#define LITTLE_I_LINES
 
 /*   STOP STOP STOP STOP STOP STOP STOP STOP STOP STOP STOP STOP STOP STOP  */
 

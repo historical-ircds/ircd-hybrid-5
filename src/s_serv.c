@@ -89,6 +89,8 @@ static int wallops_from_oper(char *);
 
 void read_motd(char *);
 
+char motd_last_changed_date[MAX_DATE_STRING];	/* enough room for date */
+
 #ifdef GLINES
 
 typedef struct gline_pending
@@ -1120,10 +1122,10 @@ int	m_info(aClient *cptr,
 #else
 	strcat(outstr," FLUD=0");
 #endif
-#ifdef FORCE_MOTD
-	strcat(outstr," FORCE_MOTD=1");
+#ifdef SHORT_MOTD
+	strcat(outstr," SHORT_MOTD=1");
 #else
-	strcat(outstr," FORCE_MOTD=0");
+	strcat(outstr," SHORT_MOTD=0");
 #endif
 	sendto_one(sptr, rpl_str(RPL_INFO),
 		me.name, parv[0], outstr);
@@ -1480,12 +1482,11 @@ int	m_links(aClient *cptr,
     return 0;
 }
 
-static int report_array[10][3] = {
+static int report_array[9][3] = {
   { CONF_CONNECT_SERVER,    RPL_STATSCLINE, 'C'},
   { CONF_NOCONNECT_SERVER,  RPL_STATSNLINE, 'N'},
   { CONF_CLIENT,            RPL_STATSILINE, 'I'},
   { CONF_KILL,              RPL_STATSKLINE, 'K'},
-  { CONF_QUARANTINED_SERVER,RPL_STATSQLINE, 'Q'},
   { CONF_LEAF,		  RPL_STATSLLINE, 'L'},
   { CONF_OPERATOR,	  RPL_STATSOLINE, 'O'},
   { CONF_HUB,		  RPL_STATSHLINE, 'H'},
@@ -3283,7 +3284,7 @@ int     m_kline(aClient *cptr,
   char buffer[1024];
 
 #ifdef SEPARATE_QUOTE_KLINES_BY_DATE
-  char timebuffer[20];
+  char timebuffer[MAX_DATE_STRING];
   char filenamebuf[1024];
   struct tm *tmptr;
 #endif
@@ -3510,7 +3511,7 @@ int     m_kline(aClient *cptr,
 
 #ifdef SEPARATE_QUOTE_KLINES_BY_DATE
   tmptr = localtime(&NOW);
-  strftime(timebuffer, 20, "%y%m%d", tmptr);
+  strftime(timebuffer, MAX_DATE_STRING, "%y%m%d", tmptr);
   (void)sprintf(filenamebuf, "%s.%s", klinefile, timebuffer);
   filename = filenamebuf;
   sendto_one(sptr, ":%s NOTICE %s :Added K-Line [%s@%s] to %s",
@@ -3703,7 +3704,7 @@ int m_unkline (aClient *cptr,aClient *sptr,int parc,char *parv[])
   char	temppath[256];
 
 #ifdef SEPARATE_QUOTE_KLINES_BY_DATE
-  char timebuffer[20];
+  char timebuffer[MAX_DATE_STRING];
   char filenamebuf[1024];
   struct tm *tmptr;
 #endif
@@ -3783,7 +3784,7 @@ int m_unkline (aClient *cptr,aClient *sptr,int parc,char *parv[])
 
 #ifdef SEPARATE_QUOTE_KLINES_BY_DATE
   tmptr = localtime(&NOW);
-  strftime(timebuffer, 20, "%y%m%d", tmptr);
+  strftime(timebuffer, MAX_DATE_STRING, "%y%m%d", tmptr);
   (void)sprintf(filenamebuf, "%s.%s", klinefile, timebuffer);
   filename = filenamebuf;
 #else
@@ -4679,32 +4680,18 @@ int	m_motd(aClient *cptr,
     }
   sendto_one(sptr, rpl_str(RPL_MOTDSTART), me.name, parv[0], me.name);
 
-#ifdef FORCE_MOTD
-  if (tm)
-    sendto_one(sptr, ":%s %d %s :- %d/%d/%d %d:%02d", me.name,
-	       RPL_FORCE_MOTD,
-	       parv[0], tm->tm_mday, tm->tm_mon + 1, 1900 + tm->tm_year,
-	       tm->tm_hour, tm->tm_min);
-#else
   if (tm)
     sendto_one(sptr,
 	       ":%s %d %s :- %d/%d/%d %d:%02d", me.name, RPL_MOTD,
 	       parv[0], tm->tm_mday, tm->tm_mon + 1, 1900 + tm->tm_year,
 	       tm->tm_hour, tm->tm_min);
 
-#endif /* FORCE_MOTD */
   temp = motd;
   while(temp)
     {
-#ifdef FORCE_MOTD
-      sendto_one(sptr,
-		 rpl_str(RPL_FORCE_MOTD),
-		 me.name, parv[0], temp->line);
-#else
       sendto_one(sptr,
 		 rpl_str(RPL_MOTD),
 		 me.name, parv[0], temp->line);
-#endif
       temp = temp->next;
     }
   sendto_one(sptr, rpl_str(RPL_ENDOFMOTD), me.name, parv[0]);
@@ -4754,6 +4741,15 @@ void	read_motd(char *filename)
       last = temp;
     }
   close(fd);
+
+  if (motd_tm)
+    (void)sprintf(motd_last_changed_date,
+		  "%d/%d/%d %d:%02d",
+		  motd_tm->tm_mday,
+		  motd_tm->tm_mon + 1,
+		  1900 + motd_tm->tm_year,
+		  motd_tm->tm_hour,
+		  motd_tm->tm_min);
 }
 
 /*
