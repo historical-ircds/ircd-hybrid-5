@@ -170,9 +170,11 @@ struct Message msgtab[] = {
 					    v	yes/no			*/
   { MSG_PRIVATE, m_private,  0, MAXPARA, 1, 0, 1, 0L },
   /*                                           ^
-					       |__ reset idle time yes/no */
+					       |__ reset idle time when 1 */
 #else
   { MSG_PRIVATE, m_private,  0, MAXPARA, 1, 0, 0, 0L },
+  /*                                           ^
+					       |__ reset idle time when 0 */
 #endif
 
   { MSG_NICK,    m_nick,     0, MAXPARA, 1, 1, 0, 0L },
@@ -186,23 +188,49 @@ struct Message msgtab[] = {
   { MSG_KICK,    m_kick,     0, MAXPARA, 1, 0, 0, 0L },
   { MSG_WALLOPS, m_wallops,  0, MAXPARA, 1, 0, 0, 0L },
   { MSG_LOCOPS,  m_locops,   0, MAXPARA, 1, 0, 0, 0L },
+
 #ifdef IDLE_FROM_MSG
-  { MSG_PING,    m_ping,     0, MAXPARA, 1, 0, 0, 0L },
+  /* Only m_private has reset idle flag set */
 #ifdef ANTI_IP_SPOOF
+  /* if ANTI_IP_SPOOF, allow user to send PONG even when not registered */
   { MSG_PONG,    m_pong,     0, MAXPARA, 1, 1, 0, 0L },
+  { MSG_PING,    m_ping,     0, MAXPARA, 1, 0, 0, 0L },
 #else
+  /* if not ANTI_IP_SPOOF don't allow user to send PONG when not registered */
   { MSG_PONG,    m_pong,     0, MAXPARA, 1, 0, 0, 0L },
+  { MSG_PING,    m_ping,     0, MAXPARA, 1, 0, 0, 0L },
 #endif
+
 #else
+  /* else for IDLE_FROM_MSG */
+  /* reset idle flag sense is reversed, only reset idle time
+   * when its 0, for IDLE_FROM_MSG ping/pong do not reset idle time
+   */
+
+#ifdef ANTI_IP_SPOOF
+  /* if ANTI_IP_SPOOF, allow user to send PONG even when not registered */
+  { MSG_PONG,    m_pong,     0, MAXPARA, 1, 1, 1, 0L },
   { MSG_PING,    m_ping,     0, MAXPARA, 1, 0, 1, 0L },
+#else
+  /* if not ANTI_IP_SPOOF don't allow user to send PONG when not registered */
   { MSG_PONG,    m_pong,     0, MAXPARA, 1, 0, 1, 0L },
+  { MSG_PING,    m_ping,     0, MAXPARA, 1, 0, 1, 0L },
 #endif
+
+#endif	/* IDLE_FROM_MSG */
 
   { MSG_ERROR,   m_error,    0, MAXPARA, 1, 1, 0, 0L },
   { MSG_KILL,    m_kill,     0, MAXPARA, 1, 0, 0, 0L },
   { MSG_USER,    m_user,     0, MAXPARA, 1, 1, 0, 0L },
   { MSG_AWAY,    m_away,     0, MAXPARA, 1, 0, 0, 0L },
+#ifdef IDLE_FROM_MSG
   { MSG_ISON,    m_ison,     0, 1,       1, 0, 0, 0L },
+#else
+  /* ISON should not reset idle time ever
+   * remember idle flag sense is reversed when IDLE_FROM_MSG is undefined
+   */
+  { MSG_ISON,    m_ison,     0, 1,       1, 0, 1, 0L },
+#endif
   { MSG_USRIP,   m_usrip,    0, 1,       1, 0, 0, 0L },
   { MSG_SERVER,  m_server,   0, MAXPARA, 1, 1, 0, 0L },
   { MSG_SQUIT,   m_squit,    0, MAXPARA, 1, 0, 0, 0L },

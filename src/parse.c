@@ -416,10 +416,20 @@ int	parse(aClient *cptr, char *buffer, char *bufend)
     }
 
   /* Again, instead of function address comparing, see if
-     this function resets idle time as given from mptr - Dianora */
+   * this function resets idle time as given from mptr
+   * if IDLE_FROM_MSG is undefined, the sense of the flag is reversed.
+   * i.e. if the flag is 0, then reset idle time, otherwise don't reset it.
+   *
+   * - Dianora
+   */
 
-  if (IsRegisteredUser(cptr) && mptr->reset_idle )
+#ifdef IDLE_FROM_MSG
+  if (IsRegisteredUser(cptr) && mptr->reset_idle)
     from->user->last = timeofday;
+#else
+  if (IsRegisteredUser(cptr) && !mptr->reset_idle)
+    from->user->last = timeofday;
+#endif
 
   return (*mptr->func)(cptr, from, i, para);
 }

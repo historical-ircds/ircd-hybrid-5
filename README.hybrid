@@ -14,6 +14,7 @@
 * Fixed oper wallops broadcasting instead of routing (Dianora)
 * Covered up bogus "Got Ident" messages in read_authports() (Rodder)
 * Fixed missing RPL_ENDOFTRACE for non-opered clients (Dianora)
+* #undef IDLE_FROM_MSG fixed, ping/pong/ison do not reset idle time (Dianora)
 
 -feature adds
 * stop people from laming up the kline conf file with # in comment (Dianora)
