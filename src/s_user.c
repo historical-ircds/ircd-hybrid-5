@@ -92,6 +92,7 @@ unsigned long my_rand(void);	/* provided by orabidoo */
 
 /* externally defined functions */
 extern Link *find_channel_link(Link *,aChannel *);	/* defined in list.c */
+extern char *oper_privs(aClient *,int);		/* defined in s_conf.c */
 
 #ifdef FLUD
 int flud_num = FLUD_NUM;
@@ -3062,9 +3063,7 @@ int	m_oper(aClient *cptr,
 #ifdef CRYPT_OPER_PASSWORD
   extern	char *crypt();
 #endif /* CRYPT_OPER_PASSWORD */
-
-  char privs_out[10];
-  char *privs_ptr;
+  char *operprivs;
 
   name = parc > 1 ? parv[1] : (char *)NULL;
   password = parc > 2 ? parv[2] : (char *)NULL;
@@ -3156,38 +3155,14 @@ int	m_oper(aClient *cptr,
       cptr->next_oper_client = oper_cptr_list;
       oper_cptr_list = cptr;
 #endif
-      privs_ptr = privs_out;
-      *privs_ptr = '\0';
-
       if(cptr->confs)
 	{
 	  aConfItem *aconf;
 	  aconf = cptr->confs->value.aconf;
-	  if(aconf->port & CONF_OPER_GLOBAL_KILL)
-	    {
-	      SetOperGlobalKill(cptr);
-	      *privs_ptr++ = 'O';
-	    }
-
-	  if(aconf->port & CONF_OPER_REMOTE)
-	    {
-	      SetOperRemote(cptr);
-	      *privs_ptr++ = 'R';
-	    }
-
-	  if(aconf->port & CONF_OPER_UNKLINE)
-	    {
-	      SetOperUnkline(cptr);
-	      *privs_ptr++ = 'U';
-	    }
-
-	  if(aconf->port & CONF_OPER_GLINE)
-	    {
-	      SetOperGline(cptr);
-	      *privs_ptr++ = 'G';
-	    }
-	  *privs_ptr = '\0';
+	  operprivs = oper_privs(cptr,aconf->port);
 	}
+      else
+	operprivs = "";
 
       sendto_ops("%s (%s@%s) is now operator (%c)", parv[0],
 		 sptr->user->username, sptr->sockhost,
@@ -3195,7 +3170,7 @@ int	m_oper(aClient *cptr,
       send_umode_out(cptr, sptr, old);
       sendto_one(sptr, rpl_str(RPL_YOUREOPER), me.name, parv[0]);
       sendto_one(sptr, ":%s NOTICE %s:*** Oper privs are %s",me.name,parv[0],
-		 privs_out);
+		 operprivs);
 
 #if !defined(CRYPT_OPER_PASSWORD) && (defined(FNAME_OPERLOG) ||\
     (defined(USE_SYSLOG) && defined(SYSLOG_OPER)))
@@ -3218,21 +3193,28 @@ int	m_oper(aClient *cptr,
 	   * stop NFS hangs...most systems should be able to open a
 	   * file in 3 seconds. -avalon (curtesy of wumpus)
 	   */
-	  (void)alarm(3);
+	  /* You are =nuts= if you run NFS at all on a modern EFnet server
+	   * ewwwwwwwww so I am commenting it out for now
+	   * it should all be deleted, but ya. there is history here :-)
+	   * pjg,wumpus,avalon avalon cannot spell "courtesy" either
+	   * -Dianora
+	   */
+	  /*	  (void)alarm(3); */
+
 	  if (IsPerson(sptr) &&
 	      (logfile = open(FNAME_OPERLOG, O_WRONLY|O_APPEND)) != -1)
 	    {
-	      (void)alarm(0);
+	      /* (void)alarm(0); */
 	      (void)ircsprintf(buf, "%s OPER (%s) (%s) by (%s!%s@%s)\n",
 			       myctime(timeofday), name, encr,
 			       parv[0], sptr->user->username,
 			       sptr->sockhost);
-	      (void)alarm(3);
+	      /* (void)alarm(3); */
 	      (void)write(logfile, buf, strlen(buf));
-	      (void)alarm(0);
+	      /* (void)alarm(0); */
 	      (void)close(logfile);
 	    }
-	  (void)alarm(0);
+	  /* (void)alarm(0); */
 	  /* Modification by pjg */
 	}
 #endif

@@ -90,6 +90,7 @@ extern char *smalldate(time_t);		/* defined in s_misc.c */
 extern char *small_file_date(time_t);	/* defined in s_misc.c */
 #endif
 
+extern char *oper_privs(aClient *,int);	/* defined in s_conf.c */
 extern void outofmemory(void);		/* defined in list.c */
 extern void s_die(void);		/* defined in ircd.c as VOIDSIG */
 extern int match(char *,char *);	/* defined in match.c */
@@ -1832,6 +1833,13 @@ static	void	report_configured_links(aClient *sptr,int mask)
 		     c,
 		     host, prefix_of_host, port,
 		     get_conf_class(tmp));
+	  }
+	else if(mask & (CONF_OPERATOR|CONF_LOCOP))
+	  {
+	    sendto_one(sptr, rpl_str(p->rpl_stats), me.name,
+		       sptr->name, p->conf_char, host, name,
+		       oper_privs((aClient *)NULL,port),
+		       get_conf_class(tmp));
 	  }
 	else
 	  sendto_one(sptr, rpl_str(p->rpl_stats), me.name,
