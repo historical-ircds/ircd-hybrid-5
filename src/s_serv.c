@@ -353,9 +353,9 @@ int	m_squit(aClient *cptr,
       return 0;
     }
 
-  if (!IsOperRemote(sptr) && !MyConnect(acptr))
+  if (MyConnect(sptr) && !IsOperRemote(sptr) && !MyConnect(acptr))
     {
-      sendto_one(sptr,":%s NOTICE %s You have no R flag",me.name,parv[0]);
+      sendto_one(sptr,":%s NOTICE %s :You have no R flag",me.name,parv[0]);
       return 0;
     }
 
@@ -2494,9 +2494,9 @@ int	m_connect(aClient *cptr,
   if (IsLocOp(sptr) && parc > 3)	/* Only allow LocOps to make */
     return 0;		/* local CONNECTS --SRB      */
 
-  if (!IsOperRemote(sptr) && parc > 3)
+  if (MyConnect(sptr) && !IsOperRemote(sptr) && parc > 3)
     {
-      sendto_one(sptr,":%s NOTICE %s You have no R flag",me.name,parv[0]);
+      sendto_one(sptr,":%s NOTICE %s :You have no R flag",me.name,parv[0]);
       return 0;
     }
 
@@ -4387,7 +4387,7 @@ int m_unkline (aClient *cptr,aClient *sptr,int parc,char *parv[])
 
   if (!IsSetOperUnkline(sptr))
     {
-      sendto_one(sptr,":%s NOTICE %s You have no U flag",me.name,parv[0]);
+      sendto_one(sptr,":%s NOTICE %s :You have no U flag",me.name,parv[0]);
       return 0;
     }
 
@@ -4434,6 +4434,13 @@ int m_unkline (aClient *cptr,aClient *sptr,int parc,char *parv[])
 		 me.name, parv[0],user, host);
       sendto_ops("%s has removed the temporary K-Line for; [%s@%s]",
 		 parv[0], user, host );
+
+#ifdef USE_SYSLOG
+      syslog(LOG_NOTICE, "%s removed temporary K-Line for [%s@%s]",
+	     parv[0],
+	     user,
+	     host);
+#endif
       return 0;
     }
 
@@ -4764,6 +4771,13 @@ Then just ignore the line
 	     me.name, parv[0], user,host);
   sendto_ops("%s has removed the K-Line for: [%s@%s] (%d matches)", 
 	     parv[0], user, host, pairme);
+
+#ifdef USE_SYSLOG
+      syslog(LOG_NOTICE, "%s removed K-Line for [%s@%s]",
+	     parv[0],
+	     user,
+	     host);
+#endif
   return 0; 
 }
 
@@ -5167,6 +5181,11 @@ int	m_rehash(aClient *cptr,
 
   if(parc > 1)
     {
+#ifdef USE_SYSLOG
+	syslog(LOG_NOTICE, "REHASH %s From %s\n",
+	       parv[1],get_client_name(sptr, FALSE));
+#endif
+
       if(mycmp(parv[1],"DNS") == 0)
 	{
 	  sendto_one(sptr, rpl_str(RPL_REHASHING), me.name, parv[0], "DNS");
@@ -5232,7 +5251,7 @@ int	m_rehash(aClient *cptr,
       sendto_ops("%s is rehashing Server config file while whistling innocently",
 		 parv[0]);
 #ifdef USE_SYSLOG
-      syslog(LOG_INFO, "REHASH From %s\n", get_client_name(sptr, FALSE));
+      syslog(LOG_NOTICE, "REHASH From %s\n", get_client_name(sptr, FALSE));
 #endif
       return rehash(cptr, sptr, (parc > 1) ? ((*parv[1] == 'q')?2:0) : 0);
     }
