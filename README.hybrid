@@ -1,19 +1,23 @@
-+hybrid-5.4 (7/15/98)
++hybrid-5.4 (7/16/98)
+- added ANTI_SPAMBOT_EXTRA (read config.h) added heuristics to catch
+  spambots (Dianora)
+- added ANTI_SPAM_EXIT_MESSAGE no quit message from client, if client
+  is less than 5 minutes on irc (ThaDragon)
 - unkline will unkline temporary klines now as well (Dianora)
 - added oper priv field in normally unused port field of O line
-possible flags "ORUGT"
-O enables, o disables, global kill,
-R enables, r disables, remote operator commands, squit/connect
-U enables, u disables, unkline
-G enables, g disables, gline
-T enables, t disables, the use of umode +n
-defaults for global O if no flags is OUG, for local o, U (Dianora)
+  possible flags "ORUGT"
+  O enables, o disables, global kill,
+  R enables, r disables, remote operator commands, squit/connect
+  U enables, u disables, unkline
+  G enables, g disables, gline
+  T enables, t disables, the use of umode +n
+  defaults for global O if no flags is ORUG, for local o, U (Dianora)
 - E lines replaced by ^ in front of username in I line
 - F lines replaced by > in front of username in I line
 - B lines replaced by & in front of username in I line
 - "^>&" can be combined with any combination of "+!-" characters (Dianora)
 - will not allow any user with username including '!' '*' '?'
-or high bit/control characters to user the server (Dianora)
+  or high bit/control characters to user the server (Dianora)
 - added LIMIT_UH code (Dianora)
 - fixed missing USE_SYLOG in ircd.c (ThemBones)
 - use Count.local instead of sptr->fd in s_user for SET MAX (ThemBones)
@@ -21,13 +25,13 @@ or high bit/control characters to user the server (Dianora)
 - reworked s_err.c/numeric.h (Dianora)
 - added hash debug on /quote hash (Dianora)
 - d-line hash, use a hash table for numeric ip's allows use of CIDR style
-masks in /quote dlines i.e. "/quote dline 192.168.1.0/30 :test" (Dianora)
+  masks in /quote dlines i.e. "/quote dline 192.168.1.0/30 :test" (Dianora)
 - fix to ANTI_IP_SPOOF in s_user.c (jailbird@alcatraz.fdf.net)
 - report user doing /motd, removed STATS_FLAG (Dianora)
 - added delay between motd requests (Dianora)
 - kline of *@some ip block is translated into dline (Dianora)
 - fixed REJECT_HOLD code, fripping backwards if (Dianora)
-- added +-! special I line prefix character (# is not applicable to hybrid)
+- added +-! special I line prefix character ($ is not applicable to hybrid)
   (comstud/Dianora)
 
 +hybrid-5.3 (6/13/98)

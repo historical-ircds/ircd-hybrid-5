@@ -1103,8 +1103,17 @@ static	int	register_user(aClient *cptr,
 		    }
 #endif
 		  nextping = timeofday;
+#ifdef ANTI_SPAMBOT_EXTRA
+	      if(strstr(sptr->info,"http:"))
+		{
+		  sendto_realops("Possible spambot %s [%s@%s] : [gecos: %s]",
+					 nick, sptr->user->username,
+					 sptr->user->host,sptr->info);
+	        }
+#endif
 
 #if defined(EXTRA_BOT_NOTICES) && defined(BOT_GCOS_WARN)
+
 		  sprintf(botgecos, "/msg %s hello", nick);
 		  if ((strcasecmp(sptr->info, botgecos)==0)
 		      || (!matches("/msg * hello", sptr->info)))
@@ -1872,6 +1881,11 @@ static	int	m_message(aClient *cptr,
     */
     if ((acptr = find_person(nick, NULL)))
       {
+#ifdef ANTI_SPAMBOT_EXTRA
+	if(acptr != sptr->last_client_messaged)
+	  sptr->person_privmsgs++;
+	sptr->last_client_messaged = acptr;
+#endif
 #ifdef FLUD
 	if(!notice && MyFludConnect(acptr))
 	  if(check_for_ctcp(parv[2]))
@@ -1909,7 +1923,19 @@ static	int	m_message(aClient *cptr,
 				 parv[0], acptr->user->username, acptr->user->host, parv[0], parv[2]);
 	  }
 #endif
-
+#ifdef ANTI_SPAMBOT_EXTRA
+	if( (sptr->person_privmsgs - sptr->channel_privmsgs)
+	    > SPAMBOT_PRIVMSG_POSSIBLE_SPAMBOT_COUNT)
+	  {
+	    sendto_realops("Possible spambot %s [%s@%s] : privmsgs to clients %d privmsgs to channels %d",
+			   nick, sptr->user->username,
+			   sptr->user->host,
+			   sptr->person_privmsgs,sptr->channel_privmsgs);
+	    /* and report it if happens again */
+	    sptr->person_privmsgs = 0;
+	    sptr->channel_privmsgs = 0;
+	  }
+#endif
 	continue;
       }
 #ifdef	IDLE_CHECK
@@ -1925,6 +1951,9 @@ static	int	m_message(aClient *cptr,
     */
     if (IsPerson(sptr) && (chptr = find_channel(nick, NullChn)))
       {
+#ifdef ANTI_SPAMBOT_EXTRA
+	sptr->channel_privmsgs++;
+#endif
 #ifdef FLUD
 	if(!notice)
 	  if(check_for_ctcp(parv[2]))
@@ -1939,8 +1968,22 @@ static	int	m_message(aClient *cptr,
 	else if (!notice)
 	  sendto_one(sptr, err_str(ERR_CANNOTSENDTOCHAN),
 		     me.name, parv[0], nick);
+#ifdef ANTI_SPAMBOT_EXTRA
+	if( (sptr->person_privmsgs - sptr->channel_privmsgs)
+	    > SPAMBOT_PRIVMSG_POSSIBLE_SPAMBOT_COUNT)
+	  {
+	    sendto_realops("Possible spambot %s [%s@%s] : privmsgs to clients %d privmsgs to channels %d",
+			   nick, sptr->user->username,
+			   sptr->user->host,
+			   sptr->person_privmsgs,sptr->channel_privmsgs);
+	    /* and report it if happens again */
+	    sptr->person_privmsgs = 0;
+	    sptr->channel_privmsgs = 0;
+	  }
+#endif
 	continue;
       }
+
 	
     /*
     ** the following two cases allow masks in NOTICEs

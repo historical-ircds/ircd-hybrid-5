@@ -744,9 +744,21 @@ static	void	exit_one_client(aClient *cptr,
       */
       if (sptr->user)
 	{
-	  sendto_common_channels(sptr, ":%s QUIT :%s",
-				 sptr->name, comment);
-	  
+#ifdef ANTI_SPAM_EXIT_MESSAGE
+	  if(sptr->flags & FLAGS_KILLED)
+	    sendto_common_channels(sptr, ":%s QUIT :%s",
+				   sptr->name, comment);
+	  else
+	    {
+	      if( (sptr->firsttime + ANTI_SPAM_EXIT_MESSAGE_TIME) > NOW)
+		sendto_common_channels(sptr, ":%s QUIT :%s",
+				       sptr->name, "client quit");
+	      else
+		sendto_common_channels(sptr, ":%s QUIT :%s",
+				       sptr->name, comment);
+	    }
+#endif
+
 	  while ((lp = sptr->user->channel))
 	    remove_user_from_channel(sptr,lp->value.chptr);
 	  

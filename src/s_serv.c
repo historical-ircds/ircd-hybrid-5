@@ -1069,37 +1069,56 @@ int	m_info(aClient *cptr,
 #else
 #define OUT2	" ANTI_IP_SPOOF=0"
 #endif
-#ifdef ANTI_SPAMBOT
-#define OUT3	" ANTI_SPAMBOT=1"
-#else
-#define OUT3	" ANTI_SPAMBOT=0"
-#endif
-#ifdef BAN_INFO
-#define OUT4 " BAN_INFO=1"
-#else
-#define OUT4 " BAN_INFO=0"
-#endif
 	sendto_one(sptr, rpl_str(RPL_INFO),
-		me.name, parv[0], OUT1 OUT2 OUT3 OUT4 );
+		   me.name, parv[0], OUT1 OUT2 );
+
 #undef OUT1
 #undef OUT2
 #undef OUT3
 #undef OUT4
 
-#ifdef BOTCHECK
-#define OUT1 "BOTCHECK=1"
+#ifdef ANTI_SPAMBOT
+#define OUT1	"ANTI_SPAMBOT=1"
 #else
-#define OUT1 "BOTCHECK=0"
+#define OUT1	"ANTI_SPAMBOT=0"
+#endif
+#ifdef ANTI_SPAMBOT_EXTRA
+#define OUT2	" ANTI_SPAMBOT_EXTRA=1"
+#else
+#define OUT2	" ANTI_SPAMBOT_EXTRA=0"
+#endif
+#ifdef ANTI_SPAM_EXIT_MESSAGE
+#define OUT3	" ANTI_SPAM_EXIT_MESSAGE=1"
+#else
+#define OUT3	" ANTI_SPAM_EXIT_MESSAGE=0"
+#endif
+
+	sendto_one(sptr, rpl_str(RPL_INFO),
+		me.name, parv[0], OUT1 OUT2 OUT3 );
+#undef OUT1
+#undef OUT2
+#undef OUT3
+#undef OUT4
+
+#ifdef BAN_INFO
+#define OUT1 "BAN_INFO=1"
+#else
+#define OUT1 "BAN_INFO=0"
+#endif
+#ifdef BOTCHECK
+#define OUT2 " BOTCHECK=1"
+#else
+#define OUT2 " BOTCHECK=0"
 #endif
 #ifdef BOT_GCOS_WARN
-#define OUT2 " BOT_GCOS_WARN=1"
+#define OUT3 " BOT_GCOS_WARN=1"
 #else
-#define OUT2 " BOT_GCOS_WARN=0"
+#define OUT3 " BOT_GCOS_WARN=0"
 #endif
 #ifdef B_LINES_OPER_ONLY
-#define OUT3 " B_LINES_OPER_ONLY=1"
+#define OUT4 " B_LINES_OPER_ONLY=1"
 #else
-#define OUT3 " B_LINES_OPER_ONLY=0"
+#define OUT4 " B_LINES_OPER_ONLY=0"
 #endif
 	sendto_one(sptr, rpl_str(RPL_INFO),
 		me.name, parv[0], OUT1 OUT2 OUT3 );

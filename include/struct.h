@@ -534,6 +534,11 @@ struct Client
   int    oper_warn_count_down; /* warn opers of this possible spambot
 				  every time this gets to 0 */
 #endif
+#ifdef ANTI_SPAMBOT_EXTRA
+  int	channel_privmsgs; /* Count how many times client privmsgs a channel*/
+  int	person_privmsgs;  /* Count how many times client privmsgs a person */
+  struct Client *last_client_messaged; /* who was privmsg'ed last time */
+#endif
   char	buffer[BUFSIZE]; /* Incoming message buffer */
   short	lastsq;		/* # of 2k blocks when sendqueued called last*/
   dbuf	sendQ;		/* Outgoing message queue--if socket full */
