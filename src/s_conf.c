@@ -1046,7 +1046,7 @@ int	rehash(aClient *cptr,aClient *sptr,int sig)
     if ((fd = openconf(filenamebuf)) == -1)
       sendto_ops("Can't open %s file klines could be missing!",filenamebuf);
     else
-      (void)initconf(0,fd))
+      (void)initconf(0,fd);
   }
 #else
 #ifdef KLINEFILE

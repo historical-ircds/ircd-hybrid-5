@@ -12,7 +12,7 @@ static char *rcs_version = "$Id$";
 
 extern char *getpass();
 extern char *crypt();
-extern long random();
+/* extern long random(); */
 /* extern int srandom(unsigned); */
 
 int main(argc, argv)

@@ -624,22 +624,12 @@
  */
 #define NOISY_HTM YES
 
-/* LITTLE_I_LINES
- * yes, a version of ircnet's i: line
- * if you define this, you can use i: lines to give those clients
- * limited rights, i.e. they cannot be chanopped
- * No harm in leaving it defined, just be very careful not to use
- * i instead of when you mean I in your conf file
- * caveat. an I line for the same class as an i line gets overruled by
- * the i line. i.e. if you have in your conf file:
- *
- * i:NOMATCH::*@*::4
- * I:NOMATCH::*@*.foo.com::4
- *
- * users matching *.foo.com will still be restricted
- * 
+/* NO_CHANOP_WHEN_SPLIT
+ * When this is defined, users will not be chanopped on empty channels
+ * if there are no servers presently connected to this server
+ * opers are not affected. 
  */
-#define LITTLE_I_LINES
+#define NO_CHANOPS_WHEN_SPLIT
 
 /*
  * comstud and I have both noted that solaris 2.5 at least, takes a hissy

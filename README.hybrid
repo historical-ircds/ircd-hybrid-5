@@ -1,3 +1,10 @@
++hybrid-5.3 (6/13/98)
+added NO_CHANOPS_WHEN_SPLIT code back in (Rodder/Dianora)
+fixed SEPARATE_QUOTE_KLINES_BY_DATE so it compiles (Rodder)
+removed LITTLE_I_LINES from config.h for now (Rodder)
+should compile on Linux/glibc now (Rodder)
+
+
 +hybrid-5.2 (4/21/98) - The inevitable bug fix release
 -fixes
 * changed many of the defaults in config.h

@@ -604,27 +604,32 @@
  */
 #define	BUFFERPOOL     (4 * MAXSENDQLENGTH)
 
+/* IRC_UID IRC_GID - user and group id ircd should switch to if run as root
+ * If you start the server as root but wish to have it run as another user,
+ * define IRC_UID to that UID.  This should only be defined if you are running
+ * as root and even then perhaps not.
+ */
+#define IRC_UID 1001
+#define IRC_GID 31
+
+/* CLIENT_FLOOD - client excess flood threshold
+ * this controls the number of bytes the server will allow a client to
+ * send to the server without processing before disconnecting the client for
+ * flooding it.  Values greater than 8000 make no difference to the server.
+ */
+#define	CLIENT_FLOOD 2560
+
 /* NOISY_HTM - should HTM be noisy by default
  * should be YES or NO
  */
 #define NOISY_HTM YES
 
-/* LITTLE_I_LINES
- * yes, a version of ircnet's i: line
- * if you define this, you can use i: lines to give those clients
- * limited rights, i.e. they cannot be chanopped
- * No harm in leaving it defined, just be very careful not to use
- * i instead of when you mean I in your conf file
- * caveat. an I line for the same class as an i line gets overruled by
- * the i line. i.e. if you have in your conf file:
- *
- * i:NOMATCH::*@*::4
- * I:NOMATCH::*@*.foo.com::4
- *
- * users matching *.foo.com will still be restricted
- * 
+/* NO_CHANOP_WHEN_SPLIT
+ * When this is defined, users will not be chanopped on empty channels
+ * if there are no servers presently connected to this server
+ * opers are not affected. 
  */
-#define LITTLE_I_LINES
+#define NO_CHANOPS_WHEN_SPLIT
 
 /*
  * comstud and I have both noted that solaris 2.5 at least, takes a hissy
@@ -941,7 +946,7 @@
  * to make your client server very sluggish.
  * You usually shouldn't need this. -db
 */
-#undef  DEBUGMODE               /* define DEBUGMODE to enable debugging mode.*/
+#undef DEBUGMODE               /* define DEBUGMODE to enable debugging mode.*/
 
 /*
  * NOTE: On some systems, valloc() causes many problems.
