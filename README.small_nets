@@ -4,7 +4,7 @@ to cost your server memory, because it will be expecting the large numbers
 of clients on EFnet that will never happen on a smaller net.
 
   You can easily tune your hybrid to use less memory on startup
-but modifying the file "list.c" in src
+by modifying the file "list.c" in src
 
   These comments will be found in list.c
 

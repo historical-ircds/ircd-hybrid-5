@@ -613,14 +613,6 @@ static	time_t	check_pings(time_t currenttime)
 	  continue;			/* and go examine next fd/cptr */
 	}
 
-      /* I'm allowing a client who isn't registered to PONG
-       * and thusly stay connected for at least 100s.
-       * If we (being the hybrid team) don't want that
-       * then the next if should be:
-       * if (IsRegistered(cptr) && ((cptr->flags & FLAGS_PINGSENT) == 0))
-       * -Dianora
-       */
-
       if (IsRegistered(cptr) && ((cptr->flags & FLAGS_PINGSENT) == 0))
 	{
 	  /*
