@@ -23,6 +23,11 @@
   of K-line comments (Dianora)
 * added OLD_Y_LIMIT in config.h.dist to go back to old Y/I line behaviour
   (Dianora)
+* M: line passwd field now used to specify address to bind to on
+  machines with multiple interfaces.
+* P: line passwd field now used to specify address to bind to on  
+  machines with multiple interfaces.
+
 +hybrid-5 (9/26/97)
 * LOTS AND LOTS OF CHANGES IN CONFIG.H
 * reorganized source tree, eliminating common subdir

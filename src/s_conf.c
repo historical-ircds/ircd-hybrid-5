@@ -52,6 +52,9 @@ extern int rehashed;
 static	int	check_time_interval(char *);
 #endif
 
+struct sockaddr_in vserv;
+char	specific_virtual_host;
+
 /* internally defined functions */
 
 static	int	lookup_confhost (aConfItem *);
@@ -1135,6 +1138,8 @@ int 	initconf(int opt, char *conf_file)
   int	fd, i, dontadd;
   char	line[512], c[80];
   int	ccount = 0, ncount = 0;
+  u_long vaddr;
+
   aConfItem *aconf = NULL;
 
   Debug((DEBUG_DEBUG, "initconf():  = %s", conf_file));
@@ -1402,17 +1407,29 @@ int 	initconf(int opt, char *conf_file)
       ** Configuration info does not override the name and port
       ** if previously defined. Note, that "info"-field can be
       ** changed by "/rehash".
+      ** Can't change vhost mode/address either 
       */
       if (aconf->status == CONF_ME)
 	{
 	  strncpyzt(me.info, aconf->name, sizeof(me.info));
 
 	  if (me.name[0] == '\0' && aconf->host[0])
+          {
 	    strncpyzt(me.name, aconf->host,
 		      sizeof(me.name));
+	    if ((aconf->passwd[0] != '\0') && (aconf->passwd[0] != '*'))
+            {
+		bzero((char *) &vserv, sizeof(vserv));
+		vserv.sin_family = AF_INET;
+		vaddr = inet_addr(aconf->passwd);
+		bcopy((char *) &vaddr, (char *)&vserv.sin_addr, sizeof(struct in_addr));
+		specific_virtual_host = 1;
+	    }
+	  }
 
 	  if (portnum < 0 && aconf->port >= 0)
 	    portnum = aconf->port;
+
 	}
       
       if ((aconf->status & CONF_KILL) && aconf->host)

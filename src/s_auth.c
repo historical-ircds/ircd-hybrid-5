@@ -44,10 +44,6 @@ static char *rcs_version = "$Id$";
 static void authsenderr(aClient *);
 
 
-#ifdef VIRTUAL_HOST
-extern struct sockaddr_in vserv;
-#endif
-
 /*
  * start_auth
  *

@@ -97,9 +97,8 @@ static	struct	sockaddr *connect_inet (aConfItem *, aClient *, int *);
 static	int	completed_connection (aClient *);
 static	int	check_init (aClient *, char *);
 static	void	do_dns_async (void), set_sock_opts (int, aClient *);
-#ifdef VIRTUAL_HOST
 struct sockaddr_in vserv;
-#endif
+char	specific_virtual_host;
 
 #if defined(MAXBUFFERS) && !defined(SEQUENT)
 static	char	*readbuf;
@@ -219,15 +218,11 @@ void	report_error(char *text,aClient *cptr)
  * depending on the IP# mask given by 'name'.  Returns the fd of the
  * socket created or -1 on error.
  */
-int	inetport(aClient *cptr, char *name, int port)
+int	inetport(aClient *cptr, char *name, int port, u_long bind_addr)
 {
   static struct sockaddr_in server;
   int	ad[4], len = sizeof(server);
   char	ipname[20];
-#ifdef VIRTUAL_HOST
-  struct hostent *hep;
-  struct in_addr bind_addr;
-#endif
 
   ad[0] = ad[1] = ad[2] = ad[3] = 0;
 
@@ -279,27 +274,10 @@ int	inetport(aClient *cptr, char *name, int port)
       bzero((char *) &server, sizeof(server));
       server.sin_family = AF_INET;
 
-#ifdef VIRTUAL_HOST
-      bzero((char *) &vserv, sizeof(vserv));
-      vserv.sin_family = AF_INET;
-
-      hep = gethostbyname(me.name);
-      if (hep && hep->h_addrtype == AF_INET &&
-	  hep->h_addr_list[0] && !hep->h_addr_list[1])
-	{
-	  memcpy(&bind_addr, hep->h_addr_list[0],
-		 sizeof(struct in_addr));
-	  
-	  vserv.sin_addr = server.sin_addr = bind_addr;
-	}
+      if (bind_addr)
+	server.sin_addr.s_addr = bind_addr;
       else
-	{
-	  report_error("creating virtual host %s:%s", cptr);
-	  return -1;
-	}
-#else
-      server.sin_addr.s_addr = INADDR_ANY;
-#endif
+        server.sin_addr.s_addr = INADDR_ANY;
       
       server.sin_port = htons(port);
       /*
@@ -352,6 +330,7 @@ int	inetport(aClient *cptr, char *name, int port)
 int	add_listener(aConfItem *aconf)
 {
   aClient *cptr;
+  u_long vaddr;
 
   cptr = make_client(NULL);
   cptr->flags = FLAGS_LISTEN;
@@ -359,7 +338,13 @@ int	add_listener(aConfItem *aconf)
   cptr->from = cptr;
   SetMe(cptr);
   strncpyzt(cptr->name, aconf->host, sizeof(cptr->name));
-    if (inetport(cptr, aconf->host, aconf->port))
+
+  if ((aconf->passwd[0] != '\0') && (aconf->passwd[0] != '*'))
+      vaddr = inet_addr(aconf->passwd);
+  else
+      vaddr = NULL;
+
+  if (inetport(cptr, aconf->host, aconf->port, vaddr))
       cptr->fd = -2;
 
   if (cptr->fd >= 0)
@@ -2488,9 +2473,8 @@ static	struct	sockaddr *connect_inet(aConfItem *aconf,
   server.sin_family = AF_INET;
   get_sockhost(cptr, aconf->host);
 
-#ifdef VIRTUAL_HOST
-  mysk.sin_addr = vserv.sin_addr;
-#endif
+  if (specific_virtual_host == 1)
+    mysk.sin_addr = vserv.sin_addr;
 
   if (cptr->fd == -1)
     {
@@ -2506,18 +2490,19 @@ static	struct	sockaddr *connect_inet(aConfItem *aconf,
      an already bound socket, different ip# might occur anyway
      leading to a freezing select() on this side for some time.
      */
-#ifdef VIRTUAL_HOST
+  if (specific_virtual_host)
+  {
   /*
   ** No, we do bind it if we have virtual host support. If we don't
   ** explicitly bind it, it will default to IN_ADDR_ANY and we lose
   ** due to the other server not allowing our base IP --smg
   */	
-  if (bind(cptr->fd, (struct sockaddr *)&mysk, sizeof(mysk)) == -1)
-    {
-      report_error("error binding to local port for %s:%s", cptr);
-      return NULL;
-    }
-#endif
+    if (bind(cptr->fd, (struct sockaddr *)&mysk, sizeof(mysk)) == -1)
+      {
+        report_error("error binding to local port for %s:%s", cptr);
+        return NULL;
+      }
+  }
   /*
    * By this point we should know the IP# of the host listed in the
    * conf line, whether as a result of the hostname lookup or the ip#
@@ -2625,11 +2610,12 @@ int	setup_ping()
   int	on = 1;
 
   bzero((char *)&from, sizeof(from));
-#ifdef VIRTUAL_HOST
-  from.sin_addr = vserv.sin_addr;
-#else
-  from.sin_addr.s_addr = htonl(INADDR_ANY);
-#endif
+
+  if (specific_virtual_host)
+    from.sin_addr = vserv.sin_addr;
+  else
+    from.sin_addr.s_addr = htonl(INADDR_ANY);
+
   from.sin_port = htons(me.port);
   from.sin_family = AF_INET;
 
