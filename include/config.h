@@ -363,8 +363,8 @@
 #define F_LINES_OPER_ONLY
 
 /* STATS_NOTICE - See a notice when a user does a /stats
- * its always defined now
  */
+#define STATS_NOTICE
 
 /* LINKS_NOTICE - See a notice when a user does a /links
  * its always defined now
@@ -377,7 +377,7 @@
  */
 #define LINK_WAIT 10
 
-/* MOTD_MOTD - minimum seconds between use of MOTD
+/* MOTD_WAIT - minimum seconds between use of MOTD
  * Allow a motd request only every MOTD_WAIT seconds to
  * discourage motd flooders
  * -Dianora
@@ -616,15 +616,15 @@
  * define IRC_UID to that UID.  This should only be defined if you are running
  * as root and even then perhaps not.
  */
-#define IRC_UID 1001
-#define IRC_GID 31
+#define	IRC_UID 1001
+#define	IRC_GID 31
 
 /* CLIENT_FLOOD - client excess flood threshold
  * this controls the number of bytes the server will allow a client to
  * send to the server without processing before disconnecting the client for
  * flooding it.  Values greater than 8000 make no difference to the server.
  */
-#define	CLIENT_FLOOD 2560
+#define	CLIENT_FLOOD	2560
 
 /* NOISY_HTM - should HTM be noisy by default
  * should be YES or NO
@@ -948,12 +948,11 @@
  */
 #undef CHROOTDIR
 
- /*
- * DEBUGMODE is used mostly for internal development, it is likely
+/* DEBUGMODE is used mostly for internal development, it is likely
  * to make your client server very sluggish.
  * You usually shouldn't need this. -db
 */
-#undef DEBUGMODE               /* define DEBUGMODE to enable debugging mode.*/
+#undef  DEBUGMODE               /* define DEBUGMODE to enable debugging mode.*/
 
 /*
  * NOTE: On some systems, valloc() causes many problems.

@@ -377,6 +377,13 @@
  */
 #define LINK_WAIT 10
 
+/* MOTD_WAIT - minimum seconds between use of MOTD
+ * Allow a motd request only every MOTD_WAIT seconds to
+ * discourage motd flooders
+ * -Dianora
+ */
+#define MOTD_WAIT 10
+
 /* EXTRA_BOT_NOTICES - Have the server send extra bot notices?
  */
 #define EXTRA_BOT_NOTICES
@@ -941,9 +948,10 @@
  */
 #undef CHROOTDIR
 
-/* DEBUGMODE is a bad bad bad evil thing that probably won't even compile
- * on this release.  Don't define it!
- */
+/* DEBUGMODE is used mostly for internal development, it is likely
+ * to make your client server very sluggish.
+ * You usually shouldn't need this. -db
+*/
 #undef  DEBUGMODE               /* define DEBUGMODE to enable debugging mode.*/
 
 /*
