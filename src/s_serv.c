@@ -3176,6 +3176,8 @@ int m_unkline (aClient *cptr,aClient *sptr,int parc,char *parv[])
   int   nread;
   int   error_on_write = NO;
   aConfItem *aconf;
+  struct stat oldfilestat;
+  mode_t oldumask;
 
   ircsprintf(temppath, "%s.tmp", klinefile);
   
@@ -3273,8 +3275,11 @@ int m_unkline (aClient *cptr,aClient *sptr,int parc,char *parv[])
 #endif
       return 0;
     }
+  if(fstat(in, &oldfilestat) < 0)	/* Save the old file mode */
+    oldfilestat.st_mode = 0644;
 
-  if( (out = open(temppath, O_WRONLY|O_CREAT, 0666)) == -1)
+  oldumask = umask(0);			/* ircd is normally too paranoid */
+  if( (out = open(temppath, O_WRONLY|O_CREAT, oldfilestat.st_mode)) == -1)
     {
       sendto_one(sptr, ":%s NOTICE %s :Cannot open %s",
         me.name,parv[0],temppath);
@@ -3282,8 +3287,10 @@ int m_unkline (aClient *cptr,aClient *sptr,int parc,char *parv[])
 #if defined (LOCKFILE) && !defined(SEPARATE_QUOTE_KLINES_BY_DATE)
       (void)unlink(LOCKFILE);
 #endif
+      umask(oldumask);			/* Restore the old umask */
       return 0;
     }
+    umask(oldumask);			/* Restore the old umask */
 
 /*
 #Dianora!db@ts2-11.ottawa.net K'd: foo@bar:No reason
@@ -3451,9 +3458,6 @@ Then just ignore the line
     }
 
   (void)close(in);
-
-  (void)fchmod(out, 0660);	/* default it to rw-rw---- for now */
-
 
 /* The result of the rename should be checked too... oh well */
 /* If there was an error on a write above, then its been reported
