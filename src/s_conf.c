@@ -930,6 +930,7 @@ int	rehash(aClient *cptr,aClient *sptr,int sig)
   Reg	aClient	*acptr;
   Reg	int	i;
   int	ret = 0;
+  int   fd;
 
   if (sig == SIGHUP)
     {
@@ -939,6 +940,12 @@ int	rehash(aClient *cptr,aClient *sptr,int sig)
 	exit(0);
       write_pidfile();
 #endif
+    }
+
+  if ((fd = openconf(configfile)) == -1)
+    {
+      sendto_ops("Can't open %s file aborting rehash!",configfile);
+      return -1;
     }
 
   /* Shadowfax's LOCKFILE code */
@@ -1026,7 +1033,7 @@ int	rehash(aClient *cptr,aClient *sptr,int sig)
   clear_conf_list(&FList2);
   clear_conf_list(&FList3);
 
-  (void) initconf(0,configfile);
+  (void) initconf(0,fd);
 #ifdef SEPARATE_QUOTE_KLINES_BY_DATE
   {
     char timebuffer[20];
@@ -1035,18 +1042,18 @@ int	rehash(aClient *cptr,aClient *sptr,int sig)
     tmptr = localtime(&NOW);
     (void)strftime(timebuffer, 20, "%y%m%d", tmptr);
     ircsprintf(filenamebuf, "%s.%s", klinefile, timebuffer);
-    if(initconf(0,filenamebuf))
-      {
-	sendto_ops("There was a problem opening %s",filenamebuf);
-      }
+
+    if ((fd = openconf(filenamebuf)) == -1)
+      sendto_ops("Can't open %s file klines could be missing!",filenamebuf);
     else
-      {
-	sendto_ops("loaded K-lines from %s", filenamebuf);
-      }
+      (void)initconf(0,fd))
   }
 #else
 #ifdef KLINEFILE
-  (void) initconf(0,klinefile);
+  if ((fd = openconf(klinefile)) == -1)
+    sendto_ops("Can't open %s file klines could be missing!",klinefile);
+  else
+    (void) initconf(0,fd);
 #endif
 #endif
   close_listeners();
@@ -1072,7 +1079,7 @@ int	rehash(aClient *cptr,aClient *sptr,int sig)
  * openconf
  *
  * returns -1 on any error or else the fd opened from which to read the
- * configuration file from.  This may either be th4 file direct or one end
+ * configuration file from.  This may either be the file direct or one end
  * of a pipe from m4.
  */
 int	openconf(char *filename)
@@ -1121,7 +1128,7 @@ extern char *getfield();
 **
 *
 * Inputs 	- opt 
-* 		- name of config file to use
+* 		- file descriptor pointing to config file to use
 *
 **    returns -1, if file cannot be opened
 **             0, if file opened
@@ -1129,27 +1136,19 @@ extern char *getfield();
 
 #define MAXCONFLINKS 150
 
-int 	initconf(int opt, char *conf_file)
+int 	initconf(int opt, int fd)
 {
   static	char	quotes[9][2] = {{'b', '\b'}, {'f', '\f'}, {'n', '\n'},
 					{'r', '\r'}, {'t', '\t'}, {'v', '\v'},
 					{'\\', '\\'}, { 0, 0}};
   Reg	char	*tmp, *s;
-  int	fd, i, dontadd;
+  int	i, dontadd;
   char	line[512], c[80];
   int	ccount = 0, ncount = 0;
   u_long vaddr;
 
   aConfItem *aconf = NULL;
 
-  Debug((DEBUG_DEBUG, "initconf():  = %s", conf_file));
-  if ((fd = openconf(conf_file)) == -1)
-    {
-#ifdef	M4_PREPROC
-      (void)wait(0);
-#endif
-      return -1;
-    }
   (void)dgets(-1, NULL, 0); /* make sure buffer is at empty pos */
   while ((i = dgets(fd, line, sizeof(line) - 1)) > 0)
     {

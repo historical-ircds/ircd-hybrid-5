@@ -132,7 +132,7 @@ extern  void    add_gline(aConfItem *);
 
 extern	int	find_restrict (aClient *);
 extern	int	rehash (aClient *, aClient *, int);
-extern	int	initconf (int,char *);
+extern	int	initconf (int, int);
 
 extern  void    clear_scache_hash_table(void);
 extern  char    *find_or_add(char *);

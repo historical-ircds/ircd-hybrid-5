@@ -67,14 +67,7 @@ static char *rcs_version = "$Id$";
 #include "sock.h"*/	/* If FD_ZERO isn't define up to this point,  */
 			/* define it (BSD4.2 needs this) */
 #include "h.h"
-#include "fdlist.h"
-extern fdlist serv_fdlist;
 
-#ifndef NO_PRIORITY
-extern fdlist busycli_fdlist;
-#endif
-
-extern fdlist default_fdlist;
 #ifndef IN_LOOPBACKNET
 #define IN_LOOPBACKNET	0x7f
 #endif
@@ -927,7 +920,6 @@ void	close_connection(aClient *cptr)
 {
   Reg	aConfItem *aconf;
   Reg	int	i,j;
-  int	empty = cptr->fd;
 
   if (IsServer(cptr))
     {
@@ -1026,49 +1018,6 @@ void	close_connection(aClient *cptr)
   det_confs_butmask(cptr, 0);
   cptr->from = NULL; /* ...this should catch them! >:) --msa */
 
-  /*
-   * fd remap to keep local[i] filled at the bottom.
-   */
-  if (empty > 0)
-    /*
-     * We don't dup listening fds (IsMe())... - CS
-     */
-    if ((j = highest_fd) > (i = empty) &&
-	!IsLog(local[j]) && !IsMe(local[j]))
-      {
-	if (dup2(j,i) == -1)
-	  return;
-	local[i] = local[j];
-	local[i]->fd = i;
-	local[j] = NULL;
-	/* update server list */
-	if (IsServer(local[i])) {
-
-#ifndef NO_PRIORITY
-	  delfrom_fdlist(j,&busycli_fdlist);
-#endif
-	  delfrom_fdlist(j,&serv_fdlist);
-#ifndef NO_PRIORITY
-	  addto_fdlist(i,&busycli_fdlist);
-#endif
-	  addto_fdlist(i,&serv_fdlist);
-	}
-	/* update oper list */
-	if (IsAnOper(local[i]))
-	  {
-#ifndef NO_PRIORITY
- 	    delfrom_fdlist(j, &busycli_fdlist);
-#endif
-	    delfrom_fdlist(j, &oper_fdlist);
-#ifndef NO_PRIORITY
- 	    addto_fdlist(i, &busycli_fdlist);
-#endif
-	    addto_fdlist(i, &oper_fdlist);
-	  }
-	(void)close(j);
-	while (!local[highest_fd])
-	  highest_fd--;
-      }
   return;
 }
 #ifdef MAXBUFFERS

@@ -705,6 +705,7 @@ int	main(int argc, char *argv[])
   int	portarg = 0;
   uid_t	uid, euid;
   time_t	delay = 0;
+  int fd;
 
   timeofday = time(NULL);
 
@@ -922,7 +923,6 @@ normal user.\n");
   helpfile = (aMotd *)NULL;
   motd_tm = NULL;
 
-
   read_motd(MOTD);
   read_help(HELPFILE);
 
@@ -974,7 +974,7 @@ normal user.\n");
 #define SYSLOG_ME     "ircd"
   openlog(SYSLOG_ME, LOG_PID|LOG_NDELAY, LOG_FACILITY);
 #endif
-  if (initconf(bootopt,configfile) == -1)
+  if ((fd = openconf(configfile)) == -1)
     {
       Debug((DEBUG_FATAL, "Failed in reading configuration file %s",
 	     configfile));
@@ -982,6 +982,8 @@ normal user.\n");
 		   configfile);
       exit(-1);
     }
+  (void)initconf(bootopt,fd);
+
 /* comstuds SEPARATE_QUOTE_KLINES_BY_DATE code */
 #ifdef SEPARATE_QUOTE_KLINES_BY_DATE
   {
@@ -991,23 +993,25 @@ normal user.\n");
     tmptr = localtime(&NOW);
     (void)strftime(timebuffer, 20, "%y%m%d", tmptr);
     ircsprintf(filename, "%s.%s", klinefile, timebuffer);
-    if(initconf(0,filename) == -1)
+    if ((fd = openconf(filename)) == -1)
       {
 	Debug((DEBUG_ERROR,"Failed reading kline file %s",
 	       filename));
 	(void)printf("Couldn't open kline file %s\n",
 		     filename);
       }
+    (void)initconf(0,fd);
   }
 #else
 #ifdef KPATH
-  if (initconf(bootopt,klinefile) == -1)
+  if ((fd = openconf(klinefile)) == -1)
     {
       Debug((DEBUG_ERROR,"Failed reading kline file %s",
 	     klinefile));
       (void)printf("Couldn't open kline file %s\n",
 		   klinefile);
     }
+  (void)initconf(0,fd);
 #endif
 #endif
   if (!(bootopt & BOOT_INETD))

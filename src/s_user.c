@@ -244,6 +244,7 @@ int	hunt_server(aClient *cptr,
 		    char *parv[])
 {
   aClient *acptr;
+  int wilds;
 
   /*
   ** Assume it's me, if no server
@@ -263,21 +264,47 @@ int	hunt_server(aClient *cptr,
   if (!acptr && (acptr = find_server(parv[server], NULL)))
     if (acptr->from == sptr->from && !MyConnect(acptr))
       acptr = NULL;
+
+  (void)collapse(parv[server]);
+  wilds = (index(parv[server], '?') || index(parv[server], '*'));
+
+  /*
+   * Again, if there are no wild cards involved in the server
+   * name, use the hash lookup
+   * - Dianora
+   */
+
   if (!acptr)
-    for (acptr = client, (void)collapse(parv[server]);
-	 (acptr = next_client(acptr, parv[server]));
-	 acptr = acptr->next)
-      {
-	if (acptr->from == sptr->from && !MyConnect(acptr))
-	  continue;
-	/*
-	 * Fix to prevent looping in case the parameter for
-	 * some reason happens to match someone from the from
-	 * link --jto
-	 */
-	if (IsRegistered(acptr) && (acptr != cptr))
-	  break;
-      }
+    {
+      if(!wilds)
+	{
+	  acptr = find_name(parv[server],(aClient *)NULL);
+	  if( !IsRegistered(acptr) || !IsServer(acptr) )
+	    {
+	      sendto_one(sptr, err_str(ERR_NOSUCHSERVER), me.name,
+			 parv[0], parv[server]);
+	      return(HUNTED_NOSUCH);
+	    }
+	}
+      else
+	{
+	  for (acptr = client;
+	       (acptr = next_client(acptr, parv[server]));
+	       acptr = acptr->next)
+	    {
+	      if (acptr->from == sptr->from && !MyConnect(acptr))
+		continue;
+	      /*
+	       * Fix to prevent looping in case the parameter for
+	       * some reason happens to match someone from the from
+	       * link --jto
+	       */
+	      if (IsRegistered(acptr) && (acptr != cptr))
+		break;
+	    }
+	}
+    }
+
   if (acptr)
     {
       if (IsMe(acptr) || MyClient(acptr))
@@ -2084,8 +2111,9 @@ int	m_whois(aClient *cptr,
 	continue;
 
       /* If the nick doesn't have any wild cards in it,
-	 then just pick it up from the hash table
-	 - Dianora */
+       * then just pick it up from the hash table
+       * - Dianora 
+       */
 
       if(!wilds)
 	{
