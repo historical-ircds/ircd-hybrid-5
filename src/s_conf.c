@@ -1648,7 +1648,7 @@ int 	initconf(int opt, int fd)
 	      /* defaults */
 	      aconf->port = 
 		CONF_OPER_GLOBAL_KILL|CONF_OPER_REMOTE|CONF_OPER_UNKLINE|
-		CONF_OPER_GLINE;
+		CONF_OPER_K|CONF_OPER_GLINE;
 	      if ((tmp = getfield(NULL)) == NULL)
 		break;
 	      aconf->port = get_oper_privs(aconf->port,tmp);
@@ -1656,7 +1656,7 @@ int 	initconf(int opt, int fd)
 	  else if(aconf->status & CONF_LOCOP)
 	    {
 	      Debug((DEBUG_DEBUG,"Setting defaults for local oper"));
-	      aconf->port = CONF_OPER_UNKLINE;
+	      aconf->port = CONF_OPER_UNKLINE|CONF_OPER_K;
 	      if ((tmp = getfield(NULL)) == NULL)
 		break;
 	      aconf->port = get_oper_privs(aconf->port,tmp);
@@ -3485,6 +3485,14 @@ int get_oper_privs(int int_privs,char *privs)
 	int_privs &= ~CONF_OPER_REMOTE;	/* squit/connect etc. */
       else if(*privs == 'N')
 	int_privs |= CONF_OPER_N;
+      else if(*privs == 'n')
+	int_privs &= ~CONF_OPER_N;
+      else if(*privs == 'K')		/* kill and kline privs, 
+					 * for monitor bots
+					 */
+	int_privs |= CONF_OPER_K;
+      else if(*privs == 'k')
+	int_privs &= ~CONF_OPER_K;
 #ifdef GLINES
       else if(*privs == 'G')
 	int_privs |= CONF_OPER_GLINE;
@@ -3516,6 +3524,37 @@ char *oper_privs(aClient *cptr,int port)
   privs_ptr = privs_out;
   *privs_ptr = '\0';
 
+  if(port & CONF_OPER_GLINE)
+    {
+      if(cptr)
+	SetOperGline(cptr);
+      *privs_ptr++ = 'G';
+    }
+  else
+    *privs_ptr++ = 'g';
+
+  if(port & CONF_OPER_K)
+    {
+      if(cptr)
+	SetOperK(cptr);
+
+  /* Lets simply just not report it
+   * as every oper will have default of 'K'
+   * but monitor bots might only have 'k'
+   */
+  /*      *privs_ptr++ = 'K'; */
+
+    }
+  else
+    *privs_ptr++ = 'k';
+
+  if(port & CONF_OPER_N)
+    {
+      if(cptr)
+	SetOperN(cptr);
+      *privs_ptr++ = 'N';
+    }
+
   if(port & CONF_OPER_GLOBAL_KILL)
     {
       if(cptr)
@@ -3542,22 +3581,6 @@ char *oper_privs(aClient *cptr,int port)
     }
   else
     *privs_ptr++ = 'u';
-
-  if(port & CONF_OPER_GLINE)
-    {
-      if(cptr)
-	SetOperGline(cptr);
-      *privs_ptr++ = 'G';
-    }
-  else
-    *privs_ptr++ = 'g';
-
-  if(port & CONF_OPER_N)
-    {
-      if(cptr)
-	SetOperN(cptr);
-      *privs_ptr++ = 'N';
-    }
 
   *privs_ptr = '\0';
 

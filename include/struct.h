@@ -302,6 +302,8 @@ typedef struct	MotdItem aMotd;
 #define IsSetOperGline(x)	((x)->flags2 & FLAGS2_OPER_GLINE)
 #define SetOperN(x)		((x)->flags2 |= FLAGS2_OPER_N)
 #define IsSetOperN(x)		((x)->flags2 & FLAGS2_OPER_N)
+#define SetOperK(x)		((x)->flags2 |= FLAGS2_OPER_K)
+#define IsSetOperK(x)		((x)->flags2 & FLAGS2_OPER_K)
 
 /*
  * defined debugging levels

@@ -555,9 +555,9 @@ char	*comment	/* Reason for the exit */
 	      {
 		if (logfile == -1)
 		  {
-		    (void)alarm(3);
+		    /*		    (void)alarm(3); */
 		    logfile = open(FNAME_USERLOG, O_WRONLY|O_APPEND);
-		    (void)alarm(0);
+		    /* (void)alarm(0); */
 		  }
 		(void)ircsprintf(linebuf,
 				 "%s (%3d:%02d:%02d): %s!%s@%s %d/%d\n",
@@ -568,9 +568,9 @@ char	*comment	/* Reason for the exit */
 				 sptr->user->host,
 				 sptr->sendK,
 				 sptr->receiveK);
-		(void)alarm(3);
+		/*		(void)alarm(3); */
 		(void)write(logfile, linebuf, strlen(linebuf));
-		(void)alarm(0);
+		/*		(void)alarm(0); */
 		/*
 		 * Resync the file evey 10 seconds
 		 */
@@ -578,7 +578,7 @@ char	*comment	/* Reason for the exit */
 		  {
 		    (void)alarm(3);
 		    (void)close(logfile);
-		    (void)alarm(0);
+		    /*		    (void)alarm(0); */
 		    logfile = -1;
 		    lasttime = timeofday;
 		  }
@@ -736,15 +736,14 @@ static	void	exit_one_client(aClient *cptr,
 	  sendto_serv_butone(cptr,":%s QUIT :%s",
 			     sptr->name, comment);
 	}
-      if (sptr->user)
-	{
       /*
       ** If a person is on a channel, send a QUIT notice
       ** to every client (person) on the same channel (so
       ** that the client can show the "**signoff" message).
       ** (Note: The notice is to the local clients *only*)
       */
-
+      if (sptr->user)
+	{
 	  sendto_common_channels(sptr, ":%s QUIT :%s",
 				   sptr->name, comment);
 

@@ -1055,8 +1055,12 @@ error CLIENT_FLOOD undefined.
 #  define LOGFILE "/dev/null"
 #endif
 
+/* If using ANTI_SPAMBOT_EXTRA =must= also use ANTI_SPAMBOT */
+#ifdef ANTI_SPAMBOT_EXTRA
+#define ANTI_SPAMBOT
+#endif
 
-/* experimental LINKLIST */
+/* experimental LINKLIST. works fine */
 
 #define DEBUG_LINKLIST
 #define USE_LINKLIST

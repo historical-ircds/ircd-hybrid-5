@@ -329,7 +329,7 @@ int	m_squit(aClient *cptr,
       return 0;
     }
 
-  if (MyConnect(sptr) && !IsOperRemote(sptr) && !MyConnect(acptr))
+  if (IsOper(sptr) && !IsOperRemote(sptr) && !MyConnect(acptr))
     {
       sendto_one(sptr,":%s NOTICE %s :You have no R flag",me.name,parv[0]);
       return 0;
@@ -3703,7 +3703,13 @@ int     m_kline(aClient *cptr,
       return 0;
     }
 #endif
-  
+
+  if(!IsSetOperK(sptr))
+    {
+      sendto_one(sptr,":%s NOTICE %s :You have no K flag",me.name,parv[0]);
+      return 0;
+    }
+
   if ( parc < 2 )
     {
       sendto_one(sptr, err_str(ERR_NEEDMOREPARAMS),
@@ -4703,11 +4709,16 @@ int     m_dline(aClient *cptr,
       return 0;
     }
 
+  if(!IsSetOperK(sptr))
+    {
+      sendto_one(sptr,":%s NOTICE %s :You have no K flag",me.name,parv[0]);
+      return 0;
+    }
+
   if ( parc < 2 )
     {
-      if (MyClient(sptr))
-	  sendto_one(sptr, err_str(ERR_NEEDMOREPARAMS),
-		     me.name, parv[0], "KLINE");
+      sendto_one(sptr, err_str(ERR_NEEDMOREPARAMS),
+		 me.name, parv[0], "KLINE");
       return 0;
     }
 
