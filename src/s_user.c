@@ -3469,13 +3469,14 @@ int	m_umode(aClient *cptr,
               if(sptr == cur_cptr) 
                 {
                   if(prev_cptr)
-                    prev_cptr = cur_cptr->next_oper_client;
+                    prev_cptr->next_oper_client = cur_cptr->next_oper_client;
                   else
                     oper_cptr_list = cur_cptr->next_oper_client;
                   cur_cptr->next_oper_client = (aClient *)NULL;
                   break;
                 }
-              prev_cptr = cur_cptr;
+	      else
+		prev_cptr = cur_cptr;
               cur_cptr = cur_cptr->next_oper_client;
             }
 #endif
@@ -3568,11 +3569,14 @@ void	send_umode_out(aClient *cptr,
   send_umode(NULL, sptr, old, SEND_UMODES, buf);
 
 #ifdef USE_LINKLIST
-
   for(acptr = serv_cptr_list; acptr; acptr = acptr->next_server_client)
-    if((acptr != cptr) && (acptr != sptr) && (*buf))
-     sendto_one(acptr, ":%s MODE %s :%s",
-		sptr->name, sptr->name, buf);
+    {
+      if((acptr != cptr) && (acptr != sptr) && (*buf))
+	{
+	  sendto_one(acptr, ":%s MODE %s :%s",
+		   sptr->name, sptr->name, buf);
+	}
+    }
 #else
   /*
    * Cycling through serv_fdlist here should be MUCH faster than

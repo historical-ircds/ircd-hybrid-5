@@ -410,13 +410,14 @@ char	*comment	/* Reason for the exit */
                 if(sptr == cur_cptr)
                   {
                     if(prev_cptr)
-                      prev_cptr = cur_cptr->next_oper_client;
+                      prev_cptr->next_oper_client = cur_cptr->next_oper_client;
                     else
                       oper_cptr_list = cur_cptr->next_oper_client;
 		    cur_cptr->next_oper_client = (aClient *)NULL;
                     break;
                   }
-                prev_cptr = cur_cptr;
+		else
+		  prev_cptr = cur_cptr;
                 cur_cptr = cur_cptr->next_oper_client;
               }
           }
@@ -438,13 +439,15 @@ char	*comment	/* Reason for the exit */
                   if(sptr == cur_cptr)
                     {
                       if(prev_cptr)
-                        prev_cptr = cur_cptr->next_local_client;
+                        prev_cptr->next_local_client = 
+			  cur_cptr->next_local_client;
                       else
                         local_cptr_list = cur_cptr->next_local_client;
                       cur_cptr->next_local_client = (aClient *)NULL;
-                      break;
+		      break;
                     }
-                  prev_cptr = cur_cptr;
+		  else
+		    prev_cptr = cur_cptr;
                   cur_cptr = cur_cptr->next_local_client;
                 }
             }
@@ -467,15 +470,17 @@ char	*comment	/* Reason for the exit */
                 if(sptr == cur_cptr)
                   {
                     if(prev_cptr)
-                      prev_cptr = cur_cptr->next_server_client;
+                      prev_cptr->next_server_client =
+			cur_cptr->next_server_client;
                     else
                       serv_cptr_list = cur_cptr->next_server_client;
                     cur_cptr->next_server_client = (aClient *)NULL;
                     break;
                   }
-                prev_cptr = cur_cptr;
+		else
+		  prev_cptr = cur_cptr;
                 cur_cptr = cur_cptr->next_server_client;
-              }
+	      }
           }
 #endif
 

@@ -1185,13 +1185,8 @@ int	m_info(aClient *cptr,
 #else
 #define OUT2 " FLUD=0"
 #endif
-#ifdef SHORT_MOTD
-#define OUT3 " SHORT_MOTD=1"
-#else
-#define OUT3 " SHORT_MOTD=0"
-#endif
 	sendto_one(sptr, rpl_str(RPL_INFO),
-		me.name, parv[0], OUT1 OUT2 OUT3 );
+		me.name, parv[0], OUT1 OUT2 );
 
 #undef OUT1
 #undef OUT2
@@ -1272,23 +1267,28 @@ int	m_info(aClient *cptr,
 #undef OUT3
 #undef OUT4
 
-#ifdef LITTLE_I_LINES
-#define OUT1 "LITTLE_I_LINES=1"
+#ifdef LIMIT_UH
+#define OUT1 "LIMIT_UH=1"
 #else
-#define OUT1 "LITTLE_I_LINES=0"
+#define OUT1 "LIMIT_UH=0"
+#endif
+#ifdef LITTLE_I_LINES
+#define OUT2 " LITTLE_I_LINES=1"
+#else
+#define OUT2 " LITTLE_I_LINES=0"
 #endif
 #ifdef LOCKFILE
-#define OUT2 " LOCKFILE=1"
+#define OUT3 " LOCKFILE=1"
 #else
-#define OUT2 " LOCKFILE=0"
+#define OUT3 " LOCKFILE=0"
 #endif
 #ifdef MAXBUFFERS
-#define OUT3 " MAXBUFFERS=1"
+#define OUT4 " MAXBUFFERS=1"
 #else
-#define OUT3 " MAXBUFFERS=0"
+#define OUT4 " MAXBUFFERS=0"
 #endif
 	sendto_one(sptr, rpl_str(RPL_INFO),
-		me.name, parv[0], OUT1 OUT2 OUT3 );
+		me.name, parv[0], OUT1 OUT2 OUT3 OUT4 );
 
 #undef OUT1
 #undef OUT2

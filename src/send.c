@@ -273,6 +273,8 @@ va_dcl
 
   int len; /* used for the length of the current message */
 
+  Debug((DEBUG_DEBUG,"sendto_one to = %X", to));
+
 #ifdef	USE_VARARGS
   va_start(vl);
   (void)vsprintf(sendbuf, pattern, vl);
@@ -408,7 +410,7 @@ va_dcl
 
   for(cptr = serv_cptr_list; cptr; cptr = cptr->next_server_client)
     {
-      if ((one && cptr == one->from))
+      if ((one && cptr == one->from)) 
 	continue;
       sendto_one(cptr, pattern, p1, p2, p3, p4, p5, p6, p7, p8);
     }
@@ -640,6 +642,9 @@ va_dcl
   va_start(vl);
 #endif
 
+  Debug((DEBUG_DEBUG,
+	 "sendto_match_servs()"));
+
   if (chptr)
     {
       if (*chptr->chname == '&')
@@ -765,18 +770,33 @@ va_dcl
   register	int	i;
   register	aClient *cptr;
 
+  Debug((DEBUG_DEBUG,
+	 "sendto_all_butone() one = %X",one));
+
+
 #ifdef	USE_VARARGS
   for (va_start(vl), i = 0; i <= highest_fd; i++)
     if ((cptr = local[i]) && !IsMe(cptr) && one != cptr)
       sendto_prefix_one(cptr, from, pattern, vl);
   va_end(vl);
 #else
-  for (i = 0; i <= highest_fd; i++)
-    if ((cptr = local[i]) && !IsMe(cptr) && one != cptr)
+#ifdef USE_LINKLIST
+  for (cptr = local_cptr_list; cptr; cptr = cptr->next_local_client)
+    {
+      if (!IsMe(cptr) && one != cptr)
       sendto_prefix_one(cptr, from, pattern,
 			p1, p2, p3, p4, p5, p6, p7, p8);
-#endif
+    }
+#else /* USE_LINKLIST */
+  for (i = 0; i <= highest_fd; i++)
+    {
+      if ((cptr = local[i]) && !IsMe(cptr) && one != cptr)
 
+      sendto_prefix_one(cptr, from, pattern,
+			p1, p2, p3, p4, p5, p6, p7, p8);
+    }
+#endif /* USE_LINKLIST */
+#endif /* USE_VARARGS */
   return;
 }
 
@@ -814,7 +834,6 @@ va_dcl
 #endif
 #ifdef USE_LINKLIST
   for(cptr = local_cptr_list; cptr; cptr = cptr->next_local_client)
-    if(!IsMe(cptr))
 #else
   for (i = 0; i <= highest_fd; i++)
     if ((cptr = local[i]) && !IsServer(cptr) && !IsMe(cptr))
@@ -895,7 +914,7 @@ va_dcl
 #endif
 #ifdef USE_LINKLIST
   for(cptr = oper_cptr_list; cptr; cptr = cptr->next_oper_client)
-    if(!IsMe(cptr) && SendServNotice(cptr))
+    if(SendServNotice(cptr))
 #else
   for (i = 0; i <= highest_fd; i++)
     if ((cptr = local[i]) && !IsServer(cptr) && !IsMe(cptr) &&
@@ -952,6 +971,7 @@ va_dcl
    continue;
 */
       i = cptr->from->fd;	/* find connection oper is on */
+
       if (sentalong[i])	/* sent message along it already ? */
 	continue;
       if (cptr->from == one)

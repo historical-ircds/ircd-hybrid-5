@@ -505,27 +505,23 @@ void remove_one_ip(unsigned long ip_in)
             ptr->count--;
 #ifdef LIMIT_UH
 
-	      /* remove the corresponding pointer to this cptr as well */
-	  cur_link = prev_link = ptr->ptr_clients_on_this_ip;
+	  /* remove the corresponding pointer to this cptr as well */
+	  prev_link = (Link *)NULL;
+	  cur_link = ptr->ptr_clients_on_this_ip;
 
 	  while(cur_link)
 	    {
 	      if(cur_link->value.cptr == cptr)
 		{
-		  if(prev_link == cur_link)
-		    {
-		      ptr->ptr_clients_on_this_ip = cur_link->next;
-		      free_link(cur_link);
-		      break;
-		    }
+		  if(prev_link)
+		    prev_link->next = cur_link->next;
 		  else
-		    {
-		      prev_link->next = cur_link->next;
-		      free_link(cur_link);
-		      break;
-		    }
+		    ptr->ptr_clients_on_this_ip = cur_link->next;
+		  free_link(cur_link);
+		  break;
 		}
-	      prev_link = cur_link;
+	      else
+		prev_link = cur_link;
 	      cur_link = cur_link->next;
 	    }
 #endif
