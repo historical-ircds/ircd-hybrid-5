@@ -88,9 +88,6 @@ char	serveropts[] = {
 #ifdef	OPER_REMOTE
 't',
 #endif
-#ifdef	IRCII_KLUDGE
-'u',
-#endif
 #ifdef	VALLOC
 'V',
 #endif

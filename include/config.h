@@ -604,27 +604,6 @@
  */
 #define	BUFFERPOOL     (4 * MAXSENDQLENGTH)
 
-/* IRC_UID IRC_GID - user and group id ircd should switch to if run as root
- * If you start the server as root but wish to have it run as another user,
- * define IRC_UID to that UID.  This should only be defined if you are running
- * as root and even then perhaps not.
- */
-#define	IRC_UID 1001
-#define	IRC_GID 31
-
-/* CLIENT_FLOOD - client excess flood threshold
- * this controls the number of bytes the server will allow a client to
- * send to the server without processing before disconnecting the client for
- * flooding it.  Values greater than 8000 make no difference to the server.
- */
-#define	CLIENT_FLOOD	2560
-
-/* IRCII_KLUDGE - leave it defined
- * Define this if you want the server to accomplish ircII standard
- * Sends an extra NOTICE in the beginning of client connection
- */
-#define	IRCII_KLUDGE
-
 /* NOISY_HTM - should HTM be noisy by default
  * should be YES or NO
  */

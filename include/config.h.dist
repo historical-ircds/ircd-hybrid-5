@@ -619,12 +619,6 @@
  */
 #define	CLIENT_FLOOD	2560
 
-/* IRCII_KLUDGE - leave it defined
- * Define this if you want the server to accomplish ircII standard
- * Sends an extra NOTICE in the beginning of client connection
- */
-#define	IRCII_KLUDGE
-
 /* NOISY_HTM - should HTM be noisy by default
  * should be YES or NO
  */

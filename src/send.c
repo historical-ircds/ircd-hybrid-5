@@ -34,11 +34,7 @@ static char *rcs_version = "$Id$";
 
 void sendto_fdlist();
 
-#ifdef	IRCII_KLUDGE
 #define	NEWLINE	"\n"
-#else
-#define NEWLINE	"\r\n"
-#endif
 
 static	char	sendbuf[2048];
 static	int	send_message (aClient *, char *, int);
@@ -297,9 +293,6 @@ va_dcl
 
 #ifdef USE_VARARGS
   (void)strcat(sendbuf, NEWLINE);
-#ifndef	IRCII_KLUDGE
-  sendbuf[510] = '\r';
-#endif
   sendbuf[511] = '\n';
   sendbuf[512] = '\0';
   len = strlen(sendbuf);
@@ -1162,17 +1155,29 @@ register char f;
        {
          register int myint,quotient;
          myint = (int)rp;
-         if (myint > 999 || myint < 0) goto barf;
-         if( (quotient=myint/100) ) {
-           *(wp++) = (char) (quotient + (int) '0');
-           myint %=100;
-           *(wp++) = (char) (myint/10 + (int) '0');
-         }
-         else {
-           myint %=100;
-           if( (quotient = myint/10) )
-             *(wp++) = (char) (quotient + (int)'0');
-         }
+         if (myint > 999 || myint < 0)
+	   {
+	     /* don't call ircsprintf here... that's stupid.. */
+	     (void)sprintf(outp,formp,in0p,in1p,in2p,in3p,
+			   in4p,in5p,in6p,in7p,in8p,			   
+			   in9p,in10p,in11p);
+	     strcat(outp,NEWLINE);
+	     outp[511] = '\n'; outp[512]= '\0';
+	     return strlen(outp);
+	   }
+	 /* leading 0's are suppressed unlike ircsprintf() - Dianora */
+         if( (quotient=myint/100) )
+	   {
+	     *(wp++) = (char) (quotient + (int) '0');
+	     myint %=100;
+	     *(wp++) = (char) (myint/10 + (int) '0');
+	   }
+         else
+	   {
+	     myint %=100;
+	     if( (quotient = myint/10) )
+	       *(wp++) = (char) (quotient + (int)'0');
+	   }
          myint %=10;
          *(wp++) = (char) ((myint) + (int) '0');
 
@@ -1184,7 +1189,15 @@ register char f;
          register unsigned int myuint;
          myuint = (unsigned int)rp;
 
-         if (myuint < 100 || myuint > 999) goto barf;
+         if (myuint < 100 || myuint > 999)
+	   {
+	     (void)sprintf(outp,formp,in0p,in1p,in2p,in3p,
+			   in4p,in5p,in6p,in7p,in8p,
+			   in9p,in10p,in11p);
+	     strcat(outp,NEWLINE);
+	     outp[511] = '\n'; outp[512]= '\0';
+	     return strlen(outp);
+	   }
 
          *(wp++) = (char) ((myuint / 100) + (unsigned int) '0');
          myuint %=100;
@@ -1198,38 +1211,26 @@ register char f;
        *(wp++) = '%';
        break;
       default:
-       /* oh shit */
-       goto barf;
+	/* oh shit */
+	/* don't call ircsprintf here... that's stupid.. */
+	(void)sprintf(outp,formp,in0p,in1p,in2p,in3p,
+		in4p,in5p,in6p,in7p,in8p,
+		in9p,in10p,in11p);
+	strcat(outp,NEWLINE);
+	outp[511] = '\n'; outp[512]= '\0';
+	return strlen(outp);
        break;
       }
   }
-#ifndef IRCII_KLUDGE
-  *(wp++) = '\r';
-#endif
   *(wp++) = '\n';
   *wp = '\0'; /* leaves wp pointing to the terminating NULL in the string */
   {
     register int len;
-#ifndef IRCII_KLUDGE
-    if ((len = wp-outp) >= 510) len = 512;
-    outp[510] = '\r';
-#else
     if ((len = wp-outp) >= 511) len = 512;
-#endif
     outp[511] = '\n'; outp[512] = '\0';
     return len;
 
   }
- barf:
-/* don't call ircsprintf here... that's stupid.. */
-  sprintf(outp,formp,in0p,in1p,in2p,in3p,in4p,in5p,in6p,in7p,in8p,
-         in9p,in10p,in11p);
-  strcat(outp,NEWLINE);
-#ifndef IRCII_KLUDGE
-  outp[510] = '\r';
-#endif
-  outp[511] = '\n'; outp[512] = '\0';
-  return strlen(outp);
 }
 
 void sendto_fdlist(listp,formp,p1,p2,p3,p4,p5,p6,p7,p8,p9)

@@ -2148,7 +2148,7 @@ int	m_whois(aClient *cptr,
       if(!wilds)
 	{
 	  acptr = hash_find_client(nick,(aClient *)NULL);
-	  if(!acptr)
+	  if(!acptr || !IsPerson(acptr))
 	    {
 	      sendto_one(sptr, err_str(ERR_NOSUCHNICK),
 			 me.name, parv[0], nick);

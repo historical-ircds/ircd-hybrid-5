@@ -84,7 +84,8 @@ va_dcl
 			  in9p,in10p);
 		  return;
 		}
-	  
+	      /* leading 0's are not suppressed unlike format()
+		 -Dianora */
 	  
 	      *(wp++) = (char) ((myint / 100) + (int) '0');
 	      myint %=100;
