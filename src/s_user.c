@@ -613,8 +613,20 @@ static	int	register_user(aClient *cptr,
       if(IsConfBlined(aconf))
 	{
 	  SetElined(sptr);
+	  SetBlined(sptr);
 	  sendto_one(sptr,
 	      ":%s NOTICE %s :*** You can run bots here. congrats.",
+		     me.name,parv[0]);
+	}
+
+      /* If this user is exempt from user limits set it F lined" */
+      if(IsConfFlined(aconf))
+	{
+	  SetFlined(sptr);
+	  SetElined(sptr);
+	  SetBlined(sptr);
+	  sendto_one(sptr,
+	      ":%s NOTICE %s :*** You are exempt from user limits. congrats.",
 		     me.name,parv[0]);
 	}
 
@@ -2724,6 +2736,13 @@ int	m_kill(aClient *cptr,
 		 me.name, parv[0], acptr->name);
       return 0;
     }
+#else
+  if (MyOper(sptr) && !MyConnect(acptr) && (!IsOperGlobalKill(sptr)))
+    {
+      sendto_one(sptr, ":%s NOTICE %s :Nick %s isnt on your server",
+		 me.name, parv[0], acptr->name);
+      return 0;
+    }
 #endif
   if (!IsServer(cptr))
     {
@@ -3044,6 +3063,9 @@ int	m_oper(aClient *cptr,
   extern	char *crypt();
 #endif /* CRYPT_OPER_PASSWORD */
 
+  char privs_out[10];
+  char *privs_ptr;
+
   name = parc > 1 ? parv[1] : (char *)NULL;
   password = parc > 2 ? parv[2] : (char *)NULL;
 
@@ -3134,12 +3156,47 @@ int	m_oper(aClient *cptr,
       cptr->next_oper_client = oper_cptr_list;
       oper_cptr_list = cptr;
 #endif
+      privs_ptr = privs_out;
+      *privs_ptr = '\0';
+
+      if(cptr->confs)
+	{
+	  aConfItem *aconf;
+	  aconf = cptr->confs->value.aconf;
+	  if(aconf->port & CONF_OPER_GLOBAL_KILL)
+	    {
+	      SetOperGlobalKill(cptr);
+	      *privs_ptr++ = 'O';
+	    }
+
+	  if(aconf->port & CONF_OPER_REMOTE)
+	    {
+	      SetOperRemote(cptr);
+	      *privs_ptr++ = 'R';
+	    }
+
+	  if(aconf->port & CONF_OPER_UNKLINE)
+	    {
+	      SetOperUnkline(cptr);
+	      *privs_ptr++ = 'U';
+	    }
+
+	  if(aconf->port & CONF_OPER_GLINE)
+	    {
+	      SetOperGline(cptr);
+	      *privs_ptr++ = 'G';
+	    }
+	  *privs_ptr = '\0';
+	}
 
       sendto_ops("%s (%s@%s) is now operator (%c)", parv[0],
 		 sptr->user->username, sptr->sockhost,
 		 IsOper(sptr) ? 'O' : 'o');
       send_umode_out(cptr, sptr, old);
       sendto_one(sptr, rpl_str(RPL_YOUREOPER), me.name, parv[0]);
+      sendto_one(sptr, ":%s NOTICE %s:*** Oper privs are %s",me.name,parv[0],
+		 privs_out);
+
 #if !defined(CRYPT_OPER_PASSWORD) && (defined(FNAME_OPERLOG) ||\
     (defined(USE_SYSLOG) && defined(SYSLOG_OPER)))
 	encr = "";

@@ -63,6 +63,7 @@ static  aConfItem *temporary_klines = (aConfItem *)NULL;
 static	int	find_port_in_use(aConfItem *);
 
 static  char *set_conf_flags(aConfItem *,char *);
+static  int  get_oper_privs(char *);
 
 /* externally defined functions */
 extern  void    outofmemory(void);	/* defined in list.c */
@@ -1606,9 +1607,38 @@ int 	initconf(int opt, int fd)
 	    tmp = set_conf_flags(aconf, tmp);
 	  DupString(aconf->name, tmp);
 
+	  if(aconf->status & CONF_OPERATOR)
+	    {
+	      Debug((DEBUG_DEBUG,"Setting defaults for oper"));
+	      /* defaults */
+	      aconf->port = 
+		CONF_OPER_GLOBAL_KILL|CONF_OPER_REMOTE|CONF_OPER_UNKLINE|
+		CONF_OPER_GLINE;
+	    }
+	  else if(aconf->status & CONF_LOCOP)
+	    {
+	      Debug((DEBUG_DEBUG,"Setting defaults for local oper"));
+	      aconf->port = CONF_OPER_UNKLINE;
+	    }
+
 	  if ((tmp = getfield(NULL)) == NULL)
 	    break;
-	  aconf->port = atoi(tmp);
+
+	  if(aconf->status == CONF_OPERATOR)
+	    {
+	      if(*tmp)
+		aconf->port = get_oper_privs(tmp);
+	    }
+	  else if(aconf->status == CONF_LOCOP)
+	    {
+	      if(*tmp)
+		aconf->port = get_oper_privs(tmp);
+	      aconf->port &= ~(CONF_OPER_GLOBAL_KILL|CONF_OPER_REMOTE|
+			       CONF_OPER_GLINE);
+	    }
+	  else
+	    aconf->port = atoi(tmp);
+
 	  if ((tmp = getfield(NULL)) == NULL)
 	    break;
 	  Class(aconf) = find_class(atoi(tmp));
@@ -1656,6 +1686,8 @@ int 	initconf(int opt, int fd)
 		   * -Dianora
 		   */
 		  bconf->flags = aconf->flags;
+		  if(bconf->flags & (CONF_LOCOP|CONF_OPERATOR))
+		    bconf->port = aconf->port;
 		}
 	      free_conf(aconf);
 	      aconf = bconf;
@@ -3129,3 +3161,35 @@ void dhash_stats(aClient *cptr, aClient *sptr,int parc, char *parv[],int out)
     }
 }
 
+int get_oper_privs(char *privs)
+{
+  int int_privs = 0;
+
+  Debug((DEBUG_DEBUG,"get_oper_privs called privs = [%s]",privs));
+
+  while(*privs)
+    {
+      if(*privs == 'O')
+	int_privs |= CONF_OPER_GLOBAL_KILL;
+      else if(*privs == 'o')
+	int_privs &= ~CONF_OPER_GLOBAL_KILL;
+      else if(*privs == 'U')
+	int_privs |= CONF_OPER_UNKLINE;
+      else if(*privs == 'u')
+	int_privs &= ~CONF_OPER_UNKLINE;
+      else if(*privs == 'R')
+	int_privs |= CONF_OPER_REMOTE;	/* squit/connect etc. */
+      else if(*privs == 'r')
+	int_privs &= ~CONF_OPER_REMOTE;	/* squit/connect etc. */
+#ifdef GLINES
+      else if(*privs == 'G')
+	int_privs |= CONF_OPER_GLINE;
+      else if(*privs == 'g')
+	int_privs &= ~CONF_OPER_GLINE;
+#endif
+      privs++;
+    }
+
+  Debug((DEBUG_DEBUG,"about to return int_privs %x",int_privs));
+  return(int_privs);
+}

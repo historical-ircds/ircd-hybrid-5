@@ -208,6 +208,11 @@ typedef struct	MotdItem aMotd;
 #define FLAGS2_B_LINED	    0x0008	/* client is graced with B line */
 #define FLAGS2_F_LINED	    0x0010	/* client is graced with F line */
 
+#define FLAGS2_OPER_GLOBAL_KILL 0x0020	/* oper can global kill */
+#define FLAGS2_OPER_REMOTE	0x0040	/* oper can do squits/connects */
+#define FLAGS2_OPER_UNKLINE	0x0080	/* oper can use unkline */
+#define FLAGS2_OPER_GLINE	0x0100	/* oper can use gline */
+
 /* for sendto_ops_lev */
 #define CCONN_LEV	1
 #define REJ_LEV		2
@@ -284,6 +289,15 @@ typedef struct	MotdItem aMotd;
 #define SetBlined(x)		((x)->flags2 |= FLAGS2_B_LINED)
 #define IsFlined(x)		((x)->flags2 & FLAGS2_F_LINED)
 #define SetFlined(x)		((x)->flags2 |= FLAGS2_F_LINED)
+
+#define SetOperGlobalKill(x)	((x)->flags2 |= FLAGS2_OPER_GLOBAL_KILL)
+#define IsOperGlobalKill(x)	((x)->flags2 & FLAGS2_OPER_GLOBAL_KILL)
+#define SetOperRemote(x)	((x)->flags2 |= FLAGS2_OPER_REMOTE)
+#define IsOperRemote(x)		((x)->flags2 & FLAGS2_OPER_REMOTE)
+#define SetOperUnkline(x)	((x)->flags2 |= FLAGS2_OPER_UNKLINE)
+#define IsSetOperUnkline(x)	((x)->flags2 & FLAGS2_OPER_UNKLINE)
+#define SetOperGline(x)		((x)->flags2 |= FLAGS2_OPER_GLINE)
+#define IsSetOperGline(x)	((x)->flags2 & FLAGS2_OPER_GLINE)
 
 /*
  * defined debugging levels
@@ -423,6 +437,12 @@ struct	ConfItem
 #ifdef LITTLE_I_LINES
 #define IsConfLittleI(x)	((x)->flags & CONF_FLAGS_LITTLE_I_LINE)
 #endif
+
+/* port definitions for Opers */
+#define CONF_OPER_GLOBAL_KILL 1
+#define CONF_OPER_REMOTE      2
+#define CONF_OPER_UNKLINE     4
+#define CONF_OPER_GLINE	      8
 
 /*
  * Client structures
@@ -827,6 +847,7 @@ extern unsigned long tsdms;
 #endif
 
 
+
 #ifdef FLUD
 struct fludbot {
         struct Client   *fluder;
@@ -835,5 +856,6 @@ struct fludbot {
         struct fludbot  *next;
 };
 #endif /* FLUD */
+
 
 #endif /* __struct_include__ */

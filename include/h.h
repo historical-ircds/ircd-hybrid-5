@@ -358,3 +358,7 @@ void	free_fludees();
 #define MIN_SPAM_NUM 5
 #define MIN_SPAM_TIME 60
 #endif
+
+#ifdef IDLE_CHECK
+#define MIN_IDLETIME 60
+#endif

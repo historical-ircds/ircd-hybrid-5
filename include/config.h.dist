@@ -383,6 +383,12 @@
  */
 #define MOTD_WAIT 10
 
+/* IDLE_CHECK
+ * If a client has been idle for idletime (set in /quote set) then
+ * exit the client, and give it a 1 minute temporary kline 
+ */
+#undef IDLE_CHECK
+
 /* EXTRA_BOT_NOTICES - Have the server send extra bot notices?
  */
 #define EXTRA_BOT_NOTICES

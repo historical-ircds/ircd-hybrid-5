@@ -76,6 +76,10 @@ int     max_connection_count = 1, max_client_count = 1;
 
 /* external variables */
 
+#ifdef IDLE_CHECK
+extern int idle_time;	/* defined in ircd.c */
+#endif
+
 /* external functions */
 #ifdef MAXBUFFERS
 extern	void	reset_sock_opts();
@@ -1221,23 +1225,27 @@ int	m_info(aClient *cptr,
 #else
 #define OUT3 " HIGHEST_CONNECTION=0"
 #endif
+#ifdef HUB
+#define OUT4 " HUB=1"
+#else
+#define OUT4 " HUB=0"
+#endif
 	sendto_one(sptr, rpl_str(RPL_INFO),
-		me.name, parv[0], OUT1 OUT2 OUT3 );
-
+		me.name, parv[0], OUT1 OUT2 OUT3 OUT4 );
 #undef OUT1
 #undef OUT2
 #undef OUT3
 #undef OUT4
 
-#ifdef HUB
-#define OUT1 "HUB=1"
-#else
-#define OUT1 "HUB=0"
-#endif
 #ifdef IDENTD_COMPLAIN
-#define OUT2 " IDENTD_COMPLAIN=1"
+#define OUT1 "IDENTD_COMPLAIN=1"
 #else
-#define OUT2 " IDENTD_COMPLAIN=0"
+#define OUT1 "IDENTD_COMPLAIN=0"
+#endif
+#ifdef IDLE_CHECK
+#define OUT2 " IDLE_CHECK=1"
+#else
+#define OUT2 " IDLE_CHECK=0"
 #endif
 #ifdef IDLE_FROM_MSG
 #define OUT3 " IDLE_FROM_MSG=1"
@@ -2825,6 +2833,33 @@ int   m_set(aClient *cptr,
 	    }
 	}
 #endif
+#ifdef IDLE_CHECK
+      else if(!strncasecmp(command, "IDLETIME", 8))
+	{
+	  if(parc > 2)
+	    {
+	      int newval = atoi(parv[2]);
+
+	      if(newval < MIN_IDLETIME)
+		{
+		  sendto_one(sptr, ":%s NOTICE %s :IDLETIME must be > %d",
+			     me.name, parv[0],MIN_IDLETIME);
+		  return 0;
+		}       
+	      idle_time = newval;
+	      sendto_ops("%s has changed IDLETIME to %i", parv[0], idle_time);
+	      sendto_one(sptr, ":%s NOTICE %s :IDLETIME is now set to %i",
+			 me.name, parv[0], idle_time);
+	      return 0;       
+	    }
+	  else
+	    {
+	      sendto_one(sptr, ":%s NOTICE %s :IDLETIME is currently %i",
+			 me.name, parv[0], idle_time);
+	      return 0;
+	    }
+	}
+#endif
 #ifdef FLUD
       else if(!strncasecmp(command, "FLUDNUM",7))
 	{
@@ -3022,6 +3057,10 @@ int spam_num = MAX_JOIN_LEAVE_COUNT;
 #ifdef NO_CHANOPS_WHEN_SPLIT
 	sendto_one(sptr, ":%s NOTICE %s :Options: SPLITDELAY",
 		me.name, parv[0]);
+#endif
+#ifdef IDLE_CHECK
+	sendto_one(sptr, ":%s NOTICE %s :Options: IDLETIME",
+		   me.name, parv[0]);
 #endif
     }
   return 0;
@@ -3265,7 +3304,13 @@ int     m_gline(aClient *cptr,
 	  sendto_one(sptr, err_str(ERR_NOPRIVILEGES), me.name, parv[0]);
 	  return 0;
 	}
-  
+
+      if (!IsSetOperGline(sptr))
+	{
+	  sendto_one(sptr,":%s NOTICE %s :You have no G flag",me.name,parv[0]);
+	  return 0;
+	}
+
       if ( parc < 3 )
 	{
 	  sendto_one(sptr, err_str(ERR_NEEDMOREPARAMS),
@@ -3999,18 +4044,14 @@ int     m_kline(aClient *cptr,
   aconf->status = CONF_KILL;
   DupString(aconf->host, host);
 
-#ifndef K_COMMENT_ONLY
-  if(temporary_kline_time)
-    (void)ircsprintf(buffer, "Temporary K-line %d min. for %s (%s)",
-       temporary_kline_time,reason,current_date);
-  else
-    (void)ircsprintf(buffer, "%s (%s)",reason,current_date);
-#else
   if(temporary_kline_time)
     (void)ircsprintf(buffer, "Temporary K-line %d min. for %s (%s)",
-      temporary_kline_time,reason,current_date);
+       temporary_kline_time,reason,current_date);
   else
+#ifdef K_COMMENT_ONLY
     (void)ircsprintf(buffer, "%s (%s)",reason,current_date);
+#else
+    (void)ircsprintf(buffer, "%s (%s)",reason,current_date);
 #endif
 
   DupString(aconf->passwd, buffer );
@@ -4315,6 +4356,12 @@ int m_unkline (aClient *cptr,aClient *sptr,int parc,char *parv[])
     {
       sendto_one(sptr, err_str(ERR_NOPRIVILEGES), me.name, 
 		 parv[0]);
+      return 0;
+    }
+
+  if (!IsSetOperUnkline(sptr))
+    {
+      sendto_one(sptr,":%s NOTICE %s You have no U flag",me.name,parv[0]);
       return 0;
     }
 
