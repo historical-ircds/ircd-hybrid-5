@@ -1409,7 +1409,7 @@ int	m_info(aClient *cptr,
 #define OUT3 " R_LINES_REHASH=0"
 #endif
 #ifdef REPORT_DLINE_TO_USER
-#define OUT4 "  REPORT_DLINE_TO_USER=1"
+#define OUT4 " REPORT_DLINE_TO_USER=1"
 #else
 #define OUT4 " REPORT_DLINE_TO_USER=0"
 #endif
@@ -2643,8 +2643,10 @@ int     m_operwall(aClient *cptr,
 		   me.name, parv[0], "OPERWALL");
       return 0;
     }
+  /*
   if (strlen(message) > TOPICLEN)
-    message[TOPICLEN] = (char) 0;
+    message[TOPICLEN] = '\0';
+    */
   sendto_serv_butone(IsServer(cptr) ? cptr : NULL, ":%s OPERWALL :%s",
 		     parv[0], message);
   send_operwall(sptr, "OPERWALL", message);

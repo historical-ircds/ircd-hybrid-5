@@ -1332,14 +1332,14 @@ time_t io_loop(time_t delay)
 #else
     if ((lasttime + (lifesux + 1)) < timeofday)
       {
-#endif
+#endif /* CLIENT_SERVER */
 	(void)read_message(delay, NULL); /*  check everything! */
 	lasttime = timeofday;
       }
    }
 #else
   (void)read_message(delay, NULL); /*  check everything! */
-#endif
+#endif /* NO_PRIORITY */
 
   /*
   ** ...perhaps should not do these loops every time,
