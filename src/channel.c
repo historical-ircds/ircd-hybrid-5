@@ -2680,6 +2680,9 @@ int	m_sjoin(aClient *cptr,
 	      l->flags &= ~MODE_VOICE;
 	    }
 	}
+        sendto_channel_butserv(chptr, &me,
+	    ":%s NOTICE %s :*** Notice -- TS for %s changed from %ld to %ld",
+	    me.name, chptr->chname, chptr->chname, oldts, newts);
     }
   if (mbuf != modebuf)
     {
