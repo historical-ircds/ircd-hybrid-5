@@ -588,7 +588,7 @@ static	int	proc_answer(ResRQ *rptr,
 	      break;
 	    }
 /*
-This comment is based on analysis by Shadowfax, Jolo and johan, not me.
+This comment is based on analysis by Shadowfax, Wohali and johan, not me.
 (Dianora) I am only commenting it.
 
 	dn_expand is guaranteed to not return more than sizeof(hostbuf)

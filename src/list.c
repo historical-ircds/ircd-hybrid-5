@@ -66,7 +66,7 @@ void	outofmemory();
 
 int	numclients = 0;
 
-/* for jolo's block allocator */
+/* for Wohali's block allocator */
 BlockHeap *free_local_aClients;
 BlockHeap *free_Links;
 BlockHeap *free_remote_aClients;
