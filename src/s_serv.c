@@ -549,12 +549,30 @@ int	m_server(aClient *cptr,
       ** Rather than KILL the link which introduced it, KILL the
       ** youngest of the two links. -avalon
       */
-      acptr = acptr->from;
-      acptr = (cptr->firsttime > acptr->firsttime) ? cptr : acptr;
-      sendto_one(acptr,"ERROR :Server %s already exists", host);
-      sendto_ops("Link %s cancelled, server %s already exists",
-		 get_client_name(acptr, TRUE), host);
-      return exit_client(acptr, acptr, acptr, "Server Exists");
+      char nbuf[HOSTLEN * 2 + USERLEN + 5]; /* same size as in s_misc.c */
+
+      bcptr = (cptr->firstname > acptr->from->firsttime) ? cptr : acptr->from;
+      sendto_one(bcptr,"ERROR :Server %s already exists", host);
+      if (bcptr == cptr)
+      {
+        sendto_ops("Link %s cancelled, server %s already exists",
+		 get_client_name(bcptr, TRUE), host);
+        return exit_client(bcptr, bcptr, &me, "Server Exists");
+      }
+      /*
+      ** in this case, we are not dropping the link from
+      ** which we got the SERVER message.  Thus we canNOT
+      ** `return' yet! -krys
+      */
+      /*
+      ** get_client_name() can return ptr to static buffer...can't use
+      ** 2 times in same sendto_ops(), so we have to strcpy one =(
+      **  - comstud
+      */
+      strcpy(nbuf, get_client_name(bcptr, TRUE));
+      sendto_ops("Link %s cancelled, server %s reintroduced by %s",
+		nbuf, host, get_client_name(cptr, TRUE));
+      (void) exit_client(bcptr, bcptr, &me, "Server Exists");
     }
 
   /* The following if statement would be nice to remove
