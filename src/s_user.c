@@ -627,7 +627,13 @@ static	int	register_user(aClient *cptr,
     ircstp->is_ref++;
     return exit_client(cptr, sptr, sptr, "Vlad/Com/joh bot detected, rejected.");
     break;
-  case 3:       /* annoy/ojnkbot */
+  case 3:	/* SpamBot */
+    sendto_realops_lev(REJ_LEV,"Rejecting Spambot: %s",
+		       get_client_name(sptr,FALSE));
+    ircstp->is_ref++;
+    return exit_client(cptr, sptr, sptr, "Spambot detected, rejected.");
+    break;
+  case 4:       /* annoy/ojnkbot */
     sendto_realops_lev(REJ_LEV,"Rejecting annoy/ojnkbot: %s",
 		       get_client_name(sptr,FALSE));
     ircstp->is_ref++;
@@ -3380,12 +3386,14 @@ int botreject(char *host)
  * Eggdrop Bots:	"USER foo 1 1 :foo"
  * Vlad, Com, joh Bots:	"USER foo null null :foo"
  * Annoy/OJNKbots:	"user foo . . :foo"   (disabled)
+ * Spambots that are based on OJNK: "user foo x x :foo"
  */
 #undef CHECK_FOR_ANNOYOJNK
   if (!strcmp(host,"1")) return 1;
   if (!strcmp(host,"null")) return 2;
+  if (!strcmp(host, "x")) return 3;
 #ifdef CHECK_FOR_ANNOYOJNK
-  if (!strcmp(host,".")) return 3;
+  if (!strcmp(host,".")) return 4;
 #endif
   return 0;
 }
