@@ -345,7 +345,7 @@ int	add_listener(aConfItem *aconf)
   if ((aconf->passwd[0] != '\0') && (aconf->passwd[0] != '*'))
       vaddr = inet_addr(aconf->passwd);
   else
-      vaddr = NULL;
+      vaddr = (u_long) NULL;
 
   if (inetport(cptr, aconf->host, aconf->port, vaddr))
       cptr->fd = -2;
