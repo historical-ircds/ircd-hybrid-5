@@ -3325,7 +3325,7 @@ void announce_fluder(aClient *fluder,	/* fluder, client being fluded */
   else
     fludee = chptr->chname;
 
-  sendto_ops_lev(CCONN_LEV, "Flooder %s [%s@%s] on %s target: %s",
+  sendto_ops_lev(REJ_LEV, "Flooder %s [%s@%s] on %s target: %s",
 		 fluder->name, fluder->user->username, fluder->user->host,
 		 fluder->user->server, fludee);
 }
