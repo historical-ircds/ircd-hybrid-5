@@ -2321,14 +2321,6 @@ int     m_wallops(aClient *cptr,
      -Dianora
   */
 
-  if(sptr->user)
-    {
-      sendto_ops("sptr->user->username=[%s]",sptr->user->username);
-    }
-  sendto_ops("sptr->name=[%s]",sptr->name);
-  sendto_ops("cptr->name=[%s]",cptr->name);
-
-
   if(!IsServer(sptr))
     {
       send_operwall(sptr, "WALLOPS", message);
