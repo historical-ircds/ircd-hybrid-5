@@ -615,15 +615,19 @@ static	time_t	check_pings(time_t currenttime)
 
       if (IsRegistered(cptr) && ((cptr->flags & FLAGS_PINGSENT) == 0))
 	{
-	  /*
-	   * if we havent PINGed the connection and we havent
-	   * heard from it in a while, PING it to make sure
-	   * it is still alive.
-	   */
-	  cptr->flags |= FLAGS_PINGSENT;
-	  /* not nice but does the job */
-	  cptr->lasttime = currenttime - ping;
-	  sendto_one(cptr, "PING :%s", me.name);
+
+	  if( ping < currenttime - cptr->lasttime)
+	    {
+	      /*
+	       * if we havent PINGed the connection and we havent
+	       * heard from it in a while, PING it to make sure
+	       * it is still alive.
+	       */
+	      cptr->flags |= FLAGS_PINGSENT;
+	      /* not nice but does the job */
+	      cptr->lasttime = currenttime - ping;
+	      sendto_one(cptr, "PING :%s", me.name);
+	    }
 	}
 
       if(IsUnknown(cptr))
