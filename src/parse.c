@@ -483,11 +483,10 @@ static struct Message *do_msg_tree(MESSAGE_TREE *mtree, char *prefix,
       if (!mptr[1].cmd || (lp && strncmp(mptr[1].cmd, prefix, lp)))
 	{
 	  /* non ambiguous -> make a final case */
-	  mtree->final = MyMalloc(1+strlen(mptr->cmd)-lp);
+	  mtree->final = mptr->cmd + lp;
 	  mtree->msg = mptr;
 	  for (c=0; c<=25; c++)
 	    mtree->pointers[c] = NULL;
-	  strcpy(mtree->final, &mptr->cmd[lp]);
 	  return mptr+1;
 	}
       else
