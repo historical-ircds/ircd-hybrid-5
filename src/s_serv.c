@@ -2914,7 +2914,7 @@ int     m_gline(aClient *cptr,
       if ( parc < 3 )
 	{
 	  sendto_one(sptr, err_str(ERR_NEEDMOREPARAMS),
-		     me.name, parv[0], "KLINE");
+		     me.name, parv[0], "GLINE");
 	  return 0;
 	}
       

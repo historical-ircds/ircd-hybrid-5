@@ -400,7 +400,7 @@ char	*comment	/* Reason for the exit */
 	  on_for = timeofday - sptr->firsttime;
 # if defined(USE_SYSLOG) && defined(SYSLOG_USERS)
 	  if (IsPerson(sptr))
-	    syslog(LOG_LOCAL3|LOG_NOTICE, "%s (%3d:%02d:%02d): %s!%s@%s %d/%d\n",
+	    syslog(LOG_NOTICE, "%s (%3d:%02d:%02d): %s!%s@%s %d/%d\n",
 		   myctime(sptr->firsttime),
 		   on_for / 3600, (on_for % 3600)/60,
 		   on_for % 60, sptr->name,

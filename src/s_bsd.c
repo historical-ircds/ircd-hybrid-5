@@ -53,11 +53,6 @@ static char *rcs_version = "$Id$";
 #ifdef USE_POLL
 #include <stropts.h>
 #include <poll.h>
-# ifndef SOL20
-typedef struct pollfd pollfd_t;
-# define POLLWRNORM      POLLOUT
-# define POLLRDNORM      0x0040
-# endif
 #endif /* USE_POLL_ */
 
 
@@ -626,7 +621,7 @@ int	check_client(aClient *cptr)
       if (!hp->h_addr_list[i])
 	{
           sendto_one(cptr, 
-            "NOTICE AUTH :Your forward and reverse DNS do not match, ignoring hostname.");
+            "NOTICE AUTH :*** Your forward and reverse DNS do not match, ignoring hostname.");
 	  hp = NULL;
 	}
     }
@@ -2017,8 +2012,44 @@ int read_packet(aClient *cptr, int msg_ready)
   
 #else /* USE_POLL */
 
-#define POLLREADFLAGS POLLRDNORM
-#define POLLWRITEFLAGS POLLWRNORM
+#ifdef AIX
+#define POLLREADFLAGS (POLLIN|POLLMSG)
+#else
+# if defined(POLLMSG) && defined(POLLIN) && defined(POLLRDNORM)
+# define POLLREADFLAGS (POLLMSG|POLLIN|POLLRDNORM)
+# else
+#  if defined(POLLIN) && defined(POLLRDNORM)
+#  define POLLREADFLAGS (POLLIN|POLLRDNORM)
+#  else
+#   if defined(POLLIN)
+#   define POLLREADFLAGS POLLIN
+#   else
+#    if defined(POLLRDNORM)
+#    define POLLREADFLAGS POLLRDNORM
+#    endif
+#   endif
+#  endif
+# endif
+#endif
+
+#if defined(POLLOUT) && defined(POLLWRNORM)
+#define POLLWRITEFLAGS (POLLOUT|POLLWRNORM)
+#else
+# if defined(POLLOUT)
+# define POLLWRITEFLAGS POLLOUT
+# else
+#  if defined(POLLWRNORM)
+#  define POLLWRITEFLAGS POLLWRNORM
+#  endif
+# endif
+#endif
+
+#if defined(POLLERR) && defined(POLLHUP)
+#define POLLERRORS (POLLERR|POLLHUP)
+#else
+#define POLLERRORS POLLERR
+#endif
+
 #define PFD_SETR( thisfd ){	CHECK_PFD( thisfd );\
 				pfd->events |= POLLREADFLAGS;}
 #define PFD_SETW( thisfd ){	CHECK_PFD( thisfd );\
@@ -2036,17 +2067,17 @@ int	read_message(time_t delay, fdlist *listp)
   Reg	int     nfds;
   struct	timeval wait;
 
-  pollfd_t	poll_fdarray[MAXCONNECTIONS];
-  pollfd_t	*pfd     = poll_fdarray;
-  pollfd_t	*res_pfd = NULL;
-  pollfd_t	*udp_pfd = NULL;
+  static struct pollfd	poll_fdarray[MAXCONNECTIONS];
+  struct pollfd	*pfd     = poll_fdarray;
+  struct pollfd	*res_pfd = NULL;
+  struct pollfd	*udp_pfd = NULL;
   int		nbr_pfds = 0;
   time_t	delay2 = delay;
   u_long	usec = 0;
   int		res, length, fd, newfd;
   int		auth, rr, rw;
   register	int i,j;
-  aClient	*authclnts[MAXCONNECTIONS];
+  static aClient	*authclnts[MAXCONNECTIONS];
   char		errmsg[255];
   
   /* if it is called with NULL we check all active fd's */
@@ -2088,7 +2119,7 @@ int	read_message(time_t delay, fdlist *listp)
 	    continue;
 	  if (IsMe(cptr) && IsListening(cptr))
 	    {
-#ifdef SOL20
+#if defined(SOL20) || defined(AIX)
 #define CONNECTFAST
 #endif
 
@@ -2134,7 +2165,7 @@ int	read_message(time_t delay, fdlist *listp)
       wait.tv_usec = usec;
       nfds = poll(poll_fdarray, nbr_pfds,
 		  wait.tv_sec*1000 + wait.tv_usec/1000);
-      if (nfds == -1 && errno == EINTR)
+      if (nfds == -1 && ((errno == EINTR) || (errno == EAGAIN)))
 	return -1;
       else if (nfds >= 0)
 	break;
@@ -2144,14 +2175,12 @@ int	read_message(time_t delay, fdlist *listp)
 	restart("too many poll errors");
       sleep(10);
     }
-#define POLLREADORERRFLAGS (POLLREADFLAGS|POLLERR|POLLHUP)
-#define POLLWRITEORERRFLAGS (POLLWRITEFLAGS|POLLERR|POLLHUP) 
-  if (udp_pfd && (udp_pfd->revents & POLLREADORERRFLAGS))
+  if (udp_pfd && (udp_pfd->revents & (POLLREADFLAGS|POLLERRORS)))
     {
       polludp();
       nfds--;
     }
-  if (res_pfd && (res_pfd->revents & POLLREADORERRFLAGS))
+  if (res_pfd && (res_pfd->revents & (POLLREADFLAGS|POLLERRORS)))
     {
       do_dns_async();
       nfds--;
@@ -2167,7 +2196,7 @@ int	read_message(time_t delay, fdlist *listp)
       fd = pfd->fd;                   
       rr = pfd->revents & POLLREADFLAGS;
       rw = pfd->revents & POLLWRITEFLAGS;
-      if (pfd->revents & (POLLERR|POLLHUP))
+      if (pfd->revents & POLLERRORS)
 	{
 	  if (pfd->events & POLLREADFLAGS)
 	    rr++;
@@ -2207,7 +2236,7 @@ int	read_message(time_t delay, fdlist *listp)
 	  */
 	  if ((newfd = accept(fd, (struct sockaddr *)&addr, &addrlen)) < 0)
 	    {
-#ifdef SOL20
+#ifdef EPROTO
 	      /* If a connection is closed before the accept(), it
 		 returns EPROTO on Solaris. */
 	      if (errno != EPROTO)

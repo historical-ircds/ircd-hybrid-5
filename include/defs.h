@@ -70,6 +70,7 @@
 #  if !defined( AIX )
 #    define AIX 1
 #  endif
+#  define USE_POLL 1     /* KLUGE - only define on AIX 4.x!! -cab */
 #endif
 
 #if defined( OS_MIPS )

@@ -157,7 +157,7 @@ void	send_authports(aClient *cptr)
       getpeername(cptr->fd, (struct sockaddr *)&them, &tlen))
     {
 #ifdef	USE_SYSLOG
-      syslog(LOG_ERR, "auth get{sock,peer}name error for %s:%m",
+      syslog(LOG_DEBUG, "auth get{sock,peer}name error for %s:%m",
 	     get_client_name(cptr, TRUE));
 #endif
       authsenderr(cptr);

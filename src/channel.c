@@ -1500,7 +1500,7 @@ int spam_num = MAX_JOIN_LEAVE_COUNT;
 	    {
 	      if(sptr->join_leave_count >= spam_num)
 		{
-		  sendto_ops("User %s (%s@%s) is a possible spambot",
+		  sendto_realops("User %s (%s@%s) is a possible spambot",
 			     sptr->name,
 			     sptr->user->username, sptr->user->host);
 		  sptr->oper_warn_count_down = OPER_SPAM_COUNTDOWN;
@@ -1567,7 +1567,7 @@ int spam_num = MAX_JOIN_LEAVE_COUNT;
 
 	      if(sptr->oper_warn_count_down == 0)
 		{
-		  sendto_ops("User %s (%s@%s) is a possible spambot",
+		  sendto_realops("User %s (%s@%s) is a possible spambot",
 			     sptr->name,
 			     sptr->user->username, sptr->user->host);
 		  sptr->oper_warn_count_down = OPER_SPAM_COUNTDOWN;
@@ -1685,7 +1685,7 @@ int	m_part(aClient *cptr,
 	{
 	  if(sptr->join_leave_count >= spam_num)
 	    {
-	      sendto_ops("User %s (%s@%s) is a possible spambot",
+	      sendto_realops("User %s (%s@%s) is a possible spambot",
 			 sptr->name,
 			 sptr->user->username, sptr->user->host);
 	      sptr->oper_warn_count_down = OPER_SPAM_COUNTDOWN;

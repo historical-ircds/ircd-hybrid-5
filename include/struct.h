@@ -50,13 +50,13 @@
 #include <sys/time.h>
 #endif
 
-#define REPORT_DO_DNS	"NOTICE AUTH :Looking up your hostname...\n"
-#define REPORT_FIN_DNS	"NOTICE AUTH :Found your hostname\n"
-#define REPORT_FIN_DNSC	"NOTICE AUTH :Found your hostname, cached\n"
-#define REPORT_FAIL_DNS	"NOTICE AUTH :Couldn't look up your hostname\n"
-#define REPORT_DO_ID	"NOTICE AUTH :Checking Ident\n"
-#define REPORT_FIN_ID	"NOTICE AUTH :Got Ident response\n"
-#define REPORT_FAIL_ID	"NOTICE AUTH :No Ident response\n"
+#define REPORT_DO_DNS	"NOTICE AUTH :*** Looking up your hostname...\n"
+#define REPORT_FIN_DNS	"NOTICE AUTH :*** Found your hostname\n"
+#define REPORT_FIN_DNSC	"NOTICE AUTH :*** Found your hostname, cached\n"
+#define REPORT_FAIL_DNS	"NOTICE AUTH :*** Couldn't look up your hostname\n"
+#define REPORT_DO_ID	"NOTICE AUTH :*** Checking Ident\n"
+#define REPORT_FIN_ID	"NOTICE AUTH :*** Got Ident response\n"
+#define REPORT_FAIL_ID	"NOTICE AUTH :*** No Ident response\n"
 
 #include "hash.h"
 

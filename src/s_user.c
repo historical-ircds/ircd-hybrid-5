@@ -2270,9 +2270,7 @@ int	m_quit(aClient *cptr,
   !strncmp(comment, "Killed", 6))
   comment = parv[0];
 */
-#ifdef CLIENT_NOTICES
   sptr->flags |= FLAGS_NORMALEX;
-#endif
   if (strlen(comment) > (size_t) TOPICLEN)
     comment[TOPICLEN] = '\0';
   return IsServer(sptr) ? 0 : exit_client(cptr, sptr, sptr, comment);
