@@ -34,6 +34,8 @@
 * poll() code mods ported from CSr30 (comstud) by cbongo
 * m_whois() rewritten to use hash table when possible (Dianora)
 * spambot sign on code added (ThemBones)
+* i line (LITTLE_I_LINE) support, restricted i lines (Dianora)
+* NO_CHANOPS_WHEN_SPLIT delays channel hacking until rejoin (Dianora)
  
 +hybrid-5 (9/26/97)
 * LOTS AND LOTS OF CHANGES IN CONFIG.H

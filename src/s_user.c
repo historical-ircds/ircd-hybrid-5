@@ -513,7 +513,7 @@ static	int	register_user(aClient *cptr,
 	}
 
       if(bad_dns) {
-         sendto_one(sptr, ":%s NOTICE %s :You have a bad character in your hostname",
+         sendto_one(sptr, ":%s NOTICE %s :*** Notice -- You have a bad character in your hostname",
          me.name,cptr->name);
          strcpy(user->host,sptr->hostip);
 	 strcpy(sptr->sockhost,sptr->hostip);
@@ -531,11 +531,11 @@ static	int	register_user(aClient *cptr,
 	  user->username[USERLEN] = '\0';
 #ifdef IDENTD_COMPLAIN
 /* tell them to install identd -Taner */
-	  sendto_one(sptr, ":%s NOTICE %s :It seems that you don't have identd installed on your host.",
+	  sendto_one(sptr, ":%s NOTICE %s :*** Notice -- It seems that you don't have identd installed on your host.",
 		     me.name,cptr->name);
-	  sendto_one(sptr, ":%s NOTICE %s :If you wish to have your username show up without the ~ (tilde),",
+	  sendto_one(sptr, ":%s NOTICE %s :*** Notice -- If you wish to have your username show up without the ~ (tilde),",
 		     me.name,cptr->name);
-	  sendto_one(sptr, ":%s NOTICE %s :then install identd.",
+	  sendto_one(sptr, ":%s NOTICE %s :*** Notice -- then install identd.",
 		     me.name,cptr->name);
 /* end identd hack */
 #endif
@@ -876,10 +876,10 @@ static	int	register_user(aClient *cptr,
 			     me.name, version);
 		  (void)m_lusers(sptr, sptr, 1, parv);
 
-		  sendto_one(sptr,"NOTICE %s :*** motd was last changed at %s",
+		  sendto_one(sptr,"NOTICE %s :*** Notice -- motd was last changed at %s",
 			     nick, motd_last_changed_date);
 #ifdef SHORT_MOTD
-		  sendto_one(sptr,"NOTICE %s :*** Please read motd if you haven't read it ",
+		  sendto_one(sptr,"NOTICE %s :*** Notice -- Please read motd if you haven't read it ",
 			     nick);
 #else
 		  (void)m_motd(sptr, sptr, 1, parv);
@@ -889,8 +889,9 @@ static	int	register_user(aClient *cptr,
 		     (sptr->confs->value.aconf->flags
 		      & CONF_FLAGS_LITTLE_I_LINE))
 		    {
-		      sendto_one(sptr,"NOTICE %s :*** You are in a restricted access mode",nick);
-		      sendto_one(sptr,"NOTICE %s :*** You can not be chanopped",nick);
+		      SetRestricted(sptr);
+		      sendto_one(sptr,"NOTICE %s :*** Notice -- You are in a restricted access mode",nick);
+		      sendto_one(sptr,"NOTICE %s :*** Notice -- You can not be chanopped",nick);
 		    }
 #endif
 		  nextping = timeofday;
@@ -1455,8 +1456,10 @@ nickkilldone:
 	  else
 	    {
 	      sendto_one(sptr,
-			 ":%s NOTICE %s Too many nick changes wait %d seconds before trying to change it again."
-			 ,me.name,sptr->name,MAX_NICK_TIME);
+			 ":%s NOTICE %s :*** Notice -- Too many nick changes wait %d seconds before trying to change it again.",
+			 me.name,
+			 sptr->name,
+			 MAX_NICK_TIME);
 	      return 0;
 	    }
 #endif
@@ -3754,12 +3757,14 @@ int check_for_flud(aClient *fluder,	/* fluder, client being fluded */
       ** time to mention it to them. */
       if(cptr)
 	sendto_one(cptr,     
-		   ":%s NOTICE %s :Server flood protection activated for %s",
+		   ":%s NOTICE %s :*** Notice -- Server flood protection activated for %s",
 		   me.name, cptr->name, cptr->name);
       else            
 	sendto_channel_butserv(chptr, &me,
-	       ":%s NOTICE %s :Server flood protection activated for %s",
-			       me.name, chptr->chname, chptr->chname);
+	       ":%s NOTICE %s :*** Notice -- Server flood protection activated for %s",
+			       me.name,
+			       chptr->chname,
+			       chptr->chname);
             
       /* Here we should go back through the existing list of
       ** fluders and announce that they were part of the game as 

@@ -38,6 +38,7 @@ extern fdlist serv_fdlist;
 
 int server_was_split=NO;
 time_t server_split_time;
+int server_split_recovery_time = (MAX_SERVER_SPLIT_RECOVERY_TIME * 60);
 #define USE_ALLOW_OP
 #endif
 
@@ -811,15 +812,14 @@ static	int	set_mode(aClient *cptr,
 	  if (whatt == MODE_ADD)
 	    {
 #ifdef LITTLE_I_LINES
-	      if(MyClient(who) && ischop && (*curr=='o') && who->confs &&
-		 who->confs->value.aconf &&
-		 (who->confs->value.aconf->flags & CONF_FLAGS_LITTLE_I_LINE))
+	      if(MyClient(who) && !IsAnOper(who) 
+		 && ischop && (*curr=='o') && IsRestricted(who))
 		{
-		  sendto_one(who, ":%s NOTICE %s :%s attempted to chanop you. You are restricted and cannot be chanopped",
+		  sendto_one(who, ":%s NOTICE %s :*** Notice -- %s attempted to chanop you. You are restricted and cannot be chanopped",
 			     me.name,
 			     who->name,
 			     sptr->name);
-		  sendto_one(sptr, ":%s NOTICE %s :%s is restricted and cannot be chanopped",
+		  sendto_one(sptr, ":%s NOTICE %s :*** Notice -- %s is restricted and cannot be chanopped",
 			     me.name,
 			     sptr->name,
 			     who->name);
@@ -1592,26 +1592,34 @@ int spam_num = MAX_JOIN_LEAVE_COUNT;
 	  */
 	  flags = (ChannelExists(name)) ? 0 : CHFL_CHANOP;
 #ifdef NO_CHANOPS_WHEN_SPLIT
-	  if(!IsAnOper(sptr) && server_was_split)
+	  if(!IsAnOper(sptr) && server_was_split && server_split_recovery_time)
 	    {
-	      if( (server_split_time + SERVER_SPLIT_RECOVERY_TIME) < NOW)
+	      if( (server_split_time + server_split_recovery_time) < NOW)
 		{
 		  if(serv_fdlist.entry[1] > serv_fdlist.last_entry)
 		    server_was_split = NO;
 		  else
-		    server_split_time = NOW;	/* still split */
+		    {
+		      server_split_time = NOW;	/* still split */
+		      allow_op = NO;
+		    }
 		}
 	      else
-		allow_op = NO;
+		{
+		  allow_op = NO;
+		}
+		  if(!IsRestricted(sptr) && !allow_op)
+		      sendto_one(sptr,":%s NOTICE %s :*** Notice -- Due to a network split, you can not obtain channel operator status in a new channel at this time.",
+				 me.name,
+				 sptr->name);
 	    }
 #endif
 
 #ifdef LITTLE_I_LINES
-	  if(sptr->confs && sptr->confs->value.aconf && 
-	     (sptr->confs->value.aconf->flags & CONF_FLAGS_LITTLE_I_LINE))
+	  if(!IsAnOper(sptr) && IsRestricted(sptr))
 	    {
 	      allow_op = NO;
-		  sendto_one(sptr, ":%s NOTICE %s :You are restricted and cannot be chanopped",
+		  sendto_one(sptr, ":%s NOTICE %s :*** Notice -- You are restricted and cannot be chanopped",
 			     me.name,
 			     sptr->name);
 	    }

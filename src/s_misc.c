@@ -53,8 +53,8 @@ static char *rcs_version = "$Id$";
 extern fdlist serv_fdlist;
 
 #ifdef NO_CHANOPS_WHEN_SPLIT
-int server_was_split=NO;
-time_t server_split_time;
+extern int server_was_split;
+extern time_t server_split_time;
 #endif
 
 static	void	exit_one_client (aClient *,aClient *,aClient *,char *);

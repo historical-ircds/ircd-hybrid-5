@@ -158,6 +158,7 @@ typedef struct	MotdItem aMotd;
 #define	SetClient(x)		((x)->status = STAT_CLIENT)
 #define	SetLog(x)		((x)->status = STAT_LOG)
 
+
 #define	FLAGS_PINGSENT   0x0001	/* Unreplied ping sent */
 #define	FLAGS_DEADSOCKET 0x0002	/* Local socket is dead--Exiting soon */
 #define	FLAGS_KILLED     0x0004	/* Prevents "QUIT" from being sent for this */
@@ -191,6 +192,9 @@ typedef struct	MotdItem aMotd;
 #define FLAGS_SENDQEX 0x10000000 /* Sendq exceeded */
 #define FLAGS_OPERWALL 0x20000000 /* Operwalls */
 #define FLAGS_IPHASH   0x40000000 /* iphashed this client */
+
+/* *sigh* overflow flags */
+#define	FLAGS2_RESTRICTED   0x0001	/* restricted client */
 
 /* for sendto_ops_lev */
 #define CCONN_LEV	1
@@ -239,7 +243,7 @@ typedef struct	MotdItem aMotd;
 #define	SetLocOp(x)    		((x)->flags |= FLAGS_LOCOP)
 #define	SetInvisible(x)		((x)->flags |= FLAGS_INVISIBLE)
 #define	SetWallops(x)  		((x)->flags |= FLAGS_WALLOP)
-#define	SetUnixSock(x)		((x)->flags |= FLAGS_UNIX)
+/* #define	SetUnixSock(x)		((x)->flags |= FLAGS_UNIX) */
 #define	SetDNS(x)		((x)->flags |= FLAGS_DOINGDNS)
 #define	DoingDNS(x)		((x)->flags & FLAGS_DOINGDNS)
 #define	SetAccess(x)		((x)->flags |= FLAGS_CHKACCESS)
@@ -253,6 +257,13 @@ typedef struct	MotdItem aMotd;
 #define	ClearDNS(x)		((x)->flags &= ~FLAGS_DOINGDNS)
 #define	ClearAuth(x)		((x)->flags &= ~FLAGS_AUTH)
 #define	ClearAccess(x)		((x)->flags &= ~FLAGS_CHKACCESS)
+
+/*
+ * flags2 macros.
+ */
+#define IsRestricted(x)		((x)->flags2 &= FLAGS2_RESTRICTED)
+#define SetRestricted(x)	((x)->flags2 |= FLAGS2_RESTRICTED)
+
 /*
  * defined debugging levels
  */
@@ -416,6 +427,7 @@ struct Client
   time_t	since;		/* last time we parsed something */
   ts_val	tsinfo;		/* TS on the nick, SVINFO on servers */
   long		flags;		/* client flags */
+  long		flags2;		/* ugh. overflow */
   aClient	*from;		/* == self, if Local Client, *NEVER* NULL! */
   int	fd;			/* >= 0, for local clients */
   int	hopcount;		/* number of servers to this 0 = local */
@@ -761,7 +773,7 @@ extern unsigned long tsdms;
    chanops new channels */
 
 #ifdef NO_CHANOPS_WHEN_SPLIT
-#define SERVER_SPLIT_RECOVERY_TIME (60*15)
+#define MAX_SERVER_SPLIT_RECOVERY_TIME 15
 #endif
 
 
