@@ -920,9 +920,9 @@
  * when this is defined, 3 completely different opers from
  * three different servers must do the identical GLINE in order
  * for the G line to take effect.
- * this code is broken right now, it will be fixed in the next release
  */
 #undef GLINES
+#define GLINEFILE	"gline.log"
 
 /* GLINE_TIME - local expire time for GLINES
  * As configured here, a GLINE will last 12 hours

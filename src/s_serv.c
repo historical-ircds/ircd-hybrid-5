@@ -94,6 +94,7 @@ static int isnumber(char *);	/* return 0 if not, else return number */
 static char *cluster(char *);
 static host_is_legal_dline(char *);	/* return 1 if host is legal IP 
 					   else 0 */
+static int safe_write(aClient *,char *,char *,int,char *);
 
 void read_motd(char *);
 
@@ -122,6 +123,9 @@ typedef struct gline_pending
   struct gline_pending *next;
 }GLINE_PENDING;
 
+static void log_gline(aClient *,char *,GLINE_PENDING *,
+		      char *,char *,char *,char *,char *,char *,char *);
+
 static GLINE_PENDING *pending_glines;
 
 /* how long a pending G line can be around
@@ -131,7 +135,8 @@ static GLINE_PENDING *pending_glines;
 
 void expire_pending_glines();
 
-static int majority_gline(char *,char *,char *,char *,char *,char *,char *);
+static int majority_gline(aClient *, char *,
+			  char *,char *,char *,char *,char *,char *,char *);
 #endif
 
 #ifdef UNKLINE
@@ -3444,7 +3449,8 @@ int     m_gline(aClient *cptr,
 		  reason);
 
   /* If at least 3 opers agree this user should be G lined then do it */
-  if(majority_gline(oper_name,
+  if(majority_gline(sptr, parv[0],
+		    oper_name,
 		    oper_username,
 		    oper_host,
 		    oper_server,
@@ -3496,7 +3502,9 @@ Side effects	-
 	Expire old entries.
 */
 
-static int majority_gline(char *oper_nick,
+static int majority_gline(aClient *sptr,
+			  char *parv0,
+			  char *oper_nick,
 			  char *oper_user,
 			  char *oper_host,
 			  char *oper_server,
@@ -3506,20 +3514,11 @@ static int majority_gline(char *oper_nick,
 {
   GLINE_PENDING *new_pending_gline;
   GLINE_PENDING *gline_pending_ptr;
-/* 
-  GLINE_PENDING *last_gline_pending_ptr;
-  GLINE_PENDING *tmp_gline_pending_ptr;
- */
 
   /* DEBUG */
 
-  Debug((DEBUG_DEBUG,"majority_gline: oper_nick %s oper_user %s oper_host %s oper_server %s user %s host %s reason %s",
-	 oper_nick,oper_user,oper_host,oper_server,user,host,reason));
-
   if(pending_glines == (GLINE_PENDING *)NULL) /* first gline request placed */
     {
-Debug((DEBUG_DEBUG,"New GLINE"));
-
       new_pending_gline = (GLINE_PENDING *)malloc(sizeof(GLINE_PENDING));
       if(new_pending_gline == (GLINE_PENDING *)NULL)
 	{
@@ -3540,9 +3539,10 @@ Debug((DEBUG_DEBUG,"New GLINE"));
       
       strncpyzt(new_pending_gline->user,user,USERLEN);
       strncpyzt(new_pending_gline->host,host,HOSTLEN);
-      /* reason field isn't used right now... later */
-  /* new_pending_gline->reason1 = strdup(reason); */
-    
+      new_pending_gline->reason1 = strdup(reason);
+      new_pending_gline->reason2 = (char *)NULL;
+      /* if (new_pending_gline == (char *)NULL return */    
+
       new_pending_gline->next = (GLINE_PENDING *)NULL;
       new_pending_gline->last_gline_time = NOW;
       pending_glines = new_pending_gline;
@@ -3559,46 +3559,22 @@ Debug((DEBUG_DEBUG,"New GLINE"));
 	  (strcasecmp(gline_pending_ptr->host,host) != 0) )
 	{
 	  /* Not a match for this user */
-Debug((DEBUG_DEBUG,"No match for this user: gline_pending_ptr->user %s gline_pending_ptr->host",
-		   gline_pending_ptr->user,gline_pending_ptr->host));
-
-Debug((DEBUG_DEBUG,"No match for this user: user %s host",
-		   user,host));
 
 	  gline_pending_ptr = gline_pending_ptr->next;
 	  continue;
 	}
-
-Debug((DEBUG_DEBUG,"gline_pending_ptr->oper_user1 %s",
-		   gline_pending_ptr->oper_user1));
-
-Debug((DEBUG_DEBUG,"gline_pending_ptr->oper_host1 %s",
-		   gline_pending_ptr->oper_host1));
-
-Debug((DEBUG_DEBUG,"gline_pending_ptr->oper_server1 %s",
-		   gline_pending_ptr->oper_server1));
 
       if( ((strcasecmp(gline_pending_ptr->oper_user1,oper_user) == 0) &&
 	  (strcasecmp(gline_pending_ptr->oper_host1,oper_host) == 0)) ||
 	  (strcasecmp(gline_pending_ptr->oper_server1,oper_server) == 0) )
 	{
 	  /* This oper or server has already "voted" */
-Debug((DEBUG_DEBUG,"already one oper has voted yes"));
 	  sendto_realops("oper or server has already voted");
 	  return NO;
 	}
 
       if( gline_pending_ptr->oper_user2[0] != '\0' )
 	{
-Debug((DEBUG_DEBUG,"gline_pending_ptr->oper_user2 %s",
-		   gline_pending_ptr->oper_user2));
-
-Debug((DEBUG_DEBUG,"gline_pending_ptr->oper_host2 %s",
-		   gline_pending_ptr->oper_host2));
-
-Debug((DEBUG_DEBUG,"gline_pending_ptr->oper_server2 %s",
-		   gline_pending_ptr->oper_server2));
-
 	  /* already two opers have "voted" yes */
 	  
 	  if( ((strcasecmp(gline_pending_ptr->oper_user2,oper_user) == 0) &&
@@ -3606,14 +3582,17 @@ Debug((DEBUG_DEBUG,"gline_pending_ptr->oper_server2 %s",
 	      (strcasecmp(gline_pending_ptr->oper_server2,oper_server) == 0) )
 	    {
 	      /* This oper or server has already "voted" */
-Debug((DEBUG_DEBUG,"already two opers have voted yes"));
 	      sendto_ops("oper or server has already voted");
 	      return NO;
 	    }
           /* expire it this way */
           gline_pending_ptr->last_gline_time = (time_t)0;
           expire_pending_glines();
-Debug((DEBUG_DEBUG,"Now have a majority"));
+
+	  log_gline(sptr,parv0,gline_pending_ptr,
+		    oper_nick,oper_user,oper_host,oper_server,
+		    user,host,reason);
+
 	  return YES;
 	}
       else
@@ -3621,6 +3600,7 @@ Debug((DEBUG_DEBUG,"Now have a majority"));
 	  strncpyzt(gline_pending_ptr->oper_nick2,oper_nick,NICKLEN+1);
 	  strncpyzt(gline_pending_ptr->oper_user2,oper_user,USERLEN);
 	  strncpyzt(gline_pending_ptr->oper_host2,oper_host,HOSTLEN);
+	  gline_pending_ptr->reason2 = strdup(reason);
 	  gline_pending_ptr->oper_server2 = find_or_add(oper_server);
 	  return NO;
 	}
@@ -3629,48 +3609,135 @@ Debug((DEBUG_DEBUG,"Now have a majority"));
 }
 
 /*
-expire_pending_glines
+ * log_gline()
+ *
+ */
+static void log_gline(
+		      aClient *sptr,
+		      char *parv0,
+		      GLINE_PENDING *gline_pending_ptr,
+		      char *oper_nick,
+		      char *oper_user,
+		      char *oper_host,
+		      char *oper_server,
+		      char *user,
+		      char *host,
+		      char *reason)
+{
+  char buffer[512];
+  char timebuffer[MAX_DATE_STRING];
+  char filenamebuf[1024];
+  struct tm *tmptr;
+  int out;
 
-inputs		- NONE
-output		- NONE
-side effects	-
+  tmptr = localtime(&NOW);
+  strftime(timebuffer, MAX_DATE_STRING, "%y%m%d", tmptr);
 
-Go through the  pending gline list, expire any that haven't had
-enough "votes"
-*/
+  (void)sprintf(filenamebuf, "%s.%s", glinefile, timebuffer);
+  if ((out = open(filenamebuf, O_RDWR|O_APPEND|O_CREAT,0644))==-1)return;
+
+  tmptr = localtime(&NOW);
+  strftime(timebuffer, MAX_DATE_STRING, "%y%m%d%H%M%S", tmptr);
+
+  (void)ircsprintf(buffer,"#Gline for %s@%s %s added by the following\n",
+		   user,host,timebuffer);
+
+  if (safe_write(sptr,parv0,filenamebuf,out,buffer))
+    return;
+
+  (void)ircsprintf(buffer, "#%s!%s@%s on %s [%s]\n",
+		   gline_pending_ptr->oper_nick1,
+		   gline_pending_ptr->oper_user1,
+		   gline_pending_ptr->oper_host1,
+		   gline_pending_ptr->oper_server1,
+		   (gline_pending_ptr->reason1)?
+		   (gline_pending_ptr->reason1):"No reason");
+
+  if (safe_write(sptr,parv0,filenamebuf,out,buffer))
+    return;
+
+  (void)ircsprintf(buffer, "#%s!%s@%s on %s [%s]\n",
+		   gline_pending_ptr->oper_nick2,
+		   gline_pending_ptr->oper_user2,
+		   gline_pending_ptr->oper_host2,
+		   gline_pending_ptr->oper_server2,
+		   (gline_pending_ptr->reason2)?
+		   (gline_pending_ptr->reason2):"No reason");
+
+  if (safe_write(sptr,parv0,filenamebuf,out,buffer))
+    return;
+
+  (void)ircsprintf(buffer, "#%s!%s@%s on %s [%s]\n",
+		   oper_nick,
+		   oper_user,
+		   oper_host,
+		   oper_server,
+		   (reason)?reason:"No reason");
+
+  if (safe_write(sptr,parv0,filenamebuf,out,buffer))
+    return;
+
+  (void)ircsprintf(buffer, "K:%s:%s:%s\n",
+	host,user,reason);
+  if (safe_write(sptr,parv0,filenamebuf,out,buffer))
+    return;
+
+  (void)close(out);
+}
+
+/*
+ * expire_pending_glines
+ * 
+ * inputs	- NONE
+ * output	- NONE
+ * side effects	-
+ *
+ * Go through the  pending gline list, expire any that haven't had
+ * enough "votes"
+ */
 
 void expire_pending_glines()
 {
   GLINE_PENDING *gline_pending_ptr;
   GLINE_PENDING *last_gline_pending_ptr;
-  GLINE_PENDING *tmp_gline_pending_ptr;
+  GLINE_PENDING *tmp_pending_ptr;
 
   if(pending_glines == (GLINE_PENDING *)NULL)
     return;
 
-  last_gline_pending_ptr = gline_pending_ptr = pending_glines;
+  last_gline_pending_ptr = (GLINE_PENDING *)NULL;
+  gline_pending_ptr = pending_glines;
 
   while(gline_pending_ptr)
     {
       if( (gline_pending_ptr->last_gline_time + GLINE_PENDING_EXPIRE) <= NOW )
 	{
-	  if(pending_glines == gline_pending_ptr)
-	    last_gline_pending_ptr = pending_glines = tmp_gline_pending_ptr =
-	      gline_pending_ptr->next;
+	  if(last_gline_pending_ptr)
+	    last_gline_pending_ptr->next = gline_pending_ptr->next;
 	  else
-	    last_gline_pending_ptr = tmp_gline_pending_ptr = 
-	      gline_pending_ptr->next;
-	  MyFree(gline_pending_ptr);
-	  gline_pending_ptr = tmp_gline_pending_ptr;
+	    pending_glines = gline_pending_ptr->next;
+
+	  /*Some malloc packages get terribly upset if you 
+	    try to dereference a pointer you have freed,
+	    hence I need to dereference the pointer then free it,
+	    so I need to keep a pointer to the item I am about to free.
+	    -Dianora */
+
+	  tmp_pending_ptr = gline_pending_ptr;
+	  gline_pending_ptr = gline_pending_ptr->next;
+	  MyFree(tmp_pending_ptr->reason1);
+	  MyFree(tmp_pending_ptr->reason2);
+	  MyFree(tmp_pending_ptr);
 	}
       else
-	gline_pending_ptr = gline_pending_ptr->next;
+	{
+	  last_gline_pending_ptr = gline_pending_ptr;
+	  gline_pending_ptr = gline_pending_ptr->next;
+	}
     }
 }
 
-#endif
-
-/* #ifdef GLINES */
+#endif /* GLINES */
 
 /*
 m_kline()
@@ -4018,7 +4085,7 @@ int     m_kline(aClient *cptr,
 
 #else /* LOCKFILE - MDP and not SEPARATE_KLINES_BY_DATE */
 
-  if ((out = open(filename, O_RDWR|O_APPEND|O_CREAT))==-1)
+  if ((out = open(filename, O_RDWR|O_APPEND|O_CREAT,0644))==-1)
     {
       sendto_one(sptr, ":%s NOTICE %s :Problem opening %s ",
 		 me.name, parv[0], filename);
@@ -4034,13 +4101,11 @@ int     m_kline(aClient *cptr,
 		   sptr->user->host, user, host,
 		   reason);
 
-  if (write(out, buffer, strlen(buffer)) <= 0)
-    {
-      sendto_one(sptr, ":%s NOTICE %s :Problem writing to %s",
-		 me.name, parv[0], filename);
-      (void)close(out);
-      return 0;
-    }
+  if (safe_write(sptr,parv[0],filename,out,buffer))
+    return 0;
+
+  if (safe_write(sptr,parv[0],filename,out,buffer))
+    return 0;
 
 #ifndef K_COMMENT_ONLY
   (void)ircsprintf(buffer, "K:%s:%s (%s):%s\n",
@@ -4056,13 +4121,8 @@ int     m_kline(aClient *cptr,
 		   user);
 #endif
 
-  if (write(out, buffer, strlen(buffer)) <= 0)
-    {
-      sendto_one(sptr, ":%s NOTICE %s :Problem writing to %s",
-		 me.name, parv[0], filename);
-      (void)close(out);
-      return 0;
-    }
+  if (safe_write(sptr,parv[0],filename,out,buffer))
+    return 0;
 
   (void)close(out);
 
@@ -4885,7 +4945,7 @@ int     place_dline(aClient *sptr,
 
 #else /* LOCKFILE - MDP */
 
-  if ((out = open(dlinefile, O_RDWR|O_APPEND|O_CREAT))==-1)
+  if ((out = open(dlinefile, O_RDWR|O_APPEND|O_CREAT,0644))==-1)
     {
       sendto_one(sptr, ":%s NOTICE %s :Problem opening %s ",
 		 me.name, parv0, dlinefile);
@@ -4897,28 +4957,16 @@ int     place_dline(aClient *sptr,
 		   sptr->user->host, host,
 		   reason, current_date);
 
-  if (write(out, buffer, strlen(buffer)) <= 0)
-    {
-      sendto_one(sptr,
-		 ":%s NOTICE %s :Problem writing to %s",
-		 me.name, parv0, dlinefile);
-      close(out);
-      return 0;
-    }
+  if (safe_write(sptr,parv0,dlinefile,out,buffer))
+    return;
 
   (void)ircsprintf(buffer, "D:%s:%s (%s)\n",
 		   host,
 		   reason,
 		   current_date);
 
-  if (write(out, buffer, strlen(buffer)) <= 0)
-    {
-      sendto_one(sptr,
-		 ":%s NOTICE %s :Problem writing to %s",
-		 me.name, parv0, dlinefile);
-      close(out);
-      return 0;
-    }
+  if (safe_write(sptr,parv0,dlinefile,out,buffer))
+    return;
 
   (void)close(out);
   return 0;
@@ -5487,7 +5535,7 @@ int lock_kline_file()
   int fd;
 
   /* Create Lockfile */
-  if((fd = open(LOCKFILE, O_WRONLY|O_CREAT|O_EXCL, 0666)) < 0)
+  if((fd = open(LOCKFILE, O_WRONLY|O_CREAT|O_EXCL, 0644)) < 0)
     {
       sendto_realops("%s is locked, klines pending",klinefile);
       pending_kline_time = time(NULL);
@@ -5507,7 +5555,7 @@ void do_pending_klines()
     return;
                         
   /* Create Lockfile */
-  if((fd = open(LOCKFILE, O_WRONLY|O_CREAT|O_EXCL, 0666)) < 0)
+  if((fd = open(LOCKFILE, O_WRONLY|O_CREAT|O_EXCL, 0644)) < 0)
     {
       sendto_realops("%s is locked, klines pending",klinefile);
       pending_kline_time = time(NULL);
@@ -5518,7 +5566,7 @@ void do_pending_klines()
   close(fd);
   
   /* Open klinefile */   
-  if ((fd = open(klinefile, O_WRONLY|O_APPEND))==-1)
+  if ((fd = open(klinefile, O_WRONLY|O_APPEND|O_CREAT,0644))==-1)
     {
       sendto_realops("Pending klines cannot be written, cannot open %s",
                  klinefile);
@@ -5547,3 +5595,18 @@ void do_pending_klines()
   unlink(LOCKFILE);
 }
 #endif             
+
+static int safe_write(aClient *sptr,
+		      char *parv0,char *filename, int out,char *buffer)
+{
+  if (write(out,buffer,strlen(buffer)) <= 0)
+    {
+      sendto_realops("*** Problem writing to %s",filename);
+      (void)close(out);
+      return (-1);
+    }
+  return(0);
+}
+
+
+

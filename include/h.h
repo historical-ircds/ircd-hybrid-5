@@ -156,6 +156,9 @@ extern  char    *MyRealloc (char *, int);
 extern	char	*debugmode, *configfile, *sbrk0;
 extern  char    *klinefile;
 extern  char	*dlinefile;
+#ifdef	GLINES
+extern	char	*glinefile;
+#endif
 extern	char	*getfield (char *);
 extern	void	get_sockhost (aClient *, char *);
 extern	char	*rpl_str (int);
