@@ -370,7 +370,7 @@ int	m_svinfo(aClient *cptr,
 		 int parc,
 		 char *parv[])
 {
-  Reg	ts_val	v;
+  time_t	deltat, tmptime,theirtime;
 
   if (!IsServer(sptr) || !MyConnect(sptr) || !DoesTS(sptr) || parc < 5)
     return 0;
@@ -385,6 +385,23 @@ int	m_svinfo(aClient *cptr,
       sendto_ops("Link %s dropped, wrong TS protocol version (%s,%s)",
 		 get_client_name(sptr, TRUE), parv[1], parv[2]);
       return exit_client(sptr, sptr, sptr, "Incompatible TS version");
+    }
+
+  tmptime = time(NULL);
+  theirtime = atol(parv[4]);
+  deltat = abs(theirtime - tmptime);
+
+  if (deltat > TS_MAX_DELTA)
+    {
+      sendto_ops("Link %s dropped, excessive TS delta (my TS=%d, their TS=%d, delta=%d)",
+		 get_client_name(sptr, TRUE), tmptime, theirtime,deltat);
+      return exit_client(sptr, sptr, sptr, "Excessive TS delta");
+    }
+
+  if (deltat > TS_WARN_DELTA)
+    { 
+      sendto_realops("Link %s notable TS delta (my TS=%d, their TS=%d, delta=%d)",
+                 get_client_name(sptr, TRUE), tmptime, theirtime, deltat);
     }
 
   return 0;
@@ -1410,6 +1427,9 @@ int	m_info(aClient *cptr,
         sendto_one(sptr, rpl_str(RPL_INFO),
                 me.name, parv[0], outstr);
 	ircsprintf(outstr,"NICKNAMEHISTORYLENGTH=%d NOISY_HTM=%d",NICKNAMEHISTORYLENGTH,NOISY_HTM);
+	sendto_one(sptr, rpl_str(RPL_INFO),
+		me.name, parv[0], outstr);
+        ircsprintf(outstr,"TS_MAX_DELTA=%d TS_WARN_DELTA=%d",TS_MAX_DELTA,TS_WARN_DELTA);
 	sendto_one(sptr, rpl_str(RPL_INFO),
 		me.name, parv[0], outstr);
       }

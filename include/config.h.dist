@@ -61,7 +61,7 @@
  * over as needed, the FD_ISSET calculates the bitmask and array
  * offset every single time.
  */
-#undef USE_FAST_FD_ISSET
+#define USE_FAST_FD_ISSET
 
 /* DPATH SPATH CPATH MPATH KPATH - directoy and files locations
  * Full pathnames and defaults of irc system's support files. Please note that
@@ -90,6 +90,22 @@
 #define	LPATH	"ircd.log"
 #define	PPATH	"ircd.pid"
 #define HPATH	"opers.txt"
+
+/* TS_MAX_DELTA and TS_WARN_DELTA -  allowed delta for TS when another
+ * server connects.
+ *
+ * If the difference between my clock and the other server's clock is
+ * greater than TS_MAX_DELTA, I send out a warning and drop the links.
+ * 
+ * If the difference is less than TS_MAX_DELTA, I just sends out a warning
+ * but don't drop the link.
+ *
+ * TS_MAX_DELTA currently set to 30 minutes to deal with lame older timedelta
+ * implementation.  Once pre-hybrid5.2 servers are eradicated, we can drop this
+ * down to 30 seconds or so. --Rodder
+ */
+#define TS_MAX_DELTA 1800	/* seconds */
+#define TS_WARN_DELTA 5 	/* seconds */
 
 /* LOCKFILE - Exclusive use of ircd.conf and kline.conf during writes
  *
@@ -209,7 +225,7 @@
  * A character is "special" if it's not "a-z", "A-Z", "0-9", ".", "-",
  * and "_"
  */
-#undef NO_SPECIAL
+#define NO_SPECIAL
 
 /* REJECT_IPHONE - reject I-phone clients
  * Define if you want to reject I-phoners
@@ -400,7 +416,7 @@
  * no point forcing MOTD on connecting clients IMO. Give them a short
  * NOTICE telling them they should read the motd, and leave it at that.
  */
-#define SHORT_MOTD
+#undef SHORT_MOTD
 
 /* NO_OPER_FLOOD - disable flood control for opers
  * define this to remove flood control for opers
@@ -621,7 +637,7 @@
 /* NOISY_HTM - should HTM be noisy by default
  * should be YES or NO
  */
-#define NOISY_HTM NO
+#define NOISY_HTM YES
 
 /* NO_CHANOP_WHEN_SPLIT
  * When this is defined, users will not be chanopped on empty channels

@@ -1131,8 +1131,19 @@ time_t io_loop(time_t delay)
   static time_t	lasttime	= 0;
   static long	lastrecvK	= 0;
   static int	lrv		= 0;
+  time_t lasttimeofday;
 
+  lasttimeofday = timeofday;
   timeofday = time(NULL);
+
+  if (timeofday < lasttimeofday)
+  {
+  	(void)ircsprintf(to_send,
+		"System clock is running backwards - (%d < %d)",
+		timeofday, lasttimeofday);
+	report_error(to_send, &me);
+  }
+
   NOW = timeofday;
 
   /*
