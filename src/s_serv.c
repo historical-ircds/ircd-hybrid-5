@@ -2870,6 +2870,14 @@ int     m_kline(aClient *cptr,
 	  return 0;
 	}
 
+      if(strchr(argv, '#'))
+        {
+          sendto_one(sptr,
+                     ":%s NOTICE %s :Invalid character '#' in comment",
+                     me.name, parv[0]);
+          return 0;
+        }
+
       if(*argv)
 	reason = argv;
       else
@@ -3564,6 +3572,14 @@ int     m_dline(aClient *cptr,
 		     me.name, parv[0]);
 	  return 0;
 	}
+
+      if(strchr(parv[2], '#'))
+        {
+          sendto_one(sptr,
+                     ":%s NOTICE %s :Invalid character '#' in comment",
+                     me.name, parv[0]);
+          return 0;
+        }
 
       if(*parv[2])
 	reason = parv[2];
@@ -4300,6 +4316,8 @@ void do_pending_klines()
   /* Open klinefile */   
   if ((fd = open(klinefile, O_WRONLY|O_APPEND))==-1)
     {
+      sendto_realops("Pending klines cannot be written, cannot open %s",
+                 klinefile);
       unlink(LOCKFILE);
       return; 
     }
