@@ -2936,7 +2936,7 @@ side effects	- hopefully, none
 static int hash_dline_ip(unsigned long ip)
 {
   int hash;
-  hash = ((ip >>= 11) + ip) & (DLINE_HASH_SIZE-1);
+  hash = ((ip >>= 12) + ip) & (DLINE_HASH_SIZE-1);
   return(hash);
 }
 
