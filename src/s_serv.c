@@ -2440,7 +2440,9 @@ int     m_gline(aClient *cptr,
 	  if (!*host)		/* duh. no host found, assume its '*' host */
 	    host = "*";
 
-	  strncpyzt(tempuser, user, USERLEN+1);	/* allow for '*' */
+/* strncpyzt is broken for this case -Dianora */
+	  strncpy(tempuser, user, USERLEN+1);	/* allow for '*' */
+	  tempuser[USERLEN+1] = '\0';
 	  strncpyzt(temphost, host, HOSTLEN);
 	  user = tempuser;
 	  host = temphost;
@@ -2850,7 +2852,9 @@ int     m_kline(aClient *cptr,
 
       if (!*host)		/* duh. no host found, assume its '*' host */
 	host = "*";
-      strncpyzt(tempuser, user, USERLEN+1); /* allow for '*' in front */
+/* strncpyzt is broken for this case -Dianora */
+      strncpy(tempuser, user, USERLEN+1); /* allow for '*' in front */
+      tempuser[USERLEN+1] = '\0';
       strncpyzt(temphost, host, HOSTLEN);
       user = tempuser;
       host = temphost;
