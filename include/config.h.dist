@@ -308,6 +308,12 @@
  * Your opers can be hit with retalitation... Or if your opers use
  * scripts that stick an ID into the comment field. etc. It's up to you
  * whether you want to use it or not.
+ *
+ * I have rewritten a portion of the k-line processing making it faster
+ * unfortuantely, using KLINE_WITH_REASON would slow down this
+ * processing slightly.. how much I can't say. For very few clients
+ * being KLINED very little difference, but you have been forewarned
+ *
  */
 #define KLINE_WITH_REASON
 
@@ -618,7 +624,7 @@
 
 /* NO_CHANOP_WHEN_SPLIT
  * When this is defined, users will not be chanopped on empty channels
- * if there are no servers presently connected to this server.
+ * if there are no servers presently connected to this server
  * opers are not affected. 
  */
 #define NO_CHANOPS_WHEN_SPLIT
@@ -637,7 +643,7 @@
  *
  * users matching *.foo.com will still be restricted
  * 
-*/
+ */
 #define LITTLE_I_LINES
 
 /*
@@ -981,4 +987,5 @@ error CLIENT_FLOOD undefined.
 #endif
 
 #define CONFIG_H_LEVEL_5
+
 #endif /* __config_include__ */
