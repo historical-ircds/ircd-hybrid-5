@@ -426,7 +426,6 @@ struct Client
   anUser	*user;		/* ...defined, if this is a User */
   aServer	*serv;		/* ...defined, if this is a server */
   aWhowas 	*whowas;	/* Pointers to whowas structs */
-  int		hashv;		/* raw hash value */
   time_t	lasttime;	/* ...should be only LOCAL clients? --msa */
   time_t	firsttime;	/* time client was created */
   time_t	since;		/* last time we parsed something */
