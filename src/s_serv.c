@@ -3238,16 +3238,19 @@ int     m_gline(aClient *cptr,
 		int parc,
 		char *parv[])
 {
-  char buffer[1024];
-  char *user, *host;
-  char *reason;
+  char buffer[512];
+  char *oper_name;		/* nick of oper requesting GLINE */
+  char *oper_username;		/* username of oper requesting GLINE */
+  char *oper_host;		/* hostname of oper requesting GLINE */
+  char *oper_server;		/* server of oper requesting GLINE */
+  char *user, *host;		/* user and host of GLINE "victim" */
+  char *reason;			/* reason for "victims" demise */
   char *current_date;
   char tempuser[USERLEN+2];
   char temphost[HOSTLEN+1];
   aConfItem *aconf;
-  char *tld;
-  char *oper_nick,*oper_username,*oper_host,*oper_server;
-  int bad;
+  char *tld;			/* Top level domain */
+  int bad_tld;			/* YES if bad tld, NO if good tld */
 
   if(!IsServer(sptr)) /* allow remote opers to apply g lines */
     {
@@ -3296,6 +3299,11 @@ int     m_gline(aClient *cptr,
 	  return 0;
 	}
 
+      /* DEBUG */
+      Debug((DEBUG_DEBUG,
+	     "GLINE placed by local oper user [%s] host [%s] reason [%s]",
+	     user,host,parv[2]));
+
       if(strchr(parv[2], ':'))
 	{
           sendto_one(sptr,
@@ -3316,27 +3324,27 @@ int     m_gline(aClient *cptr,
 	  return 0;
 	}
 
-      bad = NO;
+      bad_tld = NO;
       tld = strrchr(host, '.');
       if(tld)
 	{
 	  if(tld == host)
-	    bad = YES;
+	    bad_tld = YES;
 	  tld--;
 	  if(tld == host)
 	    if( (*tld == '.') || (*tld == '*'))
-	      bad = YES;
+	      bad_tld = YES;
 	  tld--;
 	  if(tld != host)
 	    {
 	      if((*tld == '*') || (*tld == '?'))
-		bad = YES;
+		bad_tld = YES;
 	    }
 	}
       else
-	bad = YES;
+	bad_tld = YES;
 
-      if ( bad )
+      if (bad_tld)
 	{
 	  if(MyClient(sptr))
 	    sendto_one(sptr, ":%s NOTICE %s :Can't G-Line *@%s",
@@ -3346,59 +3354,97 @@ int     m_gline(aClient *cptr,
 	  return 0;
 	}
 
-      oper_nick = sptr->name;
-      oper_username = sptr->username;
-      oper_host = sptr->user->host;
-      oper_server = sptr->user->server;
+      if(sptr->name)
+	oper_name = sptr->name;
+      else 
+	return;
+      
+      if(sptr->user && sptr->user->username)
+	oper_username = sptr->user->username;
+      else
+	return;
 
-      sendto_serv_butone(NULL, ":%s GLINE %s %s :%s",
+      if(sptr->user && sptr->user->host)
+	oper_host = sptr->user->host;
+      else
+	return;
+
+      if(sptr->user && sptr->user->server)
+	oper_server = sptr->user->server;
+      else
+	return;
+
+      /* DEBUG */
+      Debug((DEBUG_DEBUG,
+     "GLINE about to sendto_serv_butone(:%s GLINE %s %s %s %s %s %s :%s);",
+	     me.name,
+	     oper_name,
+	     oper_username,
+	     oper_host,
+	     oper_server,
+	     user,
+	     host,
+	     reason));
+
+      sendto_serv_butone(NULL, ":%s GLINE %s %s %s %s %s %s :%s",
 			 me.name,
-			 user,
-			 host,
-			 oper_nick,
+			 oper_name,
 			 oper_username,
 			 oper_host,
 			 oper_server,
+			 user,
+			 host,
 			 reason);
     }
   else
     {
       if(!IsServer(sptr))
         return(0);
-
-      if(parc < 8)
-	return 0;
-
-      user = parv[1];
-      host = parv[2];
-      oper_nick = parv[3];
-      oper_username = parv[4];
-      oper_host = parv[5];
-      oper_server = parv[6];
+      /* DEBUG */
+      Debug((DEBUG_DEBUG,"GLINE received from a server"));
+      
+      oper_name = parv[1];
+      oper_username = parv[2];
+      oper_host = parv[3];
+      oper_server = parv[4];
+      user = parv[5];
+      host = parv[6];
       reason = parv[7];
 
-      sendto_serv_butone(sptr, ":%s GLINE %s %s :%s",
-                         me.name,
+      /* DEBUG */
+      Debug((DEBUG_DEBUG,
+	     "GLINE received from server :%s GLINE %s %s %s %s %s %s :%s",
+       sptr->name,
+       oper_name,oper_username,oper_host,oper_server,
+       user,
+       host,
+       reason));
+
+
+      Debug((DEBUG_DEBUG,
+	     "GLINE sending to all servers but sptr %x sptr->name [%s]",
+       sptr,sptr->name));
+
+      sendto_serv_butone(sptr, ":%s GLINE %s %s %s %s %s %s :%s",
+                         sptr->name,
+			 oper_name,oper_username,oper_host,oper_server,
                          user,
                          host,
-			 oper_nick,
-			 oper_username,
-			 oper_host,
-			 oper_server,
                          reason);
+      /*DEBUG */
     }
 
    sendto_realops("%s!%s@%s on %s is requesting gline for [%s@%s] [%s]",
-		 oper_nick,
-		 oper_username,
-		 oper_host,
-		 oper_server,
-		 user,
-		 host,
-		 reason);
+		  oper_name,
+		  oper_username,
+		  oper_host,
+		  oper_server,
+		  user,
+		  host,
+		  reason);
 
   /* If at least 3 opers agree this user should be G lined then do it */
-  if(majority_gline(oper_nick,
+  if(majority_gline(oper_name,
 		    oper_username,
 		    oper_host,
 		    oper_server,
@@ -3420,13 +3466,13 @@ int     m_gline(aClient *cptr,
       add_gline(aconf);
       
       sendto_realops("%s!%s@%s on %s has triggered gline for [%s@%s] [%s]",
-		     oper_nick,
-		     oper_username,
-		     oper_host,
-		     oper_server,
-		     user,
-		     host,
-		     reason);
+		 sptr->name,
+		 sptr->username,
+		 sptr->user->host,
+		 sptr->user->server,
+		 user,
+		 host,
+		 reason);
       
       rehashed = YES;
       dline_in_progress = NO;
@@ -3611,7 +3657,7 @@ int     m_kline(aClient *cptr,
 #else
   int out;
 #endif
-  char buffer[1024];
+  char buffer[512];
 
 #ifdef SEPARATE_QUOTE_KLINES_BY_DATE
   char timebuffer[MAX_DATE_STRING];

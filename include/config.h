@@ -913,7 +913,7 @@
 */
 #undef  DEBUGMODE               /* define DEBUGMODE to enable debugging mode.*/
 
-/* ----------------- archaic and/or broken secion -------------------- */
+/* ----------------- archaic and/or broken section -------------------- */
 
 /* GLINES - global Kline-like bans
  * Define this if you want GLINE support

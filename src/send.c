@@ -273,8 +273,6 @@ va_dcl
 
   int len; /* used for the length of the current message */
 
-  Debug((DEBUG_DEBUG,"sendto_one to = %X", to));
-
 #ifdef	USE_VARARGS
   va_start(vl);
   (void)vsprintf(sendbuf, pattern, vl);
@@ -283,7 +281,6 @@ va_dcl
   len=format(sendbuf, pattern, p1, p2, p3, p4, p5, p6,
 	     p7, p8, p9, p10, p11, p12);
 #endif
-  Debug((DEBUG_SEND,"Sending [%s] to %s", sendbuf,to->name));
 
   if (to->from)
     to = to->from;
@@ -642,9 +639,6 @@ va_dcl
   va_start(vl);
 #endif
 
-  Debug((DEBUG_DEBUG,
-	 "sendto_match_servs()"));
-
   if (chptr)
     {
       if (*chptr->chname == '&')
@@ -711,6 +705,45 @@ va_dcl
 #ifdef	USE_VARARGS
   va_start(vl);
 #endif
+
+#ifdef USE_LINKLIST
+
+  /* scan the local clients */
+  for(cptr = local_cptr_list; cptr; cptr = cptr->next_local_client)
+    {
+      if (cptr == one)	/* must skip the origin !! */
+	continue;
+      if (match_it(cptr, mask, what))
+	{
+	  sendto_prefix_one(cptr, from, pattern,
+			    p1, p2, p3, p4, p5, p6, p7, p8);
+	}
+    }
+
+  /* Now scan servers */
+  for(cptr = serv_cptr_list; cptr; cptr = cptr->next_server_client)
+    {
+      if (cptr == one)	/* must skip the origin !! */
+	continue;
+      if (match_it(cptr, mask, what))
+	{
+	  for (acptr = client; acptr; acptr = acptr->next)
+	    if (IsRegisteredUser(acptr)
+		&& match_it(acptr, mask, what)
+		&& acptr->from == cptr)
+	      break;
+	  /* a person on that server matches the mask, so we
+	  ** send *one* msg to that server ...
+	  */
+	  if (acptr == NULL)
+	    continue;
+	  /* ... but only if there *IS* a matching person */
+	  sendto_prefix_one(cptr, from, pattern,
+			    p1, p2, p3, p4, p5, p6, p7, p8);
+	}
+    }
+  return;
+#else
   for (i = 0; i <= highest_fd; i++)
     {
       if (!(cptr = local[i]))
@@ -743,8 +776,9 @@ va_dcl
       sendto_prefix_one(cptr, from, pattern,
 		    p1, p2, p3, p4, p5, p6, p7, p8);
     }
-#endif
+#endif /* USE_VARARGS */
   return;
+#endif /* USE_LINKLIST */
 }
 
 /*
@@ -769,10 +803,6 @@ va_dcl
 #endif
   register	int	i;
   register	aClient *cptr;
-
-  Debug((DEBUG_DEBUG,
-	 "sendto_all_butone() one = %X",one));
-
 
 #ifdef	USE_VARARGS
   for (va_start(vl), i = 0; i <= highest_fd; i++)

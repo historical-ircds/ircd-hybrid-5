@@ -1102,34 +1102,41 @@ int	rehash_dump(aClient *sptr,char *parv0)
 
   for(aconf=conf; aconf; aconf = aconf->next)
     {
+      aClass *class_ptr;
+      class_ptr = Class(aconf);
       if(aconf->status == CONF_CONNECT_SERVER)
 	{
-	  (void)sprintf(result_buf,"C:%s:%s:%s::3\n",
-			 aconf->host,aconf->passwd,aconf->name);
+	  
+	  (void)sprintf(result_buf,"C:%s:%s:%s::%d\n",
+			aconf->host,aconf->passwd,aconf->name,
+			class_ptr->class);
 	  (void)write(out,result_buf,strlen(result_buf));
 	}
       else if(aconf->status == CONF_NOCONNECT_SERVER)
 	{
-	  (void)sprintf(result_buf,"N:%s:%s:%s::3\n",
-			 aconf->host,aconf->passwd,aconf->name);
+	  (void)sprintf(result_buf,"N:%s:%s:%s::%d\n",
+			aconf->host,aconf->passwd,aconf->name,
+			class_ptr->class);
 	  (void)write(out,result_buf,strlen(result_buf));
 	}
       else if(aconf->status == CONF_OPERATOR)
 	{
-	  (void)sprintf(result_buf,"O:%s:%s:%s::4\n",
-			 aconf->host,aconf->passwd,aconf->name);
+	  (void)sprintf(result_buf,"O:%s:%s:%s::%d\n",
+			aconf->host,aconf->passwd,aconf->name,
+			class_ptr->class);
 	  (void)write(out,result_buf,strlen(result_buf));
 	}
       else if(aconf->status == CONF_LOCOP)
 	{
-	  (void)sprintf(result_buf,"o:%s:%s:%s::4\n",
-			 aconf->host,aconf->passwd,aconf->name);
+	  (void)sprintf(result_buf,"o:%s:%s:%s::%d\n",
+			aconf->host,aconf->passwd,aconf->name,
+			class_ptr->class);
 	  (void)write(out,result_buf,strlen(result_buf));
 	}
       else if(aconf->status == CONF_ADMIN)
 	{
 	  (void)sprintf(result_buf,"A:%s:%s:%s::\n",
-			 aconf->host,aconf->passwd,aconf->name);
+			aconf->host,aconf->passwd,aconf->name);
 	  (void)write(out,result_buf,strlen(result_buf));
 	}
     }
@@ -2336,9 +2343,9 @@ aConfItem *find_is_glined(char *host,char *name)
   aConfItem *tmp_list_ptr;
 
   /* gline handling... exactly like temporary klines 
-     I expect this list to be very tiny. (crosses fingers) so CPU
-     time in this, should be minimum.
-     -Dianora
+   * I expect this list to be very tiny. (crosses fingers) so CPU
+   * time in this, should be minimum.
+   * -Dianora
   */
 
   if(glines)
