@@ -56,7 +56,7 @@ void add_history(aClient *cptr, int online)
   new->hashv = hash_whowas_name(cptr->name);
   new->logoff = NOW;
   strncpyzt(new->name, cptr->name,NICKLEN+1);
-  strncpyzt(new->username, cptr->user->username,USERLEN);
+  strncpyzt(new->username, cptr->user->username,USERLEN+1);
   strncpyzt(new->hostname, cptr->user->host, HOSTLEN);
   strncpyzt(new->realname, cptr->info,REALLEN);
 
