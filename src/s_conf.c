@@ -1650,6 +1650,12 @@ int 	initconf(int opt, int fd)
 		  bconf->class->links -= bconf->clients;
 		  bconf->class = aconf->class;
 		  bconf->class->links += bconf->clients;
+		  /*
+		   * still... I've munged the flags possibly
+		   * so update the found aConfItem for now 
+		   * -Dianora
+		   */
+		  bconf->flags = aconf->flags;
 		}
 	      free_conf(aconf);
 	      aconf = bconf;
@@ -1713,7 +1719,6 @@ int 	initconf(int opt, int fd)
 
 	  if (portnum < 0 && aconf->port >= 0)
 	    portnum = aconf->port;
-
 	}
       
       if ((aconf->status & CONF_KILL) && aconf->host)
