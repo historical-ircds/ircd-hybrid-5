@@ -421,7 +421,7 @@ static	int	register_user(aClient *cptr,
   if (MyConnect(sptr))
     {
       p = inetntoa((char *)&sptr->ip);
-      strncpyzt(sptr->hostip,p,HOSTIPLEN);
+      strncpyzt(sptr->hostip,p,HOSTIPLEN+1);
       
       if ( (i = check_client(sptr)) )
 	/*
@@ -2229,9 +2229,9 @@ int	do_user(char *nick,
   user->last = timeofday;
   if(MyConnect(sptr))
      {
+       strncpyzt(sptr->user->username, username, USERLEN+1);
        if (sptr->name[0]) /* NICK already received, now I have USER... */
 	 {
-	   strncpyzt(sptr->user->username, username, USERLEN+1);
 	   sptr->random_ping = my_rand();
 	   sendto_one(sptr, "PING :%d", sptr->random_ping);
 	   sptr->flags |= FLAGS_PINGSENT;
@@ -2620,13 +2620,16 @@ int	m_pong(aClient *cptr,
 	      if(received_random_ping == sptr->random_ping)
 		{
 		  sptr->tsinfo = timeofday + timedelta;
-		  (void)del_from_client_hash_table(sptr->name, sptr);
 		  
 		  if (register_user(cptr, sptr, sptr->name,
 				    sptr->user->username)
 		      == FLUSH_BUFFER)
 		    return FLUSH_BUFFER;
-	      
+
+/* nick is never getting changed here, its only getting set
+  for first time, when an unregistered client finally sends
+  appropriate PONG response -Dianora */
+
 		  (void)add_to_client_hash_table(sptr->name, sptr);
 		}
 	      else {
