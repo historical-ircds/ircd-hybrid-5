@@ -467,6 +467,7 @@ static	int	register_user(aClient *cptr,
 	    return exit_client(cptr, sptr, &me, "Socket Error");
 
 #ifdef ANTI_SPAMBOT
+      /* This appears to be broken */
       /* Check for single char in user->host -ThemBones */
       if (*(user->host + 1) == '\0')
          spamchar = *user->host;
@@ -626,8 +627,9 @@ static	int	register_user(aClient *cptr,
     }
 
 #ifdef ANTI_SPAMBOT
+      /* It appears, this is catching normal clients */
   /* Reject single char user-given user->host's */
-  if (spamchar != '\0')
+  if (spamchar == 'x')
   {
     sendto_realops_lev(REJ_LEV,"Rejecting possible Spambot: %s (Single char user-given userhost: %c)",
 		       get_client_name(sptr,FALSE), spamchar);
