@@ -812,6 +812,22 @@
 #define FLUD_BLOCK	15	/* Seconds to block fluds */
 #endif
 
+/*
+ * OLD_Y_LIMIT
+ *
+ * #define this if you prefer the old behaviour of I lines
+ * the default behaviour is to limit the total number of clients
+ * using the max client limit in the corresponding Y line (class)
+ * The old behaviour was to limit the client count per I line
+ * without regard to the total class limit. Each have advantages
+ * and disadvantages. In an open I line server, the default behaviour
+ * i.e. #undef OLD_Y_LIMIT makes more sense, because you can limit
+ * the total number of clients in a class. In a closed I line server
+ * The old behaviour can make more sense.
+ * 
+ * -Dianora
+*/
+#undef OLD_Y_LIMIT
 
 /* ----------------- archaic and/or broken secion -------------------- */
 

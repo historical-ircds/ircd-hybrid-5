@@ -21,7 +21,8 @@
 * added ANTI_SPAMBOT code, read config.h (Dianora)
 * added fixklines to tools dir, use it to check kline.conf for #'s inside
   of K-line comments (Dianora)
-
+* added OLD_Y_LIMIT in config.h.dist to go back to old Y/I line behaviour
+  (Dianora)
 +hybrid-5 (9/26/97)
 * LOTS AND LOTS OF CHANGES IN CONFIG.H
 * reorganized source tree, eliminating common subdir
