@@ -191,19 +191,35 @@ static	int	add_banid(aClient *cptr, aChannel *chptr, char *banid)
 #endif
 
 #ifdef BAN_INFO
-      if (MyClient(cptr) &&
-	  ((len > MAXBANLENGTH) || (++cnt >= MAXBANS) ||
-	   !match(ban->value.banptr->banstr, banid) ||
-	   !match(banid,ban->value.banptr->banstr)))
-	return -1;
+      if (MyClient(cptr))
+	{
+	  if((len > MAXBANLENGTH) || (++cnt >= MAXBANS))
+	    {
+	      sendto_one(cptr, err_str(ERR_BANLISTFULL),
+			 me.name, cptr->name,
+			 chptr->chname, banid);
+	      return -1;
+	    }
+	  if(!match(ban->value.banptr->banstr, banid) ||
+	     !match(banid,ban->value.banptr->banstr))
+	    return -1;
+	}
       else if (!mycmp(ban->value.banptr->banstr, banid))
 	return -1;
 #else
-      if (MyClient(cptr) &&
-	  ((len > MAXBANLENGTH) || (++cnt >= MAXBANS) ||
-	   !match(ban->value.cp, banid) ||
-	   !match(banid, ban->value.cp)))
-	return -1;
+      if (MyClient(cptr))
+	{
+	  if((len > MAXBANLENGTH) || (++cnt >= MAXBANS))
+	    {
+	      sendto_one(cptr, err_str(ERR_BANLISTFULL),
+			 me.name, cptr->name,
+			 chptr->chname, banid);
+	      return -1;
+	    }
+	  if(!match(ban->value.cp, banid) ||
+	     !match(banid, ban->value.cp))
+	    return -1;
+	}
       else if (!mycmp(ban->value.cp, banid))
 	return -1;
 #endif

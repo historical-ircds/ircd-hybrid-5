@@ -354,7 +354,7 @@ static	Numeric	numeric_errors[] = {
 /* 475 */	ERR_BADCHANNELKEY, ":%s 475 %s %s :Cannot join channel (+k)",
 /* 476 */	ERR_BADCHANMASK, ":%s 476 %s %s :Bad Channel Mask",
 /* 477 */	0, (char *)NULL,
-/* 478 */	0, (char *)NULL,
+/* 478 */	ERR_BANLISTFULL, ":%s 478 %s :Channel ban list is full",
 /* 479 */	0, (char *)NULL,
 /* 480 */	0, (char *)NULL,
 /* 481 */	ERR_NOPRIVILEGES,

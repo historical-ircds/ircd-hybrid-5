@@ -316,6 +316,7 @@
 #define ERR_BANNEDFROMCHAN   474
 #define	ERR_BADCHANNELKEY    475
 #define	ERR_BADCHANMASK      476
+#define ERR_BANLISTFULL	     478	/* I stole the numeric from ircu -db */
 
 #define ERR_NOPRIVILEGES     481
 #define ERR_CHANOPRIVSNEEDED 482
