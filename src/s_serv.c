@@ -850,8 +850,7 @@ int	m_server_estab(aClient *cptr)
       *s = '@';
     }
   
-  sendto_one(cptr, "SVINFO %d %d %d :%ld", TS_CURRENT, TS_MIN,
-	     (ts_servcount() == 0 ? 1 : 0),
+  sendto_one(cptr, "SVINFO %d %d 0 :%ld", TS_CURRENT, TS_MIN,
 	     (ts_val)timeofday);
   
   det_confs_butmask(cptr, CONF_LEAF|CONF_HUB|CONF_NOCONNECT_SERVER);

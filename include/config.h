@@ -60,6 +60,7 @@
  * The idea is to pre-calculate the bit map mask needed shifting it
  * over as needed, the FD_ISSET calculates the bitmask and array
  * offset every single time.
+ * This should work on BSD and Solaris, at least.
  */
 #define USE_FAST_FD_ISSET
 
@@ -176,7 +177,7 @@
 /* CUSTOM_ERR - colorful notice/error/messages
  * Defining this will use custom notice/error/messages from include/s_err.h
  * instead of stock ones in ircd/s_err.c.  If you prefer the "colorful"
- * messages that Hybrid is known for, or if you wish to customize the
+ * messages that Hybrid was known for, or if you wish to customize the
  * messages, define this.  Otherwise leave it undef'd for plain ole
  * boring messages.
  */
@@ -257,20 +258,6 @@
  */
 #undef NO_LOCAL_KLINE
 
-/* GLINES - global Kline-like bans
- * Define this if you want GLINE support
- * when this is defined, 3 completely different opers from
- * three different servers must do the identical GLINE in order
- * for the G line to take effect. I don't know what comstud did
- * (nor do I really care) I have not looked at his code. - Dianora
- */
-#define GLINES
-
-/* GLINE_TIME - local expire time for GLINES
- * As configured here, a GLINE will last 12 hours
- */
-#define GLINE_TIME	(12*3600)
-
 /* HIGHEST_CONNECTION - track highest connection count
  * Define this if you want to keep track of your max connections.
  */
@@ -304,7 +291,8 @@
 
 /* DO_IDENTD - check identd
  * if you undefine this, ircd will never check identd regardless of
- * @'s in I:lines
+ * @'s in I:lines.  You must still use @'s in your I: lines to get
+ * ircd to do ident lookup even if you define this.
  */
 #define DO_IDENTD
 
@@ -392,7 +380,7 @@
 
 /* EXTRA_BOT_NOTICES - Have the server send extra bot notices?
  */
-#undef EXTRA_BOT_NOTICES
+#define EXTRA_BOT_NOTICES
 
 /* BOT_GCOS_WARN - Check connecting clients gcos for possible bot ID's?
  */
@@ -403,7 +391,7 @@
 #endif
 
 /* WHOIS_NOTICE - Shows a notice to an oper when a user does a
- * /whois on them (must be umode +r)
+ * /whois on them
  */
 #define WHOIS_NOTICE
 
@@ -552,19 +540,6 @@
  */
 #undef	M4_PREPROC
 
-/* USE_REJECT_HOLD
- * clients that reconnect but are k-lined will have their connections
- * "held" for REJECT_HOLD_TIME seconds, they cannot PRIVMSG. The idea
- * is to keep a reconnecting client from forcing the ircd to re-scan
- * dich_conf. There is one possible serious hitch with this...
- * If it is a mass cloner, your attacker can "REJECT_HOLD" a number
- * of local fd's on your server. Against normal bots this code will
- * be a "win", against mass cloners, it could lose.
- */
-
-#undef USE_REJECT_HOLD
-#define REJECT_HOLD_TIME 60
-
 /* USE_SYSLOG - log errors and such to syslog()
  * If you wish to have the server send 'vital' messages about server
  * through syslog, define USE_SYSLOG. Only system errors and events critical
@@ -615,6 +590,8 @@
 /* IDLE_FROM_MSG - Idle-time nullified only from privmsg
  * Idle-time nullified only from privmsg, if undefined idle-time
  * is nullified from everything except ping/pong.
+ * 
+ * LEAVE THIS DEFINED!  undefining it has "broken" results
  */
 #define IDLE_FROM_MSG
 
@@ -680,7 +657,7 @@
  * faster without some of the CPU expensive manipulation some of the
  * priority code does. Your choice. but it has to be defined for SOLARIS
  * Try it and see. compare.
- * Don't complain if it lags on solaris. I warned you.
+ * Don't complain if Solaris lags if you don't define this. I warned you.
  *
  * -Dianora
  */
@@ -920,6 +897,35 @@
  *
  */
 #undef ANTI_IP_SPOOF
+
+/* GLINES - global Kline-like bans
+ * Define this if you want GLINE support
+ * when this is defined, 3 completely different opers from
+ * three different servers must do the identical GLINE in order
+ * for the G line to take effect.
+ * this code is broken right now, it will be fixed in the next release
+ */
+#undef GLINES
+
+/* GLINE_TIME - local expire time for GLINES
+ * As configured here, a GLINE will last 12 hours
+ */
+#define GLINE_TIME      (12*3600)
+
+/* USE_REJECT_HOLD 
+ * clients that reconnect but are k-lined will have their connections
+ * "held" for REJECT_HOLD_TIME seconds, they cannot PRIVMSG. The idea
+ * is to keep a reconnecting client from forcing the ircd to re-scan
+ * dich_conf. There is one possible serious hitch with this...
+ * If it is a mass cloner, your attacker can "REJECT_HOLD" a number
+ * of local fd's on your server. Against normal bots this code will
+ * be a "win", against mass cloners, it could lose. 
+ * 
+ * this is still not working yet
+ */
+  
+#undef USE_REJECT_HOLD
+#define REJECT_HOLD_TIME 60 
 
 #undef DNS_DEBUG
 
