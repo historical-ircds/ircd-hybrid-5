@@ -279,7 +279,7 @@ int	hunt_server(aClient *cptr,
       if(!wilds)
 	{
 	  acptr = find_name(parv[server],(aClient *)NULL);
-	  if( !IsRegistered(acptr) || !IsServer(acptr) )
+	  if( !acptr || !IsRegistered(acptr) || !IsServer(acptr) )
 	    {
 	      sendto_one(sptr, err_str(ERR_NOSUCHSERVER), me.name,
 			 parv[0], parv[server]);
@@ -3333,9 +3333,9 @@ int	m_umode(aClient *cptr,
 	}
 
   if(badflag)
-            sendto_one(sptr,
-                       err_str(ERR_UMODEUNKNOWNFLAG),
-                       me.name, parv[0]);
+    sendto_one(sptr,
+	       err_str(ERR_UMODEUNKNOWNFLAG),
+	       me.name, parv[0]);
 
   /*
    * stop users making themselves operators too easily
