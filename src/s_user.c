@@ -3523,6 +3523,7 @@ int check_for_flud(aClient *fluder,	/* fluder, client being fluded */
   if(!blocking && (count > flud_num))
     {
       blocking = 1;   
+      ircstp->is_flud++;
       
       /* if we are going to say anything to the fludee, now is the
       ** time to mention it to them. */
