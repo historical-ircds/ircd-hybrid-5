@@ -1,5 +1,6 @@
-+hybrid-5.1 (2/22/98) - The inevitable bug fix release
++hybrid-5.2 (4/21/98) - The inevitable bug fix release
 -fixes
+* changed many of the defaults in config.h
 * removed ident_fdlist it was never used anyway (comstud)
 * fixed quote kline for 10 character user names (Dianora)
 * obscure bug with KICK message in a desync channel situation (Dianora)
@@ -17,6 +18,7 @@
 * #undef IDLE_FROM_MSG fixed, ping/pong/ison do not reset idle time (Dianora)
 
 -feature adds
+* bumped HTM code to not kick in until 40K/s by default
 * stop people from laming up the kline conf file with # in comment (Dianora)
 * added comstuds SEPARATE_QUOTE_KLINES_BY_DATE
 * use block allocator in FLUD code (Shadowfax)

@@ -770,7 +770,7 @@ static	int	bad_command()
 /* Changed by Taner Halicioglu (taner@CERF.NET) */
 
 #define LOADCFREQ 5	/* every 5s */
-#define LOADRECV 18	/* 18k/s */
+#define LOADRECV 40	/* 40k/s */
 
 int lifesux = 1;
 int LRV = LOADRECV;

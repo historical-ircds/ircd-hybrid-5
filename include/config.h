@@ -60,7 +60,6 @@
  * The idea is to pre-calculate the bit map mask needed shifting it
  * over as needed, the FD_ISSET calculates the bitmask and array
  * offset every single time.
- * This should work on BSD and Solaris, at least.
  */
 #define USE_FAST_FD_ISSET
 
@@ -101,12 +100,12 @@
  * If the difference is less than TS_MAX_DELTA, I just sends out a warning
  * but don't drop the link.
  *
- * TS_MAX_DELTA currently set to 30 minutes to deal with lame older timedelta
+ * TS_MAX_DELTA currently set to 30 minutes to deal with older timedelta
  * implementation.  Once pre-hybrid5.2 servers are eradicated, we can drop this
- * down to 30 seconds or so. --Rodder
+ * down to 90 seconds or so. --Rodder
  */
 #define TS_MAX_DELTA 1800	/* seconds */
-#define TS_WARN_DELTA 5 	/* seconds */
+#define TS_WARN_DELTA 15 	/* seconds */
 
 /* LOCKFILE - Exclusive use of ircd.conf and kline.conf during writes
  *
@@ -226,7 +225,7 @@
  * A character is "special" if it's not "a-z", "A-Z", "0-9", ".", "-",
  * and "_"
  */
-#define NO_SPECIAL
+#undef NO_SPECIAL
 
 /* REJECT_IPHONE - reject I-phone clients
  * Define if you want to reject I-phoners
@@ -563,7 +562,7 @@
 #undef	SYSLOG_CONNECT	/* log remote connect messages for other all servs */
 #undef	SYSLOG_USERS	/* send userlog stuff to syslog */
 #undef	SYSLOG_OPER	/* log all users who successfully become an Op */
-#define SYSLOG_BLOCK_ALLOCATOR /* debug block allocator */
+#undef  SYSLOG_BLOCK_ALLOCATOR /* debug block allocator */
 
 /* LOG_FACILITY - facility to use for syslog()
  * Define the facility you want to use for syslog().  Ask your
@@ -695,7 +694,7 @@
  *	 of KILL for non-local clients should be punished by removal of the
  *	 server's links (if only for ignoring this warning!).
  */
-#undef	LOCAL_KILL_ONLY
+#define	LOCAL_KILL_ONLY
 #endif
 
 /* PORTNUM - default port where ircd resides
@@ -878,7 +877,7 @@
  * Use the value in HYBRID_SOMAXCONN for the listen(); backlog
  * try 5 or 25. 5 for AIX and SUNOS, 25 should work better for other OS's
 */
-#define HYBRID_SOMAXCONN 5
+#define HYBRID_SOMAXCONN 25
 
 
 /* ----------------- archaic and/or broken secion -------------------- */
@@ -1017,6 +1016,6 @@ error CLIENT_FLOOD undefined.
 #  define LOGFILE "/dev/null"
 #endif
 
-#define CONFIG_H_LEVEL_5
+#define CONFIG_H_LEVEL_5_2
 
 #endif /* __config_include__ */
