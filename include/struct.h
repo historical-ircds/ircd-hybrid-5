@@ -58,6 +58,8 @@
 #define REPORT_FIN_ID	"NOTICE AUTH :*** Got Ident response\n"
 #define REPORT_FAIL_ID	"NOTICE AUTH :*** No Ident response\n"
 
+#define REPORT_DLINED   "NOTICE DLINE :*** You have been D-lined\n"
+
 #include "hash.h"
 
 typedef	struct	ConfItem aConfItem;

@@ -1784,6 +1784,9 @@ int read_packet(aClient *cptr, int msg_ready)
 	  if (find_dline(addr.sin_addr))
 	    {
 	      ircstp->is_ref++;
+#ifdef REPORT_DLINE_TO_USER
+	      send(fd, REPORT_DLINED, strlen(REPORT_DLINED), 0);
+#endif
 	      (void)close(fd);
 #ifdef USE_FAST_FD_ISSET
 	      fd_read_mask <<= 1;
@@ -2261,6 +2264,9 @@ int	read_message(time_t delay, fdlist *listp)
 	  if (find_dline(addr.sin_addr))
 	    {
 	      ircstp->is_ref++;
+#ifdef REPORT_DLINE_TO_USER
+	      send(fd, REPORT_DLINED, strlen(REPORT_DLINED), 0);
+#endif
 	      (void)close(newfd);
 	      continue;
 	    }

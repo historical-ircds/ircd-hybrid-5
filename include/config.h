@@ -1020,6 +1020,8 @@ error CLIENT_FLOOD undefined.
 #define DEBUG_LINKLIST
 #define USE_LINKLIST
 
+#define REPORT_DLINE_TO_USER
+
 #define CONFIG_H_LEVEL_5_2
 
 #endif /* __config_include__ */
