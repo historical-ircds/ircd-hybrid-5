@@ -460,7 +460,7 @@ static	int	register_user(aClient *cptr,
        */
       strncpyzt(bottemp, user->host, HOSTLEN);
 #endif
-      strncpyzt(user->host, sptr->sockhost, HOSTLEN+1);
+      strncpyzt(user->host, sptr->sockhost, HOSTLEN);
 
       dots = 0;
       p = user->host;
