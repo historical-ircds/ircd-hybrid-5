@@ -898,8 +898,9 @@ void serv_info(aClient *cptr,char *name)
   static char Lformat[] = ":%s %d %s %s %u %u %u %u %u :%u %u %s";
   int	j, fd;
   long	sendK, receiveK, uptime;
-  fdlist	l;
   aClient	*acptr;
+#ifndef USE_LINKLIST
+  fdlist	l;
 
   l = serv_fdlist;
 
@@ -921,6 +922,29 @@ void serv_info(aClient *cptr,char *name)
 		 IsServer(acptr) ? (DoesTS(acptr) ?
 				    "TS" : "NoTS") : "-");
     }
+#else
+
+  sendK = receiveK = 0;
+  j = 1;
+
+  for(acptr = serv_cptr_list; acptr; acptr = acptr->next_server_client)
+    {
+      sendK += acptr->sendK;
+      receiveK += acptr->receiveK;
+      sendto_one(cptr, Lformat, me.name, RPL_STATSLINKINFO,
+		 name, get_client_name(acptr, TRUE),
+		 (int)DBufLength(&acptr->sendQ),
+		 (int)acptr->sendM, (int)acptr->sendK,
+		 (int)acptr->receiveM, (int)acptr->receiveK,
+		 timeofday - acptr->firsttime,
+		 timeofday - acptr->since,
+		 IsServer(acptr) ? (DoesTS(acptr) ?
+				    "TS" : "NoTS") : "-");
+      j++;
+    }
+
+#endif
+
   sendto_one(cptr, ":%s %d %s :%u total server%s",
 	     me.name, RPL_STATSDEBUG, name, --j, (j==1)?"":"s");
 
@@ -938,10 +962,17 @@ void serv_info(aClient *cptr,char *name)
 	     (float)((float)me.receiveK / (float)uptime));
 }
 
+/*
+ * show_opers
+ * show who is opered on this server
+ */
+
 void show_opers(aClient *cptr,char *name)
 {
-  Reg aClient	*cptr2;
-  Reg int i, j=0, fd;
+  register aClient	*cptr2;
+  register int j=0;
+#ifndef	USE_LINKLIST
+  register int i, fd;
   fdlist *l;
   
   l = &oper_fdlist;
@@ -962,6 +993,18 @@ void show_opers(aClient *cptr,char *name)
 		 cptr2->user->username, cptr2->user->host,
 		 timeofday - cptr2->user->last);
     }
+#else	/* USE_LINKLIST */
+
+  for(cptr2 = oper_cptr_list; cptr2; cptr2 = cptr2->next_oper_client)
+    {
+      j++;
+      sendto_one(cptr, ":%s %d %s :%s (%s@%s) Idle: %d",
+		 me.name, RPL_STATSDEBUG, name, cptr2->name,
+		 cptr2->user->username, cptr2->user->host,
+		 timeofday - cptr2->user->last);
+    }
+
+#endif
   sendto_one(cptr, ":%s %d %s :%d OPER%s", me.name, RPL_STATSDEBUG,
 	     name, j, (j==1) ? "" : "s");
 }
@@ -969,7 +1012,9 @@ void show_opers(aClient *cptr,char *name)
 void show_servers(aClient *cptr,char *name)
 {
   Reg aClient	*cptr2;
-  Reg int i, j=0, fd;
+  register j=0;
+#ifndef	USE_LINKLIST
+  register int i, fd;
   fdlist  *l;
  
   l = &serv_fdlist;
@@ -992,6 +1037,19 @@ void show_servers(aClient *cptr,char *name)
 		 (cptr2->serv->user ? cptr2->serv->user->host : "*"),
 		 timeofday - cptr2->lasttime);
     }
+#else /* USE_LINKLIST */
+  for(cptr2 = serv_cptr_list; cptr2; cptr2 = cptr2->next_server_client)
+    {
+      j++;
+      sendto_one(cptr, ":%s %d %s :%s (%s!%s@%s) Idle: %d",
+		 me.name, RPL_STATSDEBUG, name, cptr2->name,
+		 (cptr2->serv->by[0] ? cptr2->serv->by : "Remote."), 
+		 (cptr2->serv->user ? cptr2->serv->user->username : "*"),
+		 (cptr2->serv->user ? cptr2->serv->user->host : "*"),
+		 timeofday - cptr2->lasttime);
+    }
+#endif
+
   sendto_one(cptr, ":%s %d %s :%d Server%s", me.name, RPL_STATSDEBUG,
 	     name, j, (j==1) ? "" : "s");
 }

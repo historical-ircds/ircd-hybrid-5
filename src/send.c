@@ -34,10 +34,13 @@ static char *rcs_version = "$Id$";
 
 /* FDLIST */
 void sendto_fdlist();
+
+#ifdef USE_LINKLIST
 /* LINKLIST */
 extern aClient *local_cptr_list;
 extern aClient *oper_cptr_list;
 extern aClient *serv_cptr_list;
+#endif
 
 #define	NEWLINE	"\n"
 
