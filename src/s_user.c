@@ -54,7 +54,6 @@ int    do_user (char *, aClient *, aClient*, char *, char *, char *,
 
 int    botwarn (char *, char *, char *, char *);
 
-extern ts_val  timedelta;
 extern char motd_last_changed_date[];
 
 #ifdef MAXBUFFERS
@@ -1440,7 +1439,7 @@ nickkilldone:
 	sptr->tsinfo = newts;
       else
 	{
-	  newts = sptr->tsinfo = (ts_val)timeofday + timedelta;
+	  newts = sptr->tsinfo = (ts_val)timeofday;
 	  ts_warn("Remote nick %s introduced without a TS", nick);
 	}
       /* copy the nick in place */
@@ -1484,8 +1483,7 @@ nickkilldone:
       ** on that channel. Propagate notice to other servers.
       */
       if (mycmp(parv[0], nick))
-	sptr->tsinfo = newts ? newts : (ts_val)timeofday +
-	  timedelta;
+	sptr->tsinfo = newts ? newts : (ts_val)timeofday;
 
       if(MyConnect(sptr) && IsRegisteredUser(sptr))
 	{     
@@ -1544,7 +1542,7 @@ nickkilldone:
 
       /* This had to be copied here to avoid problems.. */
       (void)strcpy(sptr->name, nick);
-      sptr->tsinfo = timeofday + timedelta;
+      sptr->tsinfo = timeofday;
       if (sptr->user)
 	{
 	  /*

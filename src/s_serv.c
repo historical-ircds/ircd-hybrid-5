@@ -66,7 +66,6 @@ int     max_connection_count = 1, max_client_count = 1;
 #endif
 
 /* external variables */
-extern 	ts_val	timedelta;
 
 /* external functions */
 #ifdef MAXBUFFERS
@@ -387,14 +386,6 @@ int	m_svinfo(aClient *cptr,
 		 get_client_name(sptr, TRUE), parv[1], parv[2]);
       return exit_client(sptr, sptr, sptr, "Incompatible TS version");
     }
-
-  if (atoi(parv[3]))
-    v = (atol(parv[4]) - (ts_val)timeofday - timedelta) / 2;
-  else
-    v = atol(parv[4]) - (ts_val)timeofday - timedelta;
-  
-  if (ts_servcount() == 1)
-    timedelta += v;
 
   return 0;
 }
@@ -845,7 +836,7 @@ int	m_server_estab(aClient *cptr)
   
   sendto_one(cptr, "SVINFO %d %d %d :%ld", TS_CURRENT, TS_MIN,
 	     (ts_servcount() == 0 ? 1 : 0),
-	     (ts_val)timeofday + timedelta);
+	     (ts_val)timeofday);
   
   det_confs_butmask(cptr, CONF_LEAF|CONF_HUB|CONF_NOCONNECT_SERVER);
   /*
