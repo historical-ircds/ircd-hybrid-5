@@ -4286,18 +4286,16 @@ int m_unkline (aClient *cptr,aClient *sptr,int parc,char *parv[])
       clear_conf_list(&KList2);
       clear_conf_list(&KList3);
 
-      while((nread = dgets(in, buf, sizeof(buf)) ) > 0) 
+      while((nread = dgets(in, buff, sizeof(buff)) ) > 0) 
 	{
-	  buf[nread] = '\0';
+	  buff[nread] = '\0';
 
-	  if((buf[1] == ':') && ((buf[0] == 'k') || (buf[0] == 'K')))
+	  if((buff[1] == ':') && ((buff[0] == 'k') || (buff[0] == 'K')))
 	    {
 	      /* its a K: line */
 	      char *found_host;
 	      char *found_user;
 	      char *found_comment;
-
-	      strcpy(buff,buf);
 
 	      p = strchr(buff,'\n');
 	      if(p)
