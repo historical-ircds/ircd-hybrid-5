@@ -68,6 +68,11 @@ static	char	modebuf[MODEBUFLEN], parabuf[MODEBUFLEN];
 /* externally defined function */
 extern Link *find_channel_link(Link *,aChannel *);	/* defined in list.c */
 
+#ifdef ANTI_SPAMBOT
+extern int spam_num;	/* defined in s_serv.c */
+extern int spam_time;	/* defined in s_serv.c */
+#endif
+
 /*
  * return the length (>=0) of a chain of links.
  */

@@ -2105,6 +2105,11 @@ extern int flud_time;
 extern int flud_block;
 #endif
 
+#ifdef ANTI_SPAMBOT
+extern int spam_num;
+extern int spam_time;
+#endif
+
 /*
  * m_set - set options while running
  */

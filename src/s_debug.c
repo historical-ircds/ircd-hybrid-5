@@ -116,9 +116,9 @@ char	serveropts[] = {
 '=',
 
 #ifdef ANTI_SPAMBOT
-'B'
+'B',
 #else
-'b'
+'b',
 #endif
 
 #ifdef CLIENT_SERVER
@@ -151,9 +151,9 @@ char	serveropts[] = {
 # endif
 
 #ifdef ANTI_IP_SPOOF
-'S'
+'S',
 #else
-'s'
+'s',
 #endif
 
 # ifdef TOPIC_INFO
