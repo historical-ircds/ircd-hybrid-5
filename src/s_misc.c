@@ -635,16 +635,15 @@ static	void	exit_one_client(aClient *cptr,
 /*
  * This is really odd - oh well, it just generates noise... -Taner
  *
- * *blah* debug info never is noise -Dianora
- *
+ *      sendto_realops("%#x !in tab %s[%s]", sptr, sptr->name,
+ *	     sptr->from ? sptr->from->sockhost : "??host");
+ *      sendto_realops("from = %#x", sptr->from);
+ *      sendto_realops("next = %#x", sptr->next);
+ *      sendto_realops("prev = %#x", sptr->prev);
+ *      sendto_realops("fd = %d  status = %d", sptr->fd, sptr->status);
+ *      sendto_realops("user = %#x", sptr->user);
  */
-      sendto_realops("%#x !in tab %s[%s]", sptr, sptr->name,
-		     sptr->from ? sptr->from->sockhost : "??host");
-      sendto_realops("from = %#x", sptr->from);
-      sendto_realops("next = %#x", sptr->next);
-      sendto_realops("prev = %#x", sptr->prev);
-      sendto_realops("fd = %d  status = %d", sptr->fd, sptr->status);
-      sendto_realops("user = %#x", sptr->user);
+
       Debug((DEBUG_ERROR, "%#x !in tab %s[%s] %#x %#x %#x %d %d %#x",
 	     sptr, sptr->name,
 	     sptr->from ? sptr->from->sockhost : "??host",
