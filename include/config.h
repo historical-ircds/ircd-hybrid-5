@@ -419,15 +419,6 @@
  */
 #define	NO_DEFAULT_INVISIBLE
 
-/* TS_WARNINGS - warn opers about broken/poorly hacked servers
- * When defined, +s users are warned of some things that should never
- * happen on an all-TS net.  Currently these are: server-generated MODE +o,
- * new nicks without a TS, and remote JOINs for non-existing channels.
- * This is useful to track down anomalies;  undefine it on a mixed TS/nonTS
- * net or you'll get a lot of warnings!
- */
-#define TS_WARNINGS
-
 /* OPER_KILL OPER_REHASH OPER_RESTART OPER_DIE OPER_REMOTE -
  *      restrict what local global-Opers can do
  *

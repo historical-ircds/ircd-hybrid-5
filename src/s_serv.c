@@ -1010,6 +1010,8 @@ int	m_info(aClient *cptr,
 	       char *parv[])
 {
   char **text = infotext;
+  char outstr[241];
+  char tmpstr[161];
 
   if (hunt_server(cptr,sptr,":%s INFO :%s",1,parc,parv) == HUNTED_ISME)
     {
@@ -1018,6 +1020,353 @@ int	m_info(aClient *cptr,
 		   me.name, parv[0], *text++);
       
       sendto_one(sptr, rpl_str(RPL_INFO), me.name, parv[0], "");
+
+      if (IsAnOper(cptr))
+      {
+#ifdef ANTI_IP_SPOOF
+	strcpy(outstr,"ANTI_IP_SPOOF=1");
+#else
+	strcpy(outstr,"ANTI_IP_SPOOF=0");
+#endif
+#ifdef ANTI_SPAMBOT
+	strcat(outstr," ANTI_SPAMBOT=1");
+#else
+	strcat(outstr," ANTI_SPAMBOT=0");
+#endif
+#ifdef BAN_INFO
+	strcat(outstr," BAN_INFO=1");
+#else
+	strcat(outstr," BAN_INFO=0");
+#endif
+	sendto_one(sptr, rpl_str(RPL_INFO),
+		me.name, parv[0], outstr);
+#ifdef BOTCHECK
+	strcpy(outstr,"BOTCHECK=1");
+#else
+	strcpy(outstr,"BOTCHECK=0");
+#endif
+#ifdef BOT_GCOS_WARN
+	strcat(outstr," BOT_GCOS_WARN=1");
+#else
+	strcat(outstr," BOT_GCOS_WARN=0");
+#endif
+#ifdef B_LINES_OPER_ONLY
+	strcat(outstr," B_LINES_OPER_ONLY=1");
+#else
+	strcat(outstr," B_LINES_OPER_ONLY=0");
+#endif
+	sendto_one(sptr, rpl_str(RPL_INFO),
+		me.name, parv[0], outstr);
+#ifdef CLIENT_COUNT
+	strcpy(outstr,"CLIENT_COUNT=1");
+#else
+	strcpy(outstr,"CLIENT_COUNT=0");
+#endif
+#ifdef CLIENT_FLOOD
+	strcat(outstr," CLIENT_FLOOD=1");
+#else
+	strcat(outstr," CLIENT_FLOOD=0");
+#endif
+#ifdef CLIENT_SERVER
+	strcat(outstr," CLIENT_SERVER=1");
+#else
+	strcat(outstr," CLIENT_SERVER=0");
+#endif
+	sendto_one(sptr, rpl_str(RPL_INFO),
+		me.name, parv[0], outstr);
+#ifdef CUSTOM_ERR
+	strcpy(outstr,"CUSTOM_ERR=1");
+#else
+	strcpy(outstr,"CUSTOM_ERR=0");
+#endif
+#ifdef DLINES_IN_KPATH
+	strcat(outstr," DLINES_IN_KPATH=1");
+#else
+	strcat(outstr," DLINES_IN_KPATH=0");
+#endif
+#ifdef DNS_DEBUG
+	strcat(outstr," DNS_DEBUG=1");
+#else
+	strcat(outstr," DNS_DEBUG=0");
+#endif
+	sendto_one(sptr, rpl_str(RPL_INFO),
+		me.name, parv[0], outstr);
+#ifdef DO_IDENTD
+	strcpy(outstr,"DO_IDENTD=1");
+#else
+	strcpy(outstr,"DO_IDENTD=0");
+#endif
+#ifdef EXTRA_BOT_NOTICES
+	strcat(outstr," EXTRA_BOT_NOTICES=1");
+#else
+	strcat(outstr," EXTRA_BOT_NOTICES=0");
+#endif
+#ifdef E_LINES_OPER_ONLY
+	strcat(outstr," E_LINES_OPER_ONLY=1");
+#else
+	strcat(outstr," E_LINES_OPER_ONLY=0");
+#endif
+	sendto_one(sptr, rpl_str(RPL_INFO),
+		me.name, parv[0], outstr);
+#ifdef FAILED_OPER_NOTICE
+	strcpy(outstr,"FAILED_OPER_NOTICE=1");
+#else
+	strcpy(outstr,"FAILED_OPER_NOTICE=0");
+#endif
+#ifdef FLUD
+	strcat(outstr," FLUD=1");
+#else
+	strcat(outstr," FLUD=0");
+#endif
+#ifdef FORCE_MOTD
+	strcat(outstr," FORCE_MOTD=1");
+#else
+	strcat(outstr," FORCE_MOTD=0");
+#endif
+	sendto_one(sptr, rpl_str(RPL_INFO),
+		me.name, parv[0], outstr);
+#ifdef F_LINES_OPER_ONLY
+	strcpy(outstr,"F_LINES_OPER_ONLY=1");
+#else
+	strcpy(outstr,"F_LINES_OPER_ONLY=0");
+#endif
+#ifdef GLINES
+	strcat(outstr," GLINES=1");
+#else
+	strcat(outstr," GLINES=0");
+#endif
+#ifdef HIGHEST_CONNECTION
+	strcat(outstr," HIGHEST_CONNECTION=1");
+#else
+	strcat(outstr," HIGHEST_CONNECTION=0");
+#endif
+	sendto_one(sptr, rpl_str(RPL_INFO),
+		me.name, parv[0], outstr);
+#ifdef HUB
+	strcpy(outstr,"HUB=1");
+#else
+	strcpy(outstr,"HUB=0");
+#endif
+#ifdef IDENTD_COMPLAIN
+	strcat(outstr," IDENTD_COMPLAIN=1");
+#else
+	strcat(outstr," IDENTD_COMPLAIN=0");
+#endif
+#ifdef IGNORE_FIRST_CHAR
+	strcat(outstr," IGNORE_FIRST_CHAR=1");
+#else
+	strcat(outstr," IGNORE_FIRST_CHAR=0");
+#endif
+	sendto_one(sptr, rpl_str(RPL_INFO),
+		me.name, parv[0], outstr);
+#ifdef KLINE_WITH_REASON
+	strcpy(outstr,"KLINE_WITH_REASON=1");
+#else
+	strcpy(outstr,"KLINE_WITH_REASON=0");
+#endif
+#ifdef KPATH
+	strcat(outstr," KPATH=1");
+#else
+	strcat(outstr," KPATH=0");
+#endif
+#ifdef K_COMMENT_ONLY
+	strcat(outstr," K_COMMENT_ONLY=1");
+#else
+	strcat(outstr," K_COMMENT_ONLY=0");
+#endif
+	sendto_one(sptr, rpl_str(RPL_INFO),
+		me.name, parv[0], outstr);
+#ifdef LINKS_NOTICE
+	strcpy(outstr,"LINKS_NOTICE=1");
+#else
+	strcpy(outstr,"LINKS_NOTICE=0");
+#endif
+#ifdef LINK_WAIT
+	strcat(outstr," LINK_WAIT=1");
+#else
+	strcat(outstr," LINK_WAIT=0");
+#endif
+#ifdef LOCKFILE
+	strcat(outstr," LOCKFILE=1");
+#else
+	strcat(outstr," LOCKFILE=0");
+#endif
+	sendto_one(sptr, rpl_str(RPL_INFO),
+		me.name, parv[0], outstr);
+#ifdef NON_REDUNDANT_KLINES
+	strcpy(outstr,"NON_REDUNDANT_KLINES=1");
+#else
+	strcpy(outstr,"NON_REDUNDANT_KLINES=0");
+#endif
+#ifdef NO_LOCAL_KLINE
+	strcat(outstr," NO_LOCAL_KLINE=1");
+#else
+	strcat(outstr," NO_LOCAL_KLINE=0");
+#endif
+#ifdef NO_MIXED_CASE
+	strcat(outstr," NO_MIXED_CASE=1");
+#else
+	strcat(outstr," NO_MIXED_CASE=0");
+#endif
+	sendto_one(sptr, rpl_str(RPL_INFO),
+		me.name, parv[0], outstr);
+#ifdef NO_OPER_FLOOD
+	strcpy(outstr,"NO_OPER_FLOOD=1");
+#else
+	strcpy(outstr,"NO_OPER_FLOOD=0");
+#endif
+#ifdef NO_SPECIAL
+	strcat(outstr," NO_SPECIAL=1");
+#else
+	strcat(outstr," NO_SPECIAL=0");
+#endif
+#ifdef OLD_Y_LIMIT
+	strcat(outstr," OLD_Y_LIMIT=1");
+#else
+	strcat(outstr," OLD_Y_LIMIT=0");
+#endif
+	sendto_one(sptr, rpl_str(RPL_INFO),
+		me.name, parv[0], outstr);
+#ifdef REJECT_IPHONE
+	strcpy(outstr,"REJECT_IPHONE=1");
+#else
+	strcpy(outstr,"REJECT_IPHONE=0");
+#endif
+#ifdef RFC1035_ANAL
+	strcat(outstr," RFC1035_ANAL=1");
+#else
+	strcat(outstr," RFC1035_ANAL=0");
+#endif
+#ifdef RK_NOTICES
+	strcat(outstr," RK_NOTICES=1");
+#else
+	strcat(outstr," RK_NOTICES=0");
+#endif
+	sendto_one(sptr, rpl_str(RPL_INFO),
+		me.name, parv[0], outstr);
+#ifdef R_LINES
+	strcpy(outstr,"R_LINES=1");
+#else
+	strcpy(outstr,"R_LINES=0");
+#endif
+#ifdef R_LINES_OFTEN
+	strcat(outstr," R_LINES_OFTEN=1");
+#else
+	strcat(outstr," R_LINES_OFTEN=0");
+#endif
+#ifdef R_LINES_REHASH
+	strcat(outstr," R_LINES_REHASH=1");
+#else
+	strcat(outstr," R_LINES_REHASH=0");
+#endif
+	sendto_one(sptr, rpl_str(RPL_INFO),
+		me.name, parv[0], outstr);
+#ifdef SEPARATE_QUOTE_KLINES_BY_DATE
+	strcpy(outstr,"SEPARATE_QUOTE_KLINES_BY_DATE=1");
+#else
+	strcpy(outstr,"SEPARATE_QUOTE_KLINES_BY_DATE=0");
+#endif
+#ifdef SHOW_HEADERS
+	strcat(outstr," SHOW_HEADERS=1");
+#else
+	strcat(outstr," SHOW_HEADERS=0");
+#endif
+#ifdef STATS_NOTICE
+	strcat(outstr," STATS_NOTICE=1");
+#else
+	strcat(outstr," STATS_NOTICE=0");
+#endif
+	sendto_one(sptr, rpl_str(RPL_INFO),
+		me.name, parv[0], outstr);
+#ifdef SUNDBE
+	strcpy(outstr,"SUNDBE=1");
+#else
+	strcpy(outstr,"SUNDBE=0");
+#endif
+#ifdef SUN_GSO_BUG
+	strcat(outstr," SUN_GSO_BUG=1");
+#else
+	strcat(outstr," SUN_GSO_BUG=0");
+#endif
+#ifdef TIMED_KLINES
+	strcat(outstr," TIMED_KLINES=1");
+#else
+	strcat(outstr," TIMED_KLINES=0");
+#endif
+	sendto_one(sptr, rpl_str(RPL_INFO),
+		me.name, parv[0], outstr);
+#ifdef TOPIC_INFO
+	strcpy(outstr,"TOPIC_INFO=1");
+#else
+	strcpy(outstr,"TOPIC_INFO=0");
+#endif
+#ifdef UNKLINE
+	strcat(outstr," UNKLINE=1");
+#else
+	strcat(outstr," UNKLINE=0");
+#endif
+#ifdef USERNAMES_IN_TRACE
+	strcat(outstr," USERNAMES_IN_TRACE=1");
+#else
+	strcat(outstr," USERNAMES_IN_TRACE=0");
+#endif
+	sendto_one(sptr, rpl_str(RPL_INFO),
+		me.name, parv[0], outstr);
+#ifdef USE_FAST_FD_ISSET
+	strcpy(outstr,"USE_FAST_FD_ISSET=1");
+#else
+	strcpy(outstr,"USE_FAST_FD_ISSET=0");
+#endif
+#ifdef USE_SYSLOG
+	strcat(outstr," USE_SYSLOG=1");
+#else
+	strcat(outstr," USE_SYSLOG=0");
+#endif
+#ifdef USE_UH
+	strcat(outstr," USE_UH=1");
+#else
+	strcat(outstr," USE_UH=0");
+#endif
+	sendto_one(sptr, rpl_str(RPL_INFO),
+		me.name, parv[0], outstr);
+#ifdef WARN_NO_NLINE
+	strcpy(outstr,"WARN_NO_NLINE=1");
+#else
+	strcpy(outstr,"WARN_NO_NLINE=0");
+#endif
+#ifdef WHOIS_NOTICE
+	strcat(outstr," WHOIS_NOTICE=1");
+#else
+	strcat(outstr," WHOIS_NOTICE=0");
+#endif
+	sendto_one(sptr, rpl_str(RPL_INFO),
+		me.name, parv[0], outstr);
+	ircsprintf(outstr,"FLUD_BLOCK=%d",FLUD_BLOCK);
+	ircsprintf(tmpstr," FLUD_NUM=%d",FLUD_NUM);
+	strcat(outstr,tmpstr);
+	ircsprintf(tmpstr," FLUD_TIME=%d",FLUD_TIME);
+	strcat(outstr,tmpstr);
+	sendto_one(sptr, rpl_str(RPL_INFO),
+		me.name, parv[0], outstr);
+	ircsprintf(outstr,"GLINE_TIME=%d",GLINE_TIME);
+	ircsprintf(tmpstr," HARD_FDLIMIT_=%d",HARD_FDLIMIT_);
+	strcat(outstr,tmpstr);
+	ircsprintf(tmpstr," HYBRID_SOMAXCONN=%d",HYBRID_SOMAXCONN);
+	strcat(outstr,tmpstr);
+	sendto_one(sptr, rpl_str(RPL_INFO),
+		me.name, parv[0], outstr);
+	ircsprintf(outstr,"MAX_NICK_CHANGES=%d",MAX_NICK_CHANGES);
+	ircsprintf(tmpstr," MAX_NICK_TIME=%d",MAX_NICK_TIME);
+	strcat(outstr,tmpstr);
+	ircsprintf(tmpstr," NICKNAMEHISTORYLENGTH=%d",NICKNAMEHISTORYLENGTH);
+	strcat(outstr,tmpstr);
+	sendto_one(sptr, rpl_str(RPL_INFO),
+		me.name, parv[0], outstr);
+	ircsprintf(outstr,"NOISY_HTM=%d",NOISY_HTM);
+	sendto_one(sptr, rpl_str(RPL_INFO),
+		me.name, parv[0], outstr);
+      }
+
       sendto_one(sptr,
 		 ":%s %d %s :Birth Date: %s, compile # %s",
 		 me.name, RPL_INFO, parv[0], creation, generation);
