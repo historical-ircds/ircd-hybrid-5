@@ -26,7 +26,7 @@ usage:
 
 char buffer[MAXBUFF], scratch[MAXBUFF];
 
-main()
+int main()
 {
   char *p, *k_itself, *host, *reason, *user;
   int hash_found;
@@ -91,5 +91,6 @@ main()
 
   fprintf(stderr,"%d lines processed %d lines with hash in K line comments\n",
 	  number_of_lines,number_hash_comments);
+  return 0;
 }
 

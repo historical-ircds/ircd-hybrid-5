@@ -31,6 +31,7 @@ static char *rcs_version = "$Id$";
 #include "numeric.h"
 #include "blalloc.h"
 
+extern int BlockHeapGarbageCollect(BlockHeap *);
 
 /* locally defined functions */
 

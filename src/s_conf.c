@@ -1843,11 +1843,14 @@ void report_matching_host_klines(aClient *cptr,char *host)
   char *pass;
   char *name = (char *)NULL;
   char *found_host = (char *)NULL;
-  int  port;
   aConfItem *tmp;
   aConfList *list;
   static char null[] = "<NULL>";
   char rev[HOSTLEN+1];	/* why waste 2 function calls for this ? - Dianora */
+
+#ifndef K_COMMENT_ONLY
+  int  port;
+#endif
 
   if (strlen(host) > (size_t) HOSTLEN ||
       (name ? strlen(name) : 0) > (size_t) HOSTLEN)

@@ -84,7 +84,6 @@ extern void rehash_ip_hash();		/* defined in s_conf.c */
 /* Local function prototypes */
 static int isnumber(char *);	/* return 0 if not, else return number */
 static char *cluster(char *);
-static int wallops_from_oper(char *);
 
 void read_motd(char *);
 
@@ -1027,7 +1026,6 @@ int	m_info(aClient *cptr,
 {
   char **text = infotext;
   char outstr[241];
-  char tmpstr[161];
 
   if (hunt_server(cptr,sptr,":%s INFO :%s",1,parc,parv) == HUNTED_ISME)
     {
@@ -2435,6 +2433,7 @@ int     m_locops(aClient *cptr,
       return(0);
     }
   send_operwall(sptr, "LOCOPS", message);
+  return(0);
 }
 
 /* raped from csr30 */
@@ -3228,9 +3227,11 @@ static int majority_gline(char *oper_nick,
 {
   GLINE_PENDING *new_pending_gline;
   GLINE_PENDING *gline_pending_ptr;
+/* 
   GLINE_PENDING *last_gline_pending_ptr;
   GLINE_PENDING *tmp_gline_pending_ptr;
-  
+ */
+
   if(pending_glines == (GLINE_PENDING *)NULL) /* first gline request placed */
     {
       new_pending_gline = (GLINE_PENDING *)malloc(sizeof(GLINE_PENDING));
@@ -3420,7 +3421,7 @@ int     m_kline(aClient *cptr,
 
   argv = parv[1];
 
-  if(temporary_kline_time = isnumber(argv))
+  if( (temporary_kline_time = isnumber(argv)) )
     {
       if(parc < 3)
 	{

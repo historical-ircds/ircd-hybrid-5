@@ -56,6 +56,8 @@ int    botwarn (char *, char *, char *, char *);
 
 extern char motd_last_changed_date[];
 
+extern void outofmemory(void);         /* defined in list.c */
+
 #ifdef MAXBUFFERS
 extern void reset_sock_opts();
 #endif

@@ -418,7 +418,7 @@ void	init_sys()
 	  {
 	    (void)fprintf(stderr,"ircd fd table too big\n");
 	    (void)fprintf(stderr,"Hard Limit: %ld IRC max: %d\n",
-			  limit.rlim_max, MAXCONNECTIONS);
+			  (long) limit.rlim_max, MAXCONNECTIONS);
 	    (void)fprintf(stderr,"Fix MAXCONNECTIONS\n");
 	    exit(-1);
 	  }
@@ -427,7 +427,7 @@ void	init_sys()
       if (setrlimit(RLIMIT_FD_MAX, &limit) == -1)
 	{
 	  (void)fprintf(stderr,"error setting max fd's to %ld\n",
-			limit.rlim_cur);
+			(long) limit.rlim_cur);
 	  exit(-1);
 	}
 

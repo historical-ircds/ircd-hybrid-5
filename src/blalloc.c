@@ -1,7 +1,7 @@
 /* ************************************************************************ */
 /*                                                                          */
 /* File:   blalloc.c                                                        */
-/* Owner:  Wohali (Joan Touzet)
+/* Owner:  Wohali (Joan Touzet)						    */
 /*                                                                          */
 /*         Hacked up for use in ircd by Dianora                             */
 /*                                                                          */
