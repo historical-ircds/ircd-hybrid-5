@@ -68,7 +68,6 @@ int     max_connection_count = 1, max_client_count = 1;
 /* external variables */
 extern 	ts_val	timedelta;
 
-
 /* external functions */
 #ifdef MAXBUFFERS
 extern	void	reset_sock_opts();
@@ -2199,7 +2198,7 @@ int   m_htm(aClient *cptr,
 #define LOADCFREQ 5
   char *command;
 
-  extern int lifesux, LRV, LCF;  /* in ircd.c */
+  extern int lifesux, LRV, LCF, noisy_htm;  /* in ircd.c */
   extern float currlife;
   
   if (!MyClient(sptr) || !IsOper(sptr))
@@ -2208,8 +2207,10 @@ int   m_htm(aClient *cptr,
       return 0;
     }
   sendto_one(sptr,
-	":%s NOTICE %s :HTM is %s(%d). Max rate = %dk/s. Current = %.1fk/s",
-          me.name, parv[0], lifesux ? "ON" : "OFF", lifesux, LRV, currlife);
+	":%s NOTICE %s :HTM is %s(%d), %s. Max rate = %dk/s. Current = %.1fk/s",
+          me.name, parv[0], lifesux ? "ON" : "OFF", lifesux,
+	  noisy_htm ? "NOISY" : "QUIET",
+	  LRV, currlife);
   if (parc > 1)
     {
       command = parv[1];
@@ -2252,9 +2253,19 @@ int   m_htm(aClient *cptr,
               sendto_ops("Resuming standard operation: Forced by %s!%s@%s",
 			 parv[0], sptr->user->username, sptr->sockhost);
             }
+          else if (!strcasecmp(command,"QUIET"))
+            {
+	      sendto_ops("HTM is now QUIET");
+              noisy_htm = NO;
+            }
+          else if (!strcasecmp(command,"NOISY"))
+            {
+	      sendto_ops("HTM is now NOISY");
+              noisy_htm = YES;
+            }
 	  else
 	    sendto_one(sptr,
-		       ":%s NOTICE %s :Commands are:HTM [ON] [OFF] [TO int]",
+		       ":%s NOTICE %s :Commands are:HTM [ON] [OFF] [TO int] [QUIET] [NOISY]",
 		       me.name, parv[0]);
         }
     }
@@ -2403,7 +2414,7 @@ int     m_gline(aClient *cptr,
   char *oper_nick,*oper_username,*oper_host,*oper_server;
   int bad;
 
-  if(!IsServer(sptr))
+  if(!IsServer(sptr)) /* allow remote opers to apply g lines */
     {
       /* Only globals can apply Glines */
       if (!IsOper(sptr))
@@ -2500,28 +2511,6 @@ int     m_gline(aClient *cptr,
 		       host);
 	  return 0;
 	}
-
-#ifdef NON_REDUNDANT_KLINES
-      if( (aconf = find_is_klined(host,user)) )
-	{
-	  char *reason;
-
-#ifdef K_COMMENT_ONLY
-	  reason = aconf->passwd ? aconf->passwd : "<No Reason>";
-#else
-	  reason = (BadPtr(aconf->passwd) || !is_comment(aconf->passwd)) ?
-	    "<No Reason>" : aconf->passwd;
-#endif
-	  if(MyClient(sptr))
-	    sendto_one(sptr,
-		       ":%s NOTICE %s :[%s@%s] already K-lined by [%s@%s] - %s",
-		       me.name,
-		       parv[0],
-		       user,host,
-		       aconf->name,aconf->host,reason);
-	  return 0;
-	}
-#endif
       oper_nick = sptr->name;
       oper_username = sptr->username;
       oper_host = sptr->user->host;
@@ -2535,7 +2524,6 @@ int     m_gline(aClient *cptr,
 			 oper_username,
 			 oper_host,
 			 reason);
-
     }
   else
     {
@@ -2552,9 +2540,18 @@ int     m_gline(aClient *cptr,
       oper_username = parv[4];
       oper_host = parv[5];
       reason = parv[6];
+
+      sendto_serv_butone(NULL, ":%s GLINE %s %s %s %s %s :%s",
+                         me.name,
+                         user,
+                         host,
+                         oper_nick,
+                         oper_username,
+                         oper_host,
+                         reason);
     }
 
-  sendto_realops("%s!%s@%s on %s is requesting gline for [%s@%s] [%s]",
+   sendto_realops("%s!%s@%s on %s is requesting gline for [%s@%s] [%s]",
 		 oper_nick,
 		 oper_username,
 		 oper_host,
@@ -2659,8 +2656,9 @@ static int majority_gline(char *oper_nick,
       pending_glines = new_pending_gline;
       return NO;
     }
+  else
+    expire_pending_glines();
 
-  expire_pending_glines();
   gline_pending_ptr = pending_glines;
 
   while(gline_pending_ptr)

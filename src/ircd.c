@@ -131,6 +131,7 @@ static	int	dorehash = 0;
 static	char	*dpath = DPATH;
 int     rehashed = 1;
 int     dline_in_progress = 0;	/* killing off matching D lines ? */
+int     noisy_htm=NO;		/* Is high traffic mode noisy or not? */
 time_t	nextconnect = 1;	/* time for next try_connections call */
 time_t	nextping = 1;		/* same as above for check_pings() */
 time_t	nextdnscheck = 0;	/* next time to poll dns to force timeouts */
@@ -1049,17 +1050,25 @@ time_t io_loop(time_t delay)
 
 */
 	      lifesux = 1;
-	      sprintf(to_send, "Entering high-traffic mode - (%.1fk/s > %dk/s)",
+
+	      if(noisy_htm) {
+     	        (void)sprintf(to_send, 
+                  "Entering high-traffic mode - (%.1fk/s > %dk/s)",
 		      (float)currlife, LRV);
-	      sendto_ops(to_send);
+	        sendto_ops(to_send);
+              }
 	    }
 	  else
 	    {
 	      lifesux++;		/* Ok, life really sucks! */
 	      LCF += 2;			/* Wait even longer */
-	      sprintf(to_send, "Still high-traffic mode %d%s (%d delay): %.1fk/s",
-		      lifesux, (lifesux & 0x04) ? " (TURBO)" : "",  (int)LCF, (float)currlife);
-	      sendto_ops(to_send);
+              if(noisy_htm) {
+	        (void)sprintf(to_send,
+		   "Still high-traffic mode %d%s (%d delay): %.1fk/s",
+		      lifesux, (lifesux & 0x04) ? " (TURBO)" : "",
+		      (int)LCF, (float)currlife);
+	        sendto_ops(to_send);
+              }
 	    }
 	}
       else
@@ -1068,7 +1077,8 @@ time_t io_loop(time_t delay)
 	  if (lifesux)
 	    {
 	      lifesux = 0;
-	      sendto_ops("Resuming standard operation . . . .");
+              if(noisy_htm)
+	        sendto_ops("Resuming standard operation . . . .");
 	    }
 	}
       lastrecvK = me.receiveK;
