@@ -331,11 +331,7 @@ typedef struct Whowas
 struct	ConfItem
 {
   unsigned int	status;	/* If CONF_ILLEGAL, delete when no clients */
-
-#ifdef LITTLE_I_LINES
   unsigned int flags;	
-#endif
-
   int	clients;	/* Number of *LOCAL* clients using this */
   struct in_addr ipnum;	/* ip number of host field */
   char	*host;
@@ -382,9 +378,25 @@ struct	ConfItem
 
 #define	IsIllegal(x)	((x)->status & CONF_ILLEGAL)
 
+/* aConfItem->flags */
+
+#define CONF_FLAGS_LIMIT_IP		0x0001
+#define CONF_FLAGS_NO_TILDE		0x0002
+#define CONF_FLAGS_NEED_IDENTD		0x0004
+#define CONF_FLAGS_PASS_IDENTD		0x0008
+#define CONF_FLAGS_NOMATCH_IP		0x0010
+
 #ifdef LITTLE_I_LINES
-#define CONF_FLAGS_LITTLE_I_LINE	0x0001
+#define CONF_FLAGS_LITTLE_I_LINE	0x0020
 #endif
+
+/* Macros for aConfItem */
+
+#define IsLimitIp(x)            ((x)->flags & CONF_FLAGS_LIMIT_IP)
+#define IsNoTilde(x)            ((x)->flags & CONF_FLAGS_NO_TILDE)
+#define IsNeedIdentd(x)         ((x)->flags & CONF_FLAGS_NEED_IDENTD)
+#define IsPassIdentd(x)         ((x)->flags & CONF_FLAGS_PASS_IDENTD)
+#define IsNoMatchIp(x)          ((x)->flags & CONF_FLAGS_NOMATCH_IP)
 
 /*
  * Client structures

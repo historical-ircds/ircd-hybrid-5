@@ -1539,53 +1539,71 @@ int	m_links(aClient *cptr,
     return 0;
 }
 
-#ifdef LITTLE_I_LINES
-static int report_array[10][3] = {
-#else
-static int report_array[9][3] = {
-#endif
+/*
+ * rewrote to use a struct -Dianora
+ */
+
+typedef struct
+{
+  int conf_type;
+  int rpl_stats;
+  int conf_char;
+}REPORT_STRUCT;
+
+static REPORT_STRUCT report_array[] = {
   { CONF_CONNECT_SERVER,    RPL_STATSCLINE, 'C'},
   { CONF_NOCONNECT_SERVER,  RPL_STATSNLINE, 'N'},
   { CONF_CLIENT,            RPL_STATSILINE, 'I'},
-#ifdef LITTLE_I_LINES
   { CONF_CLIENT,            RPL_STATSILINE, 'i'},
-#endif
   { CONF_KILL,              RPL_STATSKLINE, 'K'},
   { CONF_LEAF,		  RPL_STATSLLINE, 'L'},
   { CONF_OPERATOR,	  RPL_STATSOLINE, 'O'},
   { CONF_HUB,		  RPL_STATSHLINE, 'H'},
   { CONF_LOCOP,		  RPL_STATSOLINE, 'o'},
-  { 0, 0}
-				};
+  { 0, 0, '\0' }
+};
+
+#define MAXPREFIX (USERLEN+10)
 
 static	void	report_configured_links(aClient *sptr,int mask)
 {
   static	char	null[] = "<NULL>";
   aConfItem *tmp;
-  int	*p, port;
-  char	c, *host, *pass, *name;
-	
+  REPORT_STRUCT *p;
+  int   port;
+  char	*host, *pass, *name;
+  char prefix_of_host[MAXPREFIX];
+  char *prefix_ptr;
+
   for (tmp = conf; tmp; tmp = tmp->next)
     if (tmp->status & mask)
       {
-	for (p = &report_array[0][0]; *p; p += 3)
-	  if (*p == tmp->status)
+	for (p = &report_array[0]; p->conf_type; p++)
+	  if (p->conf_type == tmp->status)
 	    break;
-	if (!*p)
-	  continue;
+	if(p->conf_type == 0)return;
+
 #ifdef LITTLE_I_LINES
 	if(tmp->flags & CONF_FLAGS_LITTLE_I_LINE)
-	  {
-	    p += 3;
-            if (!*p)
-              continue;
-	  }
+	  p++;
 #endif
-	c = (char)*(p+2);
 	host = BadPtr(tmp->host) ? null : tmp->host;
 	pass = BadPtr(tmp->passwd) ? null : tmp->passwd;
 	name = BadPtr(tmp->name) ? null : tmp->name;
 	port = (int)tmp->port;
+	prefix_ptr = prefix_of_host;
+
+	if (IsNoTilde(tmp))
+	  *prefix_ptr++ = '-';
+	if (IsLimitIp(tmp))
+	  *prefix_ptr++ = '!';
+	if (IsNeedIdentd(tmp))
+	  *prefix_ptr++ = '+';
+        if (IsPassIdentd(tmp))
+          *prefix_ptr++ = '$';
+        if (IsNoMatchIp(tmp))
+          *prefix_ptr++ = '%';
+        *prefix_ptr = '\0';
 
 	/*
 	 * On K line the passwd contents can be
@@ -1595,19 +1613,28 @@ static	void	report_configured_links(aClient *sptr,int mask)
 	 */
 #ifdef K_COMMENT_ONLY
 	if (tmp->status == CONF_KILL)
-	  sendto_one(sptr, rpl_str(p[1]), me.name,
-		     sptr->name, c, host,
+	  sendto_one(sptr, rpl_str(p->rpl_stats), me.name,
+		     sptr->name, p->conf_char, host,
 		     name, pass);
 #else
 	if (tmp->status == CONF_KILL)
-	  sendto_one(sptr, rpl_str(p[1]), me.name,
-		     sptr->name, c, host,
+	  sendto_one(sptr, rpl_str(p->rpl_stats), me.name,
+		     sptr->name, p->conf_char, host,
 		     pass, name, port,
 		     get_conf_class(tmp));
 #endif
+	else if (mask == CONF_CLIENT)
+	  {
+	    strncat(prefix_of_host,name,MAXPREFIX);
+	    sendto_one(sptr, rpl_str(p->rpl_stats), me.name,
+		     sptr->name,
+		     p->conf_char,
+		     host, prefix_of_host, port,
+		     get_conf_class(tmp));
+	  }
 	else
-	  sendto_one(sptr, rpl_str(p[1]), me.name,
-		     sptr->name, c, host, name, port,
+	  sendto_one(sptr, rpl_str(p->rpl_stats), me.name,
+		     sptr->name, p->conf_char, host, name, port,
 		     get_conf_class(tmp));
       }
   return;

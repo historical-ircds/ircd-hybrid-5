@@ -559,16 +559,24 @@ static	int	register_user(aClient *cptr,
 	  *user->username = '~';
 	  (void)strncpy(&user->username[1], temp, USERLEN);
 	  user->username[USERLEN] = '\0';
+
 #ifdef IDENTD_COMPLAIN
 /* tell them to install identd -Taner */
 	  sendto_one(sptr, ":%s NOTICE %s :*** Notice -- It seems that you don't have identd installed on your host.",
 		     me.name,cptr->name);
-	  sendto_one(sptr, ":%s NOTICE %s :*** Notice -- If you wish to have your username show up without the ~ (tilde),",
-		     me.name,cptr->name);
-	  sendto_one(sptr, ":%s NOTICE %s :*** Notice -- then install identd.",
-		     me.name,cptr->name);
 /* end identd hack */
 #endif
+	  if(IsNeedIdentd(aconf))
+	    {
+	      ircstp->is_ref++;
+	      sendto_one(sptr, ":%s NOTICE %s :*** Notice -- You need to install identd to use this server",
+			 me.name, cptr->name);
+	      return exit_client(cptr, sptr, &me, "Install identd");
+	    }
+	  if(IsNoTilde(aconf))
+	    {
+	      strncpyzt(user->username, username, USERLEN+1);
+	    }
 	}
 #ifndef FOLLOW_IDENT_RFC
       else if (sptr->flags & FLAGS_GOTID && *sptr->username != '-')

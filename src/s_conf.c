@@ -58,8 +58,10 @@ char	specific_virtual_host;
 /* internally defined functions */
 
 static	int	lookup_confhost (aConfItem *);
-static  int     attach_iline(aClient *, aConfItem *,char *);
+static  int     attach_iline(aClient *, aConfItem *);
 static  aConfItem *temporary_klines = (aConfItem *)NULL;
+
+static  char *set_conf_flags(aConfItem *,char *);
 
 /* externally defined functions */
 extern  void    outofmemory(void);	/* defined in list.c */
@@ -93,7 +95,10 @@ static  aConfItem *glines = (aConfItem *)NULL;
 extern void expire_pending_glines();	/* defined in s_serv.c */
 #endif
 
+/* general conf items link list root */
 aConfItem	*conf = ((aConfItem *)NULL);
+/* i line link list root */
+aConfItem	*iconf = ((aConfItem *)NULL);
 
 #ifdef LOCKFILE 
 extern void do_pending_klines(void);
@@ -133,6 +138,9 @@ int	attach_Iline(aClient *cptr,
   static	char	uhost2[HOSTLEN+USERLEN+3];
   static	char	fullname[HOSTLEN+1];
 
+  *uhost = '\0';
+  *uhost2 = '\0';
+
   for (aconf = conf; aconf; aconf = aconf->next)
     {
       if (aconf->status != CONF_CLIENT)
@@ -142,7 +150,9 @@ int	attach_Iline(aClient *cptr,
 	continue;
 
       if (!aconf->host || !aconf->name)
-	return(attach_iline(cptr,aconf,uhost));
+	{
+	  return(attach_iline(cptr,aconf));
+	}
 
       if (hp)
 	for (i = 0, hname = hp->h_name; hname;
@@ -166,13 +176,18 @@ int	attach_Iline(aClient *cptr,
 		*uhost = '\0';
 		*uhost2 = '\0';
 	      }
+
 	    (void)strncat(uhost, fullname,
 			  sizeof(uhost) - strlen(uhost));
 	    (void)strncat(uhost2, sockhost,
 			  sizeof(uhost2) - strlen(uhost2));
+
+	    if (index(uhost, '@'))
+	      cptr->flags |= FLAGS_DOID;
+	    get_sockhost(cptr, uhost);
 	    if ((!match(aconf->name, uhost)) ||
 		(!match(aconf->name, uhost2)))
-	      return(attach_iline(cptr,aconf,uhost));
+	      return(attach_iline(cptr,aconf));
 	  }
 
       if (index(aconf->host, '@'))
@@ -186,8 +201,11 @@ int	attach_Iline(aClient *cptr,
 	*uhost = '\0';
       (void)strncat(uhost, sockhost, sizeof(uhost) - strlen(uhost));
 
+      if (index(uhost, '@'))
+	cptr->flags |= FLAGS_DOID;
+      get_sockhost(cptr, uhost);
       if (match(aconf->host, uhost) == 0)
-	return(attach_iline(cptr,aconf,uhost));
+	return(attach_iline(cptr,aconf));
     }
 
   return -1;	/* -1 on no match *bleh* */
@@ -201,14 +219,9 @@ int	attach_Iline(aClient *cptr,
 
 static int attach_iline(
 		 aClient *cptr,
-		 aConfItem *aconf,
-		 char *uhost)
+		 aConfItem *aconf)
 {
   IP_ENTRY *ip_found;
-
-  if (index(uhost, '@'))
-    cptr->flags |= FLAGS_DOID;
-  get_sockhost(cptr, uhost);
 
 /* every conf when created, has a class pointer set up. 
    if it isn't, well.  *BOOM* ! */
@@ -219,8 +232,11 @@ static int attach_iline(
 
   /* only check it if its non zero */
   if ((aconf->class->conFreq) && (ip_found->count > aconf->class->conFreq))
-     return -4; /* Already at maximum allowed ip#'s */
+    return -4; /* Already at maximum allowed ip#'s */
 
+  if(IsLimitIp(aconf) && (ip_found->count > 1))
+    return -4; /* Already at maximum allowed ip#'s */
+  
   return ( attach_conf(cptr, aconf) );
 }
 
@@ -973,7 +989,7 @@ int	rehash(aClient *cptr,aClient *sptr,int sig)
 	      ret = FLUSH_BUFFER;
 	  }
 #endif
-		    }
+     }
 
   while ((tmp2 = *tmp))
     if (tmp2->clients || tmp2->status & CONF_LISTEN_PORT)
@@ -1087,6 +1103,39 @@ int	openconf(char *filename)
   return open(filename, O_RDONLY);
 }
 extern char *getfield();
+
+/*
+** from comstud
+*/
+
+static char *set_conf_flags(aConfItem *aconf,char *tmp)
+{
+  FOREVER
+    {
+      switch(*tmp)
+	{
+	case '!':
+	  aconf->flags |= CONF_FLAGS_LIMIT_IP;
+	  break;
+	case '-':
+	  aconf->flags |= CONF_FLAGS_NO_TILDE;
+	  break;
+	case '+':
+	  aconf->flags |= CONF_FLAGS_NEED_IDENTD;
+	  break;
+	case '$':
+	  aconf->flags |= CONF_FLAGS_PASS_IDENTD;
+	  break;
+	case '%':
+	  aconf->flags |= CONF_FLAGS_NOMATCH_IP;
+	  break;
+	default:
+	  return tmp;
+	}
+      tmp++;
+    }
+  /* NOT REACHED */
+}
 
 /*
 ** initconf() 
@@ -1290,13 +1339,23 @@ int 	initconf(int opt, int fd)
 	{
 	  if ((tmp = getfield(NULL)) == NULL)
 	    break;
+	  /*from comstud*/
+	  if(aconf->status & CONF_CLIENT)
+	    tmp = set_conf_flags(aconf, tmp);
 	  DupString(aconf->host, tmp);
+
 	  if ((tmp = getfield(NULL)) == NULL)
 	    break;
 	  DupString(aconf->passwd, tmp);
+
 	  if ((tmp = getfield(NULL)) == NULL)
 	    break;
+          /*from comstud */
+
+	  if(aconf->status & CONF_CLIENT)
+	    tmp = set_conf_flags(aconf, tmp);
 	  DupString(aconf->name, tmp);
+
 	  if ((tmp = getfield(NULL)) == NULL)
 	    break;
 	  aconf->port = atoi(tmp);
