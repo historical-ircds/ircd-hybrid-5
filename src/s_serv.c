@@ -1823,10 +1823,17 @@ static	void	report_configured_links(aClient *sptr,int mask)
 	  }
 	else if(mask & (CONF_OPERATOR|CONF_LOCOP))
 	  {
-	    sendto_one(sptr, rpl_str(p->rpl_stats), me.name,
-		       sptr->name, p->conf_char, host, name,
-		       oper_privs((aClient *)NULL,port),
-		       get_conf_class(tmp));
+	    /* Don't allow non opers to see oper privs */
+	    if(IsAnOper(sptr))
+	      sendto_one(sptr, rpl_str(p->rpl_stats), me.name,
+			 sptr->name, p->conf_char, host, name,
+			 oper_privs((aClient *)NULL,port),
+			 get_conf_class(tmp));
+	    else
+	      sendto_one(sptr, rpl_str(p->rpl_stats), me.name,
+			 sptr->name, p->conf_char, host, name,
+			 "0",
+			 get_conf_class(tmp));
 	  }
 	else
 	  sendto_one(sptr, rpl_str(p->rpl_stats), me.name,
