@@ -816,20 +816,27 @@ static	int	set_mode(aClient *cptr,
 	  *parv = check_string(*parv);
 	  {
 	    u_char	*s, *t;
-	    int abuse = 0;
+	    int abuse = NO;
 	    
 	    for (s = t = (u_char *)*parv; *s; s++)
 	      {
 		if (*s > 0x7f && *s <= 0xa0)
-		  abuse++;
+		  abuse = YES;
 		*s &= 0x7f;
 		if (*s > (u_char)' ' && *s != ':')
 		  *t++ = *s;
 	      }
 	    *t = '\0';
 	    if (abuse)
-	      sendto_ops("User %s trying to abuse +k bug",
-			 sptr->name);
+	      {
+                ircstp->is_kill++;
+                if(MyClient(sptr))
+		  sendto_one(sptr,
+                  ":%s KILL %s :Trying to abuse +k bug", me.name, sptr->name);
+	        /* sendto_ops("User %s trying to abuse +k bug, killed",
+			 sptr->name); */
+                return 0;
+              }
 	    if (t == (u_char *)*parv) break;
 	  }
 	  if (MyClient(sptr) && opcnt >= MAXMODEPARAMS)
@@ -1428,11 +1435,19 @@ int	m_join(aClient *cptr,
   for (i = 0, name = strtoken(&p, parv[1], ","); name;
        name = strtoken(&p, (char *)NULL, ","))
     {
+      /* pathological case only on longest channel name.
+      ** If not dealt with here, causes desynced channel ops
+      ** since ChannelExists() doesn't see the same channel
+      ** as one being joined. cute bug. Oct 11 1997, Dianora/comstud
+      */
+
+      if(strlen(name) >  CHANNELLEN)  /* same thing is done in get_channel() */
+	name[CHANNELLEN] = '\0';
       clean_channelname((unsigned char *)name);
       if (*name == '&' && !MyConnect(sptr))
 	continue;
       if (*name == '0' && !atoi(name))
-	*jbuf = '\0';
+        *jbuf = '\0';
       else if (!IsChannelName(name))
 	{
 	  if (MyClient(sptr))
