@@ -77,7 +77,6 @@ fdlist oper_fdlist;
 fdlist listen_fdlist;
 fdlist busycli_fdlist;	/* high-priority clients */
 fdlist default_fdlist;	/* just the number of the entry */
-fdlist ident_fdlist;
 /*    */
 
 int	MAXCLIENTS = MAX_CLIENTS;	/* semi-configurable if QUOTE_SET is def*/
@@ -881,7 +880,6 @@ normal user.\n");
   init_fdlist(&listen_fdlist);
   init_fdlist(&busycli_fdlist);
   init_fdlist(&default_fdlist);
-  init_fdlist(&ident_fdlist);
   {
     register int i;
     for (i=MAXCONNECTIONS+1 ; i>0 ; i--)

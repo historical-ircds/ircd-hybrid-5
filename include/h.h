@@ -63,7 +63,6 @@ extern lifesux;
 extern fdlist serv_fdlist;
 extern fdlist busycli_fdlist;
 extern fdlist default_fdlist;
-extern fdlist ident_fdlist;
 extern fdlist oper_fdlist;
 extern	int	MAXCLIENTS;
 extern	struct	Counter	Count;

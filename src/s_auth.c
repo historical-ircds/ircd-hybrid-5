@@ -41,8 +41,6 @@ static char *rcs_version = "$Id$";
 #include "h.h"
 #include "fdlist.h"
 
-extern fdlist ident_fdlist;
-
 static void authsenderr(aClient *);
 
 
@@ -123,7 +121,6 @@ void	start_auth(aClient *cptr)
     }
   /*	(void)alarm((unsigned)0);*/
   cptr->flags |= (FLAGS_WRAUTH|FLAGS_AUTH);
-  addto_fdlist(cptr->fd,&ident_fdlist);  /* Comstud */
   if (cptr->authfd > highest_fd)
     highest_fd = cptr->authfd;
   return;
@@ -189,19 +186,8 @@ side effects
 
 static void authsenderr(aClient *cptr)
 {
-  register i, j;
-
   ircstp->is_abad++;
   
-  for (i=ident_fdlist.entry[j=1]; j<=ident_fdlist.last_entry;
-       i=ident_fdlist.entry[++j])
-    {
-      if (cptr == local[i])
-      {
-	delfrom_fdlist(i, &ident_fdlist);
-	break;
-      }
-    }
   (void)close(cptr->authfd);
   if (cptr->authfd == highest_fd)
     while (!local[highest_fd])
@@ -231,7 +217,6 @@ void	read_authports(aClient *cptr)
   Reg	int	len;
   char	ruser[USERLEN+1], tuser[USERLEN+1];
   u_short	remp = 0, locp = 0;
-  register i, j;	/* used to remove fd from fdlist */
 
   *ruser = '\0';
   Debug((DEBUG_NOTICE,"read_authports(%x) fd %d authfd %d stat %d",
@@ -265,13 +250,6 @@ void	read_authports(aClient *cptr)
     {
       /* sendto_realops("This is the infamous fdlist.c bug. congrats."); */
       *ruser = '\0';
-    }
-
-  for (i=ident_fdlist.entry[j=1]; j<=ident_fdlist.last_entry;
-	 i=ident_fdlist.entry[++j])
-    {
-      if (cptr == local[i])
-        delfrom_fdlist(i, &ident_fdlist);		
     }
 
   (void)close(cptr->authfd);
