@@ -65,13 +65,17 @@ void	outofmemory();
 int	numclients = 0;
 
 /* for jolo's block allocator */
-static BlockHeap *free_local_aClients;
-static BlockHeap *free_Links;
-static BlockHeap *free_remote_aClients;
-static BlockHeap *free_anUsers;
+BlockHeap *free_local_aClients;
+BlockHeap *free_Links;
+BlockHeap *free_remote_aClients;
+BlockHeap *free_anUsers;
+#ifdef FLUD
+BlockHeap *free_fludbots;
+#endif /* FLUD */
 
 void	initlists()
 {
+  /* Might want to bump up LINK_PREALLOCATE if FLUD is defined */
   free_Links = BlockHeapCreate((size_t)sizeof(Link),LINK_PREALLOCATE);
 
   /* start off with CLIENTS_PREALLOCATE for now... on typical
@@ -89,6 +93,12 @@ void	initlists()
 
   free_anUsers = BlockHeapCreate((size_t)sizeof(anUser),
 				 CLIENTS_PREALLOCATE+MAXCONNECTIONS);
+
+#ifdef FLUD
+  /* fludbot structs are used to track CTCP Flooders */
+  free_fludbots = BlockHeapCreate((size_t)sizeof(struct fludbot),
+				MAXCONNECTIONS);
+#endif /* FLUD */
 }
 
 /*
@@ -495,4 +505,7 @@ void block_garbage_collect()
   BlockHeapGarbageCollect(free_local_aClients);
   BlockHeapGarbageCollect(free_remote_aClients);
   BlockHeapGarbageCollect(free_anUsers);
+#ifdef FLUD
+  BlockHeapGarbageCollect(free_fludbots);
+#endif /* FLUD */
 }

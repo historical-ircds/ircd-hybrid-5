@@ -39,6 +39,9 @@ static char *rcs_version="$Id$";
 #include <utmp.h>
 #include <fcntl.h>
 #include "h.h"
+#ifdef FLUD
+#include "blalloc.h"
+#endif /* FLUD */
 
 #if defined( HAVE_STRING_H)
 #include <string.h>
@@ -86,6 +89,8 @@ extern Link *find_channel_link(Link *,aChannel *);	/* defined in list.c */
 int flud_num = FLUD_NUM;
 int flud_time = FLUD_TIME;
 int flud_block = FLUD_BLOCK;
+extern BlockHeap *free_fludbots;
+extern BlockHeap *free_Links;
 
 void announce_fluder(aClient *,aClient *,aChannel *,int );
 struct fludbot *remove_fluder_reference(struct fludbot **,aClient *);
@@ -3291,7 +3296,7 @@ struct fludbot *remove_fluder_reference(struct fludbot **fluders,
 	else
 	  *fluders = next;
 	
-	MyFree(current);
+        BlockHeapFree(free_fludbots, current);
       }
     else
       prev = current;
@@ -3319,7 +3324,7 @@ Link *remove_fludee_reference(Link **fludees,void *fludee)
 	  else
 	    *fludees = next;
  
-	  MyFree(current);
+          BlockHeapFree(free_Links, current);
 	}
       else
 	prev = current;
@@ -3349,9 +3354,6 @@ int check_for_ctcp(char *str)
   return 0;
 }
 
-/*
-
-*/
  
 int check_for_fludblock(aClient *fluder, /* fluder being fluded */
 			aClient *cptr,	 /* client being fluded */
@@ -3445,7 +3447,7 @@ int check_for_flud(aClient *fluder,	/* fluder, client being fluded */
 		  cptr->fluders = current->next;
 		else
 		  chptr->fluders = current->next;
-	      MyFree(current);
+              BlockHeapFree(free_fludbots, current);
 	    }
 	  else
 	    prev = current;
@@ -3475,7 +3477,7 @@ int check_for_flud(aClient *fluder,	/* fluder, client being fluded */
     }
   if(!found)
     {
-      if( (current = (struct fludbot *)MyMalloc(sizeof(struct fludbot))) )
+      if((current = BlockHeapALLOC(free_fludbots, struct fludbot)) != NULL)
 	{
 	  current->fluder = fluder;
 	  current->count = 1; 
@@ -3494,7 +3496,7 @@ int check_for_flud(aClient *fluder,	/* fluder, client being fluded */
 
 	  count++;  
 
-	  if((newfludee=(Link *)MyMalloc(sizeof(Link)))!=NULL)
+          if((newfludee = BlockHeapALLOC(free_Links, Link)) != NULL)
 	    {
 	      if(cptr)
 		{
@@ -3509,12 +3511,16 @@ int check_for_flud(aClient *fluder,	/* fluder, client being fluded */
 	      newfludee->next = fluder->fludees;
 	      fluder->fludees = newfludee;
 	    }
+          else
+            outofmemory();
 
 	  /* If we are already blocking now, we should go ahead
 	  ** and announce the new arrival */
 	  if(blocking)
 	    announce_fluder(fluder, cptr, chptr, type);
 	}       
+      else
+        outofmemory();
     }                       
 
   /* Okay, if we are not blocking, we need to decide if it's time to
@@ -3589,7 +3595,7 @@ void free_fluders(aClient *cptr, aChannel *chptr)
       else
 	remove_fludee_reference(&fluders->fluder->fludees, (void *)chptr);
       
-      MyFree(fluders);
+      BlockHeapFree(free_fludbots, fluders);
       fluders = next;
     }    
 }
@@ -3619,7 +3625,7 @@ void free_fludees(aClient *badguy)
 	    remove_fluder_reference(&fludees->value.cptr->fluders, badguy);
 	}
 
-      MyFree(fludees);
+      BlockHeapFree(free_Links, fludees);
       fludees = next;
     }       
 }       
