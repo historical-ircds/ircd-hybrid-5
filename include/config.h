@@ -761,6 +761,10 @@
  * if ANTI_SPAMBOT is defined try to discourage spambots
  * The defaults =should= be fine for the timers/counters etc.
  * but you can play with them. -Dianora
+ *
+ * Defining this also does a quick check whether the client sends
+ * us a "user foo x x :foo" where x is just a single char.  More
+ * often than not, it's a bot if it did. -ThemBones
  */
 #define ANTI_SPAMBOT
 
