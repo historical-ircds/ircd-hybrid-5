@@ -294,7 +294,6 @@ void	free_user(anUser *user, aClient *cptr)
 		 user->invited, user->channel, user->joined,
 		 user->refcnt);
 
-
       if(BlockHeapFree(free_anUsers,user))
 	{
 	  sendto_ops("list.c couldn't BlockHeapFree(free_anUsers,user) user = %lX", user );
