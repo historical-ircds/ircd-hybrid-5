@@ -1928,7 +1928,7 @@ static	int	m_message(aClient *cptr,
 	    > SPAMBOT_PRIVMSG_POSSIBLE_SPAMBOT_COUNT)
 	  {
 	    sendto_realops("Possible spambot %s [%s@%s] : privmsgs to clients %d privmsgs to channels %d",
-			   nick, sptr->user->username,
+			   sptr->name, sptr->user->username,
 			   sptr->user->host,
 			   sptr->person_privmsgs,sptr->channel_privmsgs);
 	    /* and report it if happens again */
@@ -1973,7 +1973,7 @@ static	int	m_message(aClient *cptr,
 	    > SPAMBOT_PRIVMSG_POSSIBLE_SPAMBOT_COUNT)
 	  {
 	    sendto_realops("Possible spambot %s [%s@%s] : privmsgs to clients %d privmsgs to channels %d",
-			   nick, sptr->user->username,
+			   sptr->name, sptr->user->username,
 			   sptr->user->host,
 			   sptr->person_privmsgs,sptr->channel_privmsgs);
 	    /* and report it if happens again */
