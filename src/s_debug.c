@@ -70,9 +70,6 @@ char	serveropts[] = {
 'K',
 # endif
 #endif
-#ifdef	M4_PREPROC
-'m',
-#endif
 #ifdef	IDLE_FROM_MSG
 'M',
 #endif

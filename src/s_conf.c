@@ -1084,41 +1084,7 @@ int	rehash(aClient *cptr,aClient *sptr,int sig)
  */
 int	openconf(char *filename)
 {
-#ifdef	M4_PREPROC
-  int	pi[2], i;
-
-  if (pipe(pi) == -1)
-    return -1;
-  switch(vfork())	
-    {
-    case -1 :
-      return -1;
-    case 0 :
-      (void)close(pi[0]);
-      if (pi[1] != 1)
-	{
-	  (void)dup2(pi[1], 1);
-	  (void)close(pi[1]);
-	}
-      (void)dup2(1,2);
-      for (i = 3; i < MAXCONNECTIONS; i++)
-	if (local[i])
-	  (void) close(i);
-      /*
-       * m4 maybe anywhere, use execvp to find it.  Any error
-       * goes out with report_error.  Could be dangerous,
-       * two servers running with the same fd's >:-) -avalon
-       */
-      (void)execlp("m4", "m4", "ircd.m4", configfile, 0);
-      report_error("Error executing m4 %s:%s", &me);
-      exit(-1);
-    default :
-      (void)close(pi[1]);
-      return pi[0];
-    }
-#else
   return open(filename, O_RDONLY);
-#endif
 }
 extern char *getfield();
 
@@ -1556,9 +1522,6 @@ int 	initconf(int opt, int fd)
     free_conf(aconf);
   (void)dgets(-1, NULL, 0); /* make sure buffer is at empty pos */
   (void)close(fd);
-#ifdef	M4_PREPROC
-  (void)wait(0);
-#endif
   check_class();
   nextping = nextconnect = time(NULL);
   return 0;

@@ -21,7 +21,6 @@
 static char *rcs_version="$Id$";
 #endif /* lint */
 
-
 int main(int argc, char *argv[])
 {
 #ifdef LOCKFILE
