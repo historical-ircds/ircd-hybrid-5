@@ -4,6 +4,11 @@ fixed SEPARATE_QUOTE_KLINES_BY_DATE so it compiles (Rodder)
 removed LITTLE_I_LINES from config.h for now (Rodder)
 should compile on Linux/glibc now (Rodder)
 
++hybrid-5.2p1 (5/12/98)
+removed uneeded variable in aClient (Dianora)
+added missing #ifdef's for USE_SYSLOG (Dianora)
+reverted to old check_pings() to fix high cpu usage (Rodder)
+fixed DEBUGMODE (Dianora)
 
 +hybrid-5.2 (4/21/98) - The inevitable bug fix release
 -fixes
