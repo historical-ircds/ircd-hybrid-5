@@ -1644,6 +1644,11 @@ int	m_stats(aClient *cptr,
 	{
 	  if (!(acptr = local[i]))
 	    continue;
+
+          if (IsPerson(acptr) &&
+              !IsAnOper(acptr) && !IsAnOper(sptr) &&
+              (acptr != sptr))
+            continue;
 	  if (IsInvisible(acptr) && (doall || wilds) &&
 	      !(MyConnect(sptr) && IsOper(sptr)) &&
 	      !IsAnOper(acptr) && (acptr != sptr))

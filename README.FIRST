@@ -1,6 +1,9 @@
 If you don't read this first, we won't help you.
 :-)
 
+See the INSTALL document for info on configuring and compiling
+ircd-hybrid.
+
 IMPORTANT. if you are used to using "ONE" in the password field
 of I lines to limit clients to one per ip, hybrid-5 no longer does it
 that way. It now does it the same way CSr does it. The limit is set
