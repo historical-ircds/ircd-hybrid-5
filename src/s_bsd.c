@@ -123,9 +123,6 @@ static	char	readbuf[8192];
 #endif
 
 
-/* externally defined functions */
-extern find_dline(char *);		/* defined in s_conf.c */
-
 /*
 ** add_local_domain()
 ** Add the domain to hostname, if it is missing
@@ -1784,7 +1781,7 @@ int read_packet(aClient *cptr, int msg_ready)
 		    (char *)inetntoa((char *)&addr.sin_addr),
 		    sizeof(host));
 
-	  if (find_dline(host))
+	  if (find_dline(addr.sin_addr))
 	    {
 	      ircstp->is_ref++;
 	      (void)close(fd);
@@ -2261,7 +2258,7 @@ int	read_message(time_t delay, fdlist *listp)
 		    (char *)inetntoa((char *)&addr.sin_addr),
 		    sizeof(host));
 
-	  if (find_dline(host))
+	  if (find_dline(addr.sin_addr))
 	    {
 	      ircstp->is_ref++;
 	      (void)close(newfd);

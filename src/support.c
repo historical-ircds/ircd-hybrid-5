@@ -95,8 +95,7 @@ char *str, *fs;
 **	$Id$
 */
 
-char *strerror(err_no)
-int err_no;
+char *strerror(int err_no)
 {
 #if !defined(__FreeBSD__) && !defined(__NetBSD__)
 	extern	char	*sys_errlist[];	 /* Sigh... hopefully on all systems */
@@ -128,8 +127,7 @@ int err_no;
 **	$Id$
 */
 
-char	*inetntoa(in)
-char	*in;
+char	*inetntoa(char *in)
 {
 	static	char	buf[16];
 	Reg	u_char	*s = (u_char *)in;

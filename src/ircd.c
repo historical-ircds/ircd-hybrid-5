@@ -50,8 +50,6 @@ aConfList	BList1 = { 0, NULL };	/* ordered */
 aConfList	BList2 = { 0, NULL };	/* ordered, reversed */
 aConfList	BList3 = { 0, NULL };	/* what we can't sort */
 
-aConfList	DList1 = { 0, NULL };	/* ordered */
-
 aConfList       EList1 = { 0, NULL };   /* ordered */
 aConfList       EList2 = { 0, NULL };   /* ordered, reversed */
 aConfList       EList3 = { 0, NULL };   /* what we can't sort */
@@ -964,6 +962,7 @@ normal user.\n");
   clear_channel_hash_table();
   clear_scache_hash_table();	/* server cache name table */
   clear_ip_hash_table();	/* client host ip hash table */
+  clear_dline_hash_table();
   initlists();
   initclass();
   initwhowas();

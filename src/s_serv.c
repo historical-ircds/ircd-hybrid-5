@@ -1554,7 +1554,6 @@ static REPORT_STRUCT report_array[] = {
   { CONF_CONNECT_SERVER,    RPL_STATSCLINE, 'C'},
   { CONF_NOCONNECT_SERVER,  RPL_STATSNLINE, 'N'},
   { CONF_CLIENT,            RPL_STATSILINE, 'I'},
-  { CONF_CLIENT,            RPL_STATSILINE, 'i'},
   { CONF_KILL,              RPL_STATSKLINE, 'K'},
   { CONF_LEAF,		  RPL_STATSLLINE, 'L'},
   { CONF_OPERATOR,	  RPL_STATSOLINE, 'O'},
@@ -1571,6 +1570,7 @@ static	void	report_configured_links(aClient *sptr,int mask)
   aConfItem *tmp;
   REPORT_STRUCT *p;
   int   port;
+  char c;		/* conf char used for CONF_CLIENT only */
   char	*host, *pass, *name;
   char prefix_of_host[MAXPREFIX];
   char *prefix_ptr;
@@ -1583,27 +1583,10 @@ static	void	report_configured_links(aClient *sptr,int mask)
 	    break;
 	if(p->conf_type == 0)return;
 
-#ifdef LITTLE_I_LINES
-	if(tmp->flags & CONF_FLAGS_LITTLE_I_LINE)
-	  p++;
-#endif
 	host = BadPtr(tmp->host) ? null : tmp->host;
 	pass = BadPtr(tmp->passwd) ? null : tmp->passwd;
 	name = BadPtr(tmp->name) ? null : tmp->name;
 	port = (int)tmp->port;
-	prefix_ptr = prefix_of_host;
-
-	if (IsNoTilde(tmp))
-	  *prefix_ptr++ = '-';
-	if (IsLimitIp(tmp))
-	  *prefix_ptr++ = '!';
-	if (IsNeedIdentd(tmp))
-	  *prefix_ptr++ = '+';
-        if (IsPassIdentd(tmp))
-          *prefix_ptr++ = '$';
-        if (IsNoMatchIp(tmp))
-          *prefix_ptr++ = '%';
-        *prefix_ptr = '\0';
 
 	/*
 	 * On K line the passwd contents can be
@@ -1625,10 +1608,29 @@ static	void	report_configured_links(aClient *sptr,int mask)
 #endif
 	else if (mask == CONF_CLIENT)
 	  {
+            prefix_ptr = prefix_of_host;
+ 
+            if (IsNoTilde(tmp))
+              *prefix_ptr++ = '-';
+            if (IsLimitIp(tmp))
+              *prefix_ptr++ = '!';
+            if (IsNeedIdentd(tmp))
+              *prefix_ptr++ = '+';
+            if (IsPassIdentd(tmp))
+              *prefix_ptr++ = '$';
+            if (IsNoMatchIp(tmp))
+              *prefix_ptr++ = '%';
+            *prefix_ptr = '\0';
+
 	    strncat(prefix_of_host,name,MAXPREFIX);
+            c = 'I';
+#ifdef LITTLE_I_LINES
+            if(IsLittleI(tmp))
+              c = 'i';
+#endif
 	    sendto_one(sptr, rpl_str(p->rpl_stats), me.name,
 		     sptr->name,
-		     p->conf_char,
+		     c,
 		     host, prefix_of_host, port,
 		     get_conf_class(tmp));
 	  }
@@ -1818,7 +1820,7 @@ int	m_stats(aClient *cptr,
 
     case 'D': case 'd':
       if (!IsAnOper(sptr)) break;
-      report_conf_links(sptr, &DList1, RPL_STATSDLINE, 'D');
+      report_dline_hash(sptr, RPL_STATSDLINE);
       break;
 
     case 'E' : case 'e' :
@@ -3564,7 +3566,7 @@ int     m_kline(aClient *cptr,
     {
       sendto_realops("%s added K-Line [%s@%s] [%s] but should be D-Line",
                  parv[0], user, host, reason);
-      return place_dline(cptr,sptr,parc,parv,user,host,reason); 
+      return place_dline(sptr,parv[0],host,reason); 
     }
 
 
@@ -4300,6 +4302,9 @@ int     m_dline(aClient *cptr,
 	  number_of_dots++;
 	  p++;
 	}
+      else if(*p == '/')	/* I'm going to gamble
+				   that it is a legal ddd.ddd.ddd.ddd/mask */
+	break;
       else if(*p == '*')
 	{
 	  if(number_of_dots != 3)
@@ -4380,7 +4385,7 @@ int     m_dline(aClient *cptr,
   **
   */
 
-      return place_dline(cptr,sptr,parc,parv,user,host,reason); 
+  return place_dline(sptr,parv[0],host,reason); 
 }
 
 /*
@@ -4388,11 +4393,8 @@ int     m_dline(aClient *cptr,
 ** actual code that places the d-line
 */
 
-int     place_dline(aClient *cptr,
-		    aClient *sptr,
-		    int parc,
-		    char *parv[],
-		    char *user,
+int     place_dline(aClient *sptr,
+		    char *parv0,
 		    char *host,
 		    char *reason)
 {
@@ -4403,16 +4405,30 @@ int     place_dline(aClient *cptr,
 #endif
   char buffer[1024];
   char *current_date;
+  unsigned long ip_host;
+  unsigned long ip_host_network_order;
+  unsigned long ip_mask;
   aConfItem *aconf;
 
+  ip_host = host_name_to_ip(host,&ip_mask);	/* =host= order */
+  ip_host_network_order = ntohl(ip_host);
+
+  if((ip_mask & 0xFFFFFF00) ^ 0xFFFFFF00)
+    {
+      sendto_one(sptr, ":%s NOTICE %s :Can't use a mask less than 24 with dline",
+		 me.name,
+		 parv0);
+      return 0;
+    }
+
 #ifdef NON_REDUNDANT_KLINES
-  if( (aconf = find_is_dlined(host)) )
+  if( (aconf = find_host_in_dline_hash(ip_host_network_order)) )
      {
        char *reason;
        reason = aconf->passwd ? aconf->passwd : "<No Reason>";
        sendto_one(sptr, ":%s NOTICE %s :[%s] already D-lined by [%s] - %s",
 		 me.name,
-		 parv[0],
+		 parv0,
 		 host,
 		 aconf->host,reason);
       return 0;
@@ -4422,33 +4438,22 @@ int     place_dline(aClient *cptr,
 
   current_date = smalldate((time_t) 0);
 
-  aconf = make_conf();
-  aconf->status = CONF_DLINE;
-  DupString(aconf->host, host);
-
   (void)ircsprintf(buffer, "%s (%s)",reason,current_date);
 
-  DupString(aconf->passwd, buffer );
-  aconf->name = (char *)NULL;
-  aconf->port = 0;
-  Class(aconf) = find_class(0);
+  ip_host = host_name_to_ip(host,&ip_mask);
 
-/* since a quote dline always ensures a sortable pattern
-   there is no need to check sortable()
-   - Dianora
-*/
-
-  addto_conf_list(&DList1, aconf, host_field);
+  add_to_dline_hash(ip_host,
+		    ip_mask,host,buffer);
 
   sendto_realops("%s added D-Line for [%s] [%s]",
-		 parv[0], host, reason);
+		 parv0, host, reason);
 
 #ifdef DLINES_IN_KPATH
   sendto_one(sptr, ":%s NOTICE %s :Added D-Line [%s] to server klinefile",
-	     me.name, parv[0], host);
+	     me.name, parv0, host);
 #else
   sendto_one(sptr, ":%s NOTICE %s :Added D-Line [%s] to server configfile",
-          me.name, parv[0], host);
+          me.name, parv0, host);
 #endif
 
   /*
@@ -4468,7 +4473,7 @@ int     place_dline(aClient *cptr,
   if((k = (struct pkl *)MyMalloc(sizeof(struct pkl))) == NULL)
     {
       sendto_one(sptr, ":%s NOTICE %s :Problem allocating memory",
-		 me.name, parv[0]);
+		 me.name, parv0);
       return(0);
     }
 
@@ -4481,11 +4486,11 @@ int     place_dline(aClient *cptr,
     {
       free(k);
       sendto_one(sptr, ":%s NOTICE %s :Problem allocating memory",
-		 me.name, parv[0]);
+		 me.name, parv0);
       return(0);
     }
 
-  (void)ircsprintf(buffer, "D:%s:%s (%s):\n",
+  (void)ircsprintf(buffer, "D:%s:%s (%s)\n",
 		   host,
 		   reason,
 		   current_date);
@@ -4495,7 +4500,7 @@ int     place_dline(aClient *cptr,
       free(k->comment);
       free(k); 
       sendto_one(sptr, ":%s NOTICE %s :Problem allocating memory",
-		 me.name, parv[0]);
+		 me.name, parv0);
       return(0);
     }       
   k->next = pending_klines;
@@ -4509,7 +4514,7 @@ int     place_dline(aClient *cptr,
   if ((out = open(dlinefile, O_RDWR|O_APPEND|O_CREAT))==-1)
     {
       sendto_one(sptr, ":%s NOTICE %s :Problem opening %s ",
-		 me.name, parv[0], dlinefile);
+		 me.name, parv0, dlinefile);
       return 0;
     }
 
@@ -4522,19 +4527,21 @@ int     place_dline(aClient *cptr,
     {
       sendto_one(sptr,
 		 ":%s NOTICE %s :Problem writing to %s",
-		 me.name, parv[0], dlinefile);
+		 me.name, parv0, dlinefile);
       close(out);
       return 0;
     }
 
-  (void)ircsprintf(buffer, "D:%s:%s (%s):\n", host, reason,
-			current_date);
+  (void)ircsprintf(buffer, "D:%s:%s (%s)\n",
+		   host,
+		   reason,
+		   current_date);
 
   if (write(out, buffer, strlen(buffer)) <= 0)
     {
       sendto_one(sptr,
 		 ":%s NOTICE %s :Problem writing to %s",
-		 me.name, parv[0], dlinefile);
+		 me.name, parv0, dlinefile);
       close(out);
       return 0;
     }

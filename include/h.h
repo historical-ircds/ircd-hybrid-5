@@ -46,10 +46,6 @@ extern aConfList	BList1;
 extern aConfList	BList2;
 extern aConfList	BList3;
 
-extern aConfList	DList1;
-extern aConfList	DList2;
-extern aConfList	DList3;
-
 extern aConfList	EList1;
 extern aConfList	EList2;
 extern aConfList	EList3;
@@ -109,7 +105,6 @@ extern	aConfItem *find_conf_host (Link *, char *, int);
 extern	aConfItem *find_conf_ip (Link *, char *, char *, int);
 extern	aConfItem *find_conf_name (char *, int);
 extern	aConfItem *find_kill (aClient *);
-extern  aConfItem *find_dkill (aClient *);
 
 extern  void 	report_matching_host_klines(aClient *,char *);
 			/* report_matching_host_klines defined in s_conf.c */
@@ -119,7 +114,14 @@ extern  aConfItem *find_gkill (aClient *);
 extern  aConfItem *find_is_glined(char *,char *);
 #endif
 extern  aConfItem *find_is_klined(char *,char *);
-extern  aConfItem *find_is_dlined(char *);
+
+/* hash d lines */
+extern void clear_dline_hash_table();	/* called at startup by ircd.c */
+extern void add_to_dline_hash(unsigned long,unsigned long,char *,char *);
+extern aConfItem *find_host_in_dline_hash(unsigned long);
+unsigned long host_name_to_ip(char *, unsigned long *);
+extern aConfItem *find_dkill(aClient *cptr);
+extern report_dline_hash(aClient *,int);
 
 extern  void	add_temp_kline(aConfItem *);
 extern  void	flush_temp_klines(void);
@@ -195,7 +197,7 @@ extern	void	terminate (void), write_pidfile (void);
 
 extern	int	send_queued (aClient *);
 extern  int     send_motd(aClient *,aClient *,int,char **);
-extern  int     place_dline(aClient *,aClient *,int,char **,char*, char*, char*);
+extern  int     place_dline(aClient *,char *,char*, char*);
 
 /* Missing definitions */
 /*VARARGS*/

@@ -398,6 +398,10 @@ struct	ConfItem
 #define IsPassIdentd(x)         ((x)->flags & CONF_FLAGS_PASS_IDENTD)
 #define IsNoMatchIp(x)          ((x)->flags & CONF_FLAGS_NOMATCH_IP)
 
+#ifdef LITTLE_I_LINES
+#define IsLittleI(x)		((x)->flags & CONF_FLAGS_LITTLE_I_LINE)
+#endif
+
 /*
  * Client structures
  */

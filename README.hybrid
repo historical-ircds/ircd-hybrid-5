@@ -1,4 +1,6 @@
-+hybrid-5.3DEV (7/5/98)
++hybrid-5.3DEV (7/6/98)
+- d-line hash, use a hash table for numeric ip's allows use of CIDR style
+masks in /quote dlines i.e. "/quote dline 192.168.1.0/30 :test" (Dianora)
 - fix to ANTI_IP_SPOOF in s_user.c sent in by jailbird@alcatraz.fdf.net
 - report user doing /motd, removed STATS_FLAG (Dianora)
 - added delay between motd requests (Dianora)

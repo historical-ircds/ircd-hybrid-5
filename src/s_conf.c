@@ -71,6 +71,7 @@ extern  void    outofmemory(void);	/* defined in list.c */
 */
 
 #define IP_HASH_SIZE 0x1000
+#define DLINE_HASH_SIZE 0x8000
 
 typedef struct ip_entry
 {
@@ -79,10 +80,22 @@ typedef struct ip_entry
   struct ip_entry *next;
 }IP_ENTRY;
 
-IP_ENTRY *ip_hash_table[IP_HASH_SIZE];
+typedef struct d_line_entry
+{
+  unsigned long ip;
+  unsigned long mask;
+  aConfItem *conf_entry;
+  struct d_line_entry *next;
+}DLINE_ENTRY;
 
-void init_ip_hash(void);
+IP_ENTRY *ip_hash_table[IP_HASH_SIZE];
+DLINE_ENTRY *dline_hash_table[DLINE_HASH_SIZE];
+
+static void clear_dlines(void);		/* clear current d lines */
+
 static int hash_ip(unsigned long);
+static int hash_dline_ip(unsigned long);
+
 static IP_ENTRY *find_or_add_ip(unsigned long);
 
 /* externally defined routines */
@@ -245,7 +258,7 @@ static int attach_iline(
 static IP_ENTRY *free_ip_entries;
 
 /*
-init_ip_hash()
+clear_ip_hash_table()
 
 input		- NONE
 output		- NONE
@@ -420,6 +433,7 @@ input		- unsigned long ip address
 output		- integer value used as index into hash table
 side effects	- hopefully, none
 */
+
 
 static int hash_ip(unsigned long ip)
 {
@@ -1035,11 +1049,11 @@ int	rehash(aClient *cptr,aClient *sptr,int sig)
   clear_conf_list(&KList2);
   clear_conf_list(&KList3);
   
-  clear_conf_list(&DList1);	/* Only d lines of this form allowed */
-
   clear_conf_list(&BList1);
   clear_conf_list(&BList2);
   clear_conf_list(&BList3);
+
+  clear_dlines();
 
   clear_conf_list(&EList1);
   clear_conf_list(&EList2);
@@ -1508,23 +1522,18 @@ int 	initconf(int opt, int fd)
 	MyFree(host);
       }
 
-      if (aconf->host && (aconf->status & CONF_DLINE)) {
-	char    *host = host_field(aconf);
+      if (aconf->host && (aconf->status & CONF_DLINE))
+	{
+	  unsigned long mask;
+	  unsigned host_ip;
 
-	dontadd = 1;
-	switch (sortable(host))
-	  {
-	  case 0 :
-	    break;
-	  case 1 :
-	    addto_conf_list(&DList1, aconf, host_field);
-	    break;
-	  case -1 :
-	    break;
-	  }
-	
-	MyFree(host);
-      }
+	  dontadd = 1;
+	  host_ip = host_name_to_ip(aconf->host,&mask),
+	  add_to_dline_hash(host_ip,
+			    mask,
+			    aconf->host,
+			    aconf->passwd);
+	}
 
       if (aconf->host && (aconf->status & CONF_ELINE)) {
 	char	*host = host_field(aconf);
@@ -1663,22 +1672,17 @@ int     find_bline(aClient *cptr)
   return find_conf_match(cptr, &BList1, &BList2, &BList3);
 }
 
-int     find_dline(char *host)
-{
-  if (strlen(host)  > (size_t) HOSTLEN)
-    return (0);
+/*
+find_dline
 
-  /* Try hostnames of the form "word*" -Sol */
-  /*
-   * For D lines most of them are going to be nnn.nnn.nnn.*
-   * to  deny a /24 - Dianora
-   * I won't check for any other kind of Dline now...
-  */
-  
-  if (find_matching_conf(&DList1, host)) 
-    return ( -1 );
-  else
-    return (0);
+input		- host_ip as unsigned long in =network= order
+output		- 1 if D line was found
+side effects	-
+*/
+
+int find_dline(unsigned long host_ip)
+{
+  return((int)find_host_in_dline_hash(host_ip));
 }
 
 int     find_eline(aClient *cptr)
@@ -2000,46 +2004,13 @@ side effects	- only sortable dline tree is searched
 
 aConfItem *find_dkill(aClient *cptr)
 {
-  char *host;
-
   if (!cptr->user)
     return 0;
 
-  host = cptr->hostip;	/* guaranteed to always be less than
-			   HOSTIPLEN - Dianora */
-
   if (find_eline(cptr))
-    return 0;
+    return((aConfItem *)NULL);
 
-  return(find_is_dlined(host));
-}
-
-/*
-find_is_dlined
-
-inputs		- pointer to host ip#
-output		- pointer to aConfItem if found, NULL pointer if not
-side effects	-
-*/
-
-aConfItem *find_is_dlined(char *host)
-{
-  aConfItem *tmp;
-
-  /* This will be the only form possible in a quote dline */
-  /* Try hostnames of the form "word*" -Sol */
-
-  /* This code is almost identical to find_dline
-     but in the case of an active quote dline, the loser deserves
-     to know why they are being dlined don't they? - Dianora
-  */
-
-  if ((tmp = find_matching_conf(&DList1, host)) == NULL)
-    {
-      return ((aConfItem *)NULL);
-    }
-
-  return (tmp);
+  return(find_host_in_dline_hash(cptr->ip.s_addr));
 }
 
 int	find_conf_match(aClient *cptr,
@@ -2600,3 +2571,292 @@ static int check_time_interval(char *interval)
   return 0;
 }
 #endif
+
+
+/* 
+D line hash table implementation 
+
+Diane Bruce (Dianora/db)
+*/
+
+/*
+clear_dline_hash_table
+
+input		- NONE
+output		- NONE
+side effects 	- Initialize the dline hash table
+*/
+
+void clear_dline_hash_table()
+{
+  bzero((char *)dline_hash_table, sizeof(dline_hash_table));
+}
+
+/*
+clear_dlines
+
+input		- NONE
+output		- NONE
+side effects 	- clear the dline hash table
+*/
+
+static void clear_dlines()
+{
+  int i;
+  DLINE_ENTRY *p;
+  DLINE_ENTRY *next_p;
+
+  for(i = 0; i < DLINE_HASH_SIZE; i++)
+    {
+      p = dline_hash_table[i];
+      while(p)
+	{
+	  next_p = p->next;
+	  if(p->conf_entry)
+	    {
+	      if(p->conf_entry->host)
+		(void)free(p->conf_entry->host);
+	      if(p->conf_entry->passwd)
+		(void)free(p->conf_entry->passwd);
+	      if(p->conf_entry->name)
+		(void)free(p->conf_entry->name);
+	      free_conf(p->conf_entry);
+	    }
+	  (void)free(p);
+	  p = next_p;
+	}
+      dline_hash_table[i] = (DLINE_ENTRY *)NULL;
+    }
+}
+
+/*
+add_to_dline_hash()
+
+inputs		- host_ip in =host= order
+		- host_mask in =host= order
+		- host ip banned as string
+		- reason for ban
+		
+output		- none
+side effects	-
+*/
+
+void add_to_dline_hash(unsigned long host_ip,
+		       unsigned long host_mask,
+		       char *host,
+		       char *reason)
+{
+  aConfItem *aconf;
+  DLINE_ENTRY *p;
+  DLINE_ENTRY *new_entry;
+  int i;
+
+  aconf = make_conf();
+  aconf->status = CONF_KILL;
+  DupString(aconf->host,host);
+  DupString(aconf->passwd,reason);
+  aconf->name = (char *)NULL;
+  aconf->port = 0;
+
+  host_ip &= host_mask;
+
+  new_entry = (DLINE_ENTRY *)MyMalloc(sizeof(DLINE_ENTRY));
+  new_entry->ip = host_ip;
+  new_entry->mask = host_mask;
+  new_entry->conf_entry = aconf;
+  new_entry->next = (DLINE_ENTRY *)NULL;
+
+  i = hash_dline_ip(host_ip);
+
+  if((p = dline_hash_table[i]) == (DLINE_ENTRY *)NULL)
+    {
+      dline_hash_table[i] = new_entry;
+      return;
+    }
+
+  new_entry->next = p;
+  dline_hash_table[i] = new_entry;
+}
+
+/*
+find_host_in_dline_hash
+
+inputs		- host ip in =network= order
+output		- aConfItem if dlined NULL if not
+side effects	- none
+*/
+
+aConfItem *find_host_in_dline_hash(unsigned long host_ip)
+{
+  int i;
+  DLINE_ENTRY *p;
+  unsigned long host_ip_host_order;
+
+  host_ip_host_order = ntohl(host_ip);
+
+  i = hash_dline_ip(host_ip_host_order);
+
+  if((p = dline_hash_table[i]) == (DLINE_ENTRY *)NULL)
+    return((aConfItem *)NULL);
+  while(p)
+    {
+      if( (host_ip_host_order & p->mask) == p->ip)
+	{
+	  return(p->conf_entry);
+	}
+      p = p->next;
+    }
+  return((aConfItem *)NULL);
+}
+
+/*
+hash_dline_ip()
+
+input		- unsigned long ip address in host order
+output		- integer value used as index into hash table
+side effects	- hopefully, none
+*/
+
+static int hash_dline_ip(unsigned long ip)
+{
+  int hash;
+  hash = ((ip >>= 11) + ip) & (DLINE_HASH_SIZE-1);
+  return(hash);
+}
+
+/*
+inputs		- hostname
+		- pointer to ip_mask
+output		- ip in host order
+		- ip_mask pointed to by ip_mask_ptr is updated
+side effects	- NONE
+*/
+
+unsigned long cidr_to_bitmask[]=
+{
+  /* 00 */ 0x00000000,
+  /* 01 */ 0x80000000,
+  /* 02 */ 0xC0000000,
+  /* 03 */ 0xE0000000,
+  /* 04 */ 0xF0000000,
+  /* 05 */ 0xF8000000,
+  /* 06 */ 0xFC000000,
+  /* 07 */ 0xFE000000,
+  /* 08 */ 0xFF000000,
+  /* 09 */ 0xFF800000,
+  /* 10 */ 0xFFC00000,
+  /* 11 */ 0xFFE00000,
+  /* 12 */ 0xFFF00000,
+  /* 13 */ 0xFFF80000,
+  /* 14 */ 0xFFFC0000,
+  /* 15 */ 0xFFFE0000,
+  /* 16 */ 0xFFFF0000,
+  /* 17 */ 0xFFFF8000,
+  /* 18 */ 0xFFFFC000,
+  /* 19 */ 0xFFFFE000,
+  /* 20 */ 0xFFFFF000,
+  /* 21 */ 0xFFFFF800,
+  /* 22 */ 0xFFFFFC00,
+  /* 23 */ 0xFFFFFE00,
+  /* 24 */ 0xFFFFFF00,
+  /* 25 */ 0xFFFFFF80,
+  /* 26 */ 0xFFFFFFC0,
+  /* 27 */ 0xFFFFFFE0,
+  /* 28 */ 0xFFFFFFF0,
+  /* 29 */ 0xFFFFFFF8,
+  /* 30 */ 0xFFFFFFFC,
+  /* 31 */ 0xFFFFFFFE,
+  /* 32 */ 0xFFFFFFFF
+};
+
+unsigned long host_name_to_ip(char *host,unsigned long *ip_mask_ptr)
+{
+  unsigned long generated_host_ip=0L;
+  unsigned long current_ip=0L;
+  unsigned int octet=0;
+  int found_mask=0;
+
+  while(*host)
+    {
+      if(isdigit(*host))
+	{
+	  octet *= 10;
+	  octet += (*host & 0xF);
+	}
+      else if(*host == '.')
+	{
+	  current_ip <<= 8;
+	  current_ip += octet;
+	  octet = 0;
+	}
+      else if(*host == '/')
+	{
+	  found_mask = 1;
+	  current_ip <<= 8;
+	  current_ip += octet;
+	  octet = 0;
+	  generated_host_ip = current_ip;
+	  current_ip = 0L;
+	}
+
+       if(*(host+1) == '\0')
+	{
+	  current_ip <<= 8;
+	  current_ip += octet;
+	  if(!found_mask)    
+	    generated_host_ip = current_ip;
+	}
+      host++;
+    }
+
+  if(found_mask)
+    {
+      *ip_mask_ptr = cidr_to_bitmask[current_ip&0x1F];
+    }
+  else
+    {
+      *ip_mask_ptr = 0xFFFFFF00L;
+    }
+  return(generated_host_ip);
+}
+
+
+/*
+report_dline_hash()
+
+inputs		- aClient to source requesting stats D
+output		-
+side effects
+*/
+
+int report_dline_hash(aClient *sptr, int numeric)
+{
+  aConfItem *tmp;
+  int i;
+  DLINE_ENTRY *p;
+  char *host,*pass;
+  static  char	null[] = "<NULL>";
+
+  for(i = 0; i < DLINE_HASH_SIZE; i++)
+    {
+      p = dline_hash_table[i];
+      while(p)
+	{
+	  tmp = p->conf_entry;
+	  if (tmp == (aConfItem *)NULL)
+	    {
+	      p = p->next;
+	      continue;
+	    }
+	  host = BadPtr(tmp->host) ? null : tmp->host;
+	  pass = BadPtr(tmp->passwd) ? null : tmp->passwd;
+
+	  sendto_one(sptr, rpl_str(numeric), me.name,
+		       sptr->name, 'D', host,
+		       pass);
+	  p = p->next;
+	}
+    }
+
+}
+
