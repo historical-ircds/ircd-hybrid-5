@@ -3482,6 +3482,8 @@ static int majority_gline(aClient *sptr,
   GLINE_PENDING *new_pending_gline;
   GLINE_PENDING *gline_pending_ptr;
 
+  /* special case condition where there are no pending glines */
+
   if(pending_glines == (GLINE_PENDING *)NULL) /* first gline request placed */
     {
       new_pending_gline = (GLINE_PENDING *)malloc(sizeof(GLINE_PENDING));
@@ -3513,8 +3515,8 @@ static int majority_gline(aClient *sptr,
       pending_glines = new_pending_gline;
       return NO;
     }
-  else
-    expire_pending_glines();
+
+  expire_pending_glines();
 
   for(gline_pending_ptr = pending_glines;
       gline_pending_ptr; gline_pending_ptr = gline_pending_ptr->next)
@@ -3533,8 +3535,8 @@ static int majority_gline(aClient *sptr,
 
 	  if(gline_pending_ptr->oper_user2[0] != '\0')
 	    {
-	      /* already two opers have "voted" yes */
-	  
+	      /* if two other opers on two different servers have voted yes */
+
 	      if(((strcasecmp(gline_pending_ptr->oper_user2,oper_user)==0) &&
 		  (strcasecmp(gline_pending_ptr->oper_host2,oper_host)==0)) ||
 		  (strcasecmp(gline_pending_ptr->oper_server2,oper_server)==0))
@@ -3545,14 +3547,10 @@ static int majority_gline(aClient *sptr,
 		}
 
 	      if(find_is_glined(host,user))
-		{
-		  return NO;
-		}
+		return NO;
 
 	      if(find_is_klined(host,user))
-		{
-		  return NO;
-		}
+		return NO;
 
 	      log_gline(sptr,parv0,gline_pending_ptr,
 			oper_nick,oper_user,oper_host,oper_server,
@@ -3570,6 +3568,37 @@ static int majority_gline(aClient *sptr,
 	    }
 	}
     }
+  /* Didn't find this user@host gline in pending gline list
+   * so add it.
+   */
+
+  new_pending_gline = (GLINE_PENDING *)malloc(sizeof(GLINE_PENDING));
+  if(new_pending_gline == (GLINE_PENDING *)NULL)
+    {
+      sendto_realops("No memory for GLINE, GLINE dropped");
+      return NO;
+    }
+
+  strncpyzt(new_pending_gline->oper_nick1,oper_nick,NICKLEN+1);
+  new_pending_gline->oper_nick2[0] = '\0';
+
+  strncpyzt(new_pending_gline->oper_user1,oper_user,USERLEN);
+  new_pending_gline->oper_user2[0] = '\0';
+
+  strncpyzt(new_pending_gline->oper_host1,oper_host,HOSTLEN);
+  new_pending_gline->oper_host2[0] = '\0';
+
+  new_pending_gline->oper_server1 = find_or_add(oper_server);
+
+  strncpyzt(new_pending_gline->user,user,USERLEN);
+  strncpyzt(new_pending_gline->host,host,HOSTLEN);
+  new_pending_gline->reason1 = strdup(reason);
+  new_pending_gline->reason2 = (char *)NULL;
+
+  new_pending_gline->last_gline_time = NOW;
+  new_pending_gline->next = pending_glines;
+  pending_glines = new_pending_gline;
+  
   return NO;
 }
 
