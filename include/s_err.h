@@ -147,7 +147,7 @@ static	Numeric	numeric_replies[] = {
 /* 314 */	RPL_WHOWASUSER, "%s %s %s * :%s",
 /* 315 */	RPL_ENDOFWHO, "%s :End of /WHO list.",
 /* 316 */	RPL_WHOISCHANOP, (char *)NULL,
-/* 317 */	RPL_WHOISIDLE, "%s %ld :seconds idle",
+/* 317 */	RPL_WHOISIDLE, "%s %ld %ld :seconds idle, signon time",
 /* 318 */	RPL_ENDOFWHOIS, "%s :End of /WHOIS list.",
 /* 319 */	RPL_WHOISCHANNELS, "%s :%s",
 		0, (char *)NULL,

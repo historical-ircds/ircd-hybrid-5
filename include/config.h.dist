@@ -255,14 +255,6 @@
  */
 #undef NO_LOCAL_KLINE
 
-/* LOCOPS - mimics a bit the behaviour of dalnets /quote LOCOPS
- * i.e. /quote locops :message  will send a message only to all 
- * local operators on your server. Personally I think its useful
- * and the code was practically free anyway.
- * but if you really don't want it, undef the following line. -Dianora
-*/
-#define LOCOPS
-
 /* GLINES - global Kline-like bans
  * Define this if you want GLINE support
  * when this is defined, 3 completely different opers from

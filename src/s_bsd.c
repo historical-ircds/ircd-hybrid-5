@@ -2550,7 +2550,11 @@ void	get_my_name(aClient *cptr,
 {
   static	char tmp[HOSTLEN+1];
   struct	hostent	*hp;
-  extern int	gethostname(char *, int);
+/* The following conflicts with both AIX and linux prototypes
+   oh well, we can put up with the errors from other systems
+   -Dianora 
+*/
+/*  extern int	gethostname(char *, int); */
 
   char	*cname = cptr->name;
 

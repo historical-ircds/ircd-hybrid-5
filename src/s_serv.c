@@ -1982,7 +1982,6 @@ int     m_wallops(aClient *cptr,
   return 0;
 }
 
-#ifdef LOCOPS
 /*
 ** m_locops (write to *all* local opers currently online)
 **      parv[0] = sender prefix
@@ -2011,7 +2010,6 @@ int     m_locops(aClient *cptr,
     }
   send_operwall(sptr, "LOCOPS", message);
 }
-#endif
 
 /* raped from csr30 */
 

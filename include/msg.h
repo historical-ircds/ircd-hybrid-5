@@ -85,9 +85,7 @@
 #define MSG_GLINE    "GLINE"    /* GLINE */
 #endif
 
-#ifdef LOCOPS
 #define MSG_LOCOPS   "LOCOPS"	/* LOCOPS */
-#endif
 
 #define MAXPARA    15 
 
@@ -99,9 +97,7 @@ extern int m_dline(aClient *,aClient *,int,char **);
 extern int m_gline(aClient *,aClient *,int,char **);
 #endif
 
-#ifdef LOCOPS
 extern int m_locops(aClient *,aClient *,int,char **);
-#endif
 
 extern int m_private(aClient *,aClient *,int,char **);
 extern int m_topic(aClient *,aClient *,int,char **);
@@ -189,9 +185,7 @@ struct Message msgtab[] = {
   { MSG_INVITE,  m_invite,   0, MAXPARA, 1, 0, 0, 0L },
   { MSG_KICK,    m_kick,     0, MAXPARA, 1, 0, 0, 0L },
   { MSG_WALLOPS, m_wallops,  0, MAXPARA, 1, 0, 0, 0L },
-#ifdef LOCOPS
   { MSG_LOCOPS,  m_locops,   0, MAXPARA, 1, 0, 0, 0L },
-#endif
 #ifdef IDLE_FROM_MSG
   { MSG_PING,    m_ping,     0, MAXPARA, 1, 0, 0, 0L },
 #ifdef ANTI_IP_SPOOF

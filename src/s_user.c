@@ -2110,7 +2110,8 @@ int	m_whois(aClient *cptr,
 	  if (acptr->user && MyConnect(acptr))
 	    sendto_one(sptr, rpl_str(RPL_WHOISIDLE),
 		       me.name, parv[0], name,
-		       timeofday - user->last);
+		       timeofday - user->last,
+		       acptr->firsttime);
 	}
       if (!found)
 	sendto_one(sptr, err_str(ERR_NOSUCHNICK),
@@ -2122,6 +2123,7 @@ int	m_whois(aClient *cptr,
   
   return 0;
 }
+
 
 /*
 ** m_user
@@ -2381,7 +2383,7 @@ int	m_kill(aClient *cptr,
       sendto_one(sptr, err_str(ERR_NOPRIVILEGES), me.name, parv[0]);
       return 0;
     }
-  if (IsOper(sptr)) /* send it normally */
+  if (IsAnOper(sptr)) /* send it normally */
     sendto_ops("Received KILL message for %s. From %s Path: %s!%s",
 	       acptr->name, parv[0], inpath, path);
   else

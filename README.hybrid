@@ -5,11 +5,15 @@
 * fixed quote kline for 10 character user names (Dianora)
 * obscure bug with KICK message in a desync channel situation (Dianora)
 * bug with max channel name fixed (comstud/Dianora)
+* stop spam from links command i.e. beeps (Dianora)
 -feature adds
-* stop people from laming up the kline conf file with # in comment
+* stop people from laming up the kline conf file with # in comment (Dianora)
 * added comstuds SEPARATE_QUOTE_KLINES_BY_DATE
 * use block allocator in FLUD code (Shadowfax)
 * added HTM quiet or HTM noisy option (Dianora)
+* added LOCOPS, each type of wallops/operwall/locops is now flagged (Dianora)
+* added signon time to RPL_WHOISIDLE (Dianora)
+* allow local opers to see kills requested by riss (Dianora)
 +hybrid-5 (9/26/97)
 * LOTS AND LOTS OF CHANGES IN CONFIG.H
 * reorganized source tree, eliminating common subdir
