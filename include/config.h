@@ -827,6 +827,14 @@
 */
 #undef OLD_Y_LIMIT
 
+/*
+ * If the OS has SOMAXCONN use that value, otherwise
+ * Use the value in HYBRID_SOMAXCONN for the listen(); backlog
+ * try 5 or 25. 5 for AIX and SUNOS, 25 should work better for other OS's
+*/
+#define HYBRID_SOMAXCONN 5
+
+
 /* ----------------- archaic and/or broken secion -------------------- */
 
 /* ANTI_IP_SPOOF - protects against TCP sequence guessing attacks

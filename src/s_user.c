@@ -102,6 +102,11 @@ void free_fluders(aClient *,aChannel *);
 void free_fludees(aClient *);
 #endif
 
+#ifdef ANTI_SPAMBOT
+int spam_time = MIN_JOIN_LEAVE_TIME;
+int spam_num = MAX_JOIN_LEAVE_COUNT;
+#endif
+
 /*
 ** m_functions execute protocol messages on this server:
 **

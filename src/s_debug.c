@@ -115,6 +115,12 @@ char	serveropts[] = {
 'y',
 '=',
 
+#ifdef ANTI_SPAMBOT
+'B'
+#else
+'b'
+#endif
+
 #ifdef CLIENT_SERVER
 'C',
 #else
@@ -123,10 +129,14 @@ char	serveropts[] = {
 
 #ifdef FLUD
 'F',
+#else
+'f'
 #endif
 
 #ifdef GLINES
 'G',
+#else
+'g'
 #endif
 
 #if defined(TOPIC_INFO) || defined(BAN_INFO)
@@ -139,6 +149,13 @@ char	serveropts[] = {
 # else
 'b',
 # endif
+
+#ifdef ANTI_IP_SPOOF
+'S'
+#else
+'s'
+#endif
+
 # ifdef TOPIC_INFO
 'T',
 # else

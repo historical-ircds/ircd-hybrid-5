@@ -315,7 +315,15 @@ int	inetport(aClient *cptr, char *name, int port, u_long bind_addr)
     highest_fd = cptr->fd;
   cptr->ip.s_addr = inet_addr(ipname);
   cptr->port = (int)ntohs(server.sin_port);
-  (void)listen(cptr->fd, 5);
+/* If the operating system has a define for SOMAXCONN, use it, otherwise
+   use HYBRID_SOMAXCONN -Dianora
+*/
+
+#ifdef SOMAXCONN
+  (void)listen(cptr->fd, SOMAXCONN);
+#else
+  (void)listen(cptr->fd, HYBRID_SOMAXCONN);
+#endif
   local[cptr->fd] = cptr;
 
   return 0;

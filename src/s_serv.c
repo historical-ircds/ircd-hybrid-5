@@ -2240,15 +2240,82 @@ int   m_set(aClient *cptr,
 	    }
 	}
 #endif
+#ifdef ANTI_SPAMBOT
+/*
+int spam_time = MIN_JOIN_LEAVE_TIME;
+int spam_num = MAX_JOIN_LEAVE_COUNT;
+*/
+      else if(!strncasecmp(command, "SPAMNUM",7))
+        {
+          if(parc > 2)
+            {
+              int newval = atoi(parv[2]);
+
+              if(newval <= 0)
+                {
+                  sendto_one(sptr, ":%s NOTICE %s :spam NUM must be > 0",
+                             me.name, parv[0]);
+                  return 0;
+                }
+              spam_num = newval;
+              sendto_ops("%s has changed spam NUM to %i", parv[0], spam_num);
+              sendto_one(sptr, ":%s NOTICE %s :flud NUM is now set to %i",
+                         me.name, parv[0], flud_num);
+              return 0;
+            }
+          else
+            {
+              sendto_one(sptr, ":%s NOTICE %s :spam NUM is currently %i",
+                         me.name, parv[0], spam_num);
+              return 0;
+            }
+        }
+      else if(!strncasecmp(command, "SPAMTIME",8))
+        {
+          if(parc > 2)
+            {
+              int newval = atoi(parv[2]);
+
+              if(newval <= 0)
+                {
+                  sendto_one(sptr, ":%s NOTICE %s :spam TIME must be > 0",
+                             me.name, parv[0]);
+                  return 0;
+                }
+              spam_time = newval;
+              sendto_ops("%s has changed spam TIME to %i", parv[0], spam_time);
+              sendto_one(sptr, ":%s NOTICE %s :SPAM TIME is now set to %i",
+                         me.name, parv[0], spam_time);
+              return 0;
+            }
+          else
+            {
+              sendto_one(sptr, ":%s NOTICE %s :spam TIME is currently %i",
+                         me.name, parv[0], spam_time);
+              return 0;
+            }
+        }
+
+#endif
       }
   else
     {
 #ifdef FLUD
+#ifdef ANTI_SPAMBOT
+      sendto_one(sptr, ":%s NOTICE %s :Options: MAX, FLUDNUM, FLUDTIME, FLUDBLOCK, SPAMNUM, SPAMTIME",
+		 me.name, parv[0]);
+#else
       sendto_one(sptr, ":%s NOTICE %s :Options: MAX, FLUDNUM, FLUDTIME, FLUDBLOCK",
+		 me.name, parv[0]);
+#endif
+#else
+#ifdef ANTI_SPAMBOT
+      sendto_one(sptr, ":%s NOTICE %s :Options: MAX, SPAMNUM, SPAMTIME",
 		 me.name, parv[0]);
 #else
       sendto_one(sptr, ":%s NOTICE %s :Options: MAX",
 		 me.name, parv[0]);
+#endif
 #endif
     }
   return 0;
