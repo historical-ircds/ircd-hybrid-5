@@ -83,10 +83,9 @@ void	reset_sock_opts (int, int);
 #endif
 
 aClient	*local[MAXCONNECTIONS];
-int	highest_fd = 0, udpfd = -1, resfd = -1;
+int	highest_fd = 0, resfd = -1;
 time_t	timeofday;
 static	struct	sockaddr_in	mysk;
-static	void	polludp();
 
 static	struct	sockaddr *connect_inet (aConfItem *, aClient *, int *);
 static	int	completed_connection (aClient *);
@@ -1629,10 +1628,6 @@ int read_packet(aClient *cptr, int msg_ready)
 #endif
 	}
       
-      if (udpfd >= 0)
-	{
-	  FD_SET(udpfd, read_set);
-	}
       if (resfd >= 0)
 	{
 	  FD_SET(resfd, read_set);
@@ -1660,12 +1655,6 @@ int read_packet(aClient *cptr, int msg_ready)
       sleep(10);
     }
   
-  if (udpfd >= 0 && FD_ISSET(udpfd, read_set))
-    {
-      polludp();
-      nfds--;
-      FD_CLR(udpfd, read_set);
-    }
   if (resfd >= 0 && FD_ISSET(resfd, read_set))
     {
       do_dns_async();
@@ -2070,7 +2059,6 @@ int	read_message(time_t delay, fdlist *listp)
   static struct pollfd	poll_fdarray[MAXCONNECTIONS];
   struct pollfd	*pfd     = poll_fdarray;
   struct pollfd	*res_pfd = NULL;
-  struct pollfd	*udp_pfd = NULL;
   int		nbr_pfds = 0;
   time_t	delay2 = delay;
   u_long	usec = 0;
@@ -2093,7 +2081,6 @@ int	read_message(time_t delay, fdlist *listp)
       pfd      = poll_fdarray;
       pfd->fd  = -1;
       res_pfd  = NULL;
-      udp_pfd  = NULL;
       auth = 0;
 
       for (i=listp->entry[j=1]; j<=listp->last_entry;
@@ -2151,11 +2138,6 @@ int	read_message(time_t delay, fdlist *listp)
 	    PFD_SETW(i);
 	}
 
-      if (udpfd >= 0)
-	{
-	  PFD_SETR(udpfd);
-	  udp_pfd = pfd;
-	}
       if (resfd >= 0)
 	{
 	  PFD_SETR(resfd);
@@ -2175,11 +2157,6 @@ int	read_message(time_t delay, fdlist *listp)
 	restart("too many poll errors");
       sleep(10);
     }
-  if (udp_pfd && (udp_pfd->revents & (POLLREADFLAGS|POLLERRORS)))
-    {
-      polludp();
-      nfds--;
-    }
   if (res_pfd && (res_pfd->revents & (POLLREADFLAGS|POLLERRORS)))
     {
       do_dns_async();
@@ -2190,7 +2167,7 @@ int	read_message(time_t delay, fdlist *listp)
     {
       if (!pfd->revents)
 	continue;
-      if ((pfd == udp_pfd) || (pfd == res_pfd))
+      if (pfd == res_pfd)
 	continue;
       nfds--;
       fd = pfd->fd;                   
@@ -2635,127 +2612,6 @@ void	get_my_name(aClient *cptr,
       Debug((DEBUG_DEBUG,"local name is %s",
 	     get_client_name(&me,TRUE)));
     }
-  return;
-}
-
-/*
-** setup a UDP socket and listen for incoming packets
-*/
-int	setup_ping()
-{
-  struct	sockaddr_in	from;
-  int	on = 1;
-
-  bzero((char *)&from, sizeof(from));
-
-  if (specific_virtual_host)
-    from.sin_addr = vserv.sin_addr;
-  else
-    from.sin_addr.s_addr = htonl(INADDR_ANY);
-
-  from.sin_port = htons(me.port);
-  from.sin_family = AF_INET;
-
-  if ((udpfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
-    {
-      Debug((DEBUG_ERROR, "socket udp : %s", strerror(errno)));
-      return -1;
-    }
-  if (setsockopt(udpfd, SOL_SOCKET, SO_REUSEADDR,
-		 (char *)&on, sizeof(on)) == -1)
-    {
-#ifdef	USE_SYSLOG
-      syslog(LOG_ERR, "setsockopt udp fd %d : %m", udpfd);
-#endif
-      Debug((DEBUG_ERROR, "setsockopt so_reuseaddr : %s",
-	     strerror(errno)));
-      (void)close(udpfd);
-      udpfd = -1;
-      return -1;
-    }
-  on = 0;
-  (void) setsockopt(udpfd, SOL_SOCKET, SO_BROADCAST,
-		    (char *)&on, sizeof(on));
-  if (bind(udpfd, (struct sockaddr *)&from, sizeof(from))==-1)
-    {
-#ifdef	USE_SYSLOG
-      syslog(LOG_ERR, "bind udp.%d fd %d : %m",
-	     from.sin_port, udpfd);
-#endif
-      Debug((DEBUG_ERROR, "bind : %s", strerror(errno)));
-      (void)close(udpfd);
-      udpfd = -1;
-      return -1;
-    }
-  if (fcntl(udpfd, F_SETFL, FNDELAY)==-1)
-    {
-      Debug((DEBUG_ERROR, "fcntl fndelay : %s", strerror(errno)));
-      (void)close(udpfd);
-      udpfd = -1;
-      return -1;
-    }
-  return udpfd;
-}
-
-/*
- * max # of pings set to 15/sec.
- */
-static	void	polludp()
-{
-  Reg	char	*s;
-  struct	sockaddr_in	from;
-  int	n, fromlen = sizeof(from);
-  static	time_t	last = 0, now;
-  static	int	cnt = 0, mlen = 0;
-
-  /*
-   * find max length of data area of packet.
-   */
-  if (!mlen)
-    {
-#if defined(MAXBUFFERS) && !defined(SEQUENT)
-      mlen = rcvbufmax*sizeof(char) - strlen(me.name)
-	- strlen(PATCHLEVEL);
-#else
-      mlen = sizeof(readbuf) - strlen(me.name) - strlen(PATCHLEVEL);
-#endif
-      mlen -= 6;
-      if (mlen < 0)
-	mlen = 0;
-    }
-  Debug((DEBUG_DEBUG,"udp poll"));
-
-  n = recvfrom(udpfd, readbuf, mlen, 0, (struct sockaddr *)&from, &fromlen);
-  if (timeofday == last)
-    if (++cnt > 14)
-      return;
-  cnt = 0;
-  last = now;
-
-  if (n == -1)
-    {
-      if ((errno == EWOULDBLOCK) || (errno == EAGAIN))
-	return;
-      else
-	{
-	  report_error("udp port recvfrom (%s): %s", &me);
-	  return;
-	}
-    }
-  ircstp->is_udp++;
-  if (n  < 8)
-    return;
-  
-  s = readbuf + n;
-  /*
-   * attach my name and version for the reply
-   */
-  *readbuf |= 1;
-  (void)strcpy(s, me.name);
-  s += strlen(s)+1;
-  (void)strcpy(s, PATCHLEVEL);
-  s += strlen(s);
-  (void)sendto(udpfd, readbuf, s-readbuf, 0, (struct sockaddr *)&from ,sizeof(from));
   return;
 }
 

@@ -163,6 +163,7 @@ typedef struct	MotdItem aMotd;
 #define	FLAGS_WALLOP     0x0040 /* send wallops to them */
 #define	FLAGS_SERVNOTICE 0x0080 /* server notices such as kill */
 #define	FLAGS_BLOCKED    0x0100	/* socket is in a blocked condition */
+#define FLAGS_REJECT_HOLD 0x0200 /* client has been klined */
 /* #define FLAGS_UNIX	 0x0200  Not used anymore, free for other use */
      				/* socket is in the unix domain, not inet */
 #define	FLAGS_CLOSING    0x0400	/* set when closing to suppress errors */

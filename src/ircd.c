@@ -495,7 +495,7 @@ static	time_t	check_pings(time_t currenttime)
 	      (void)exit_client(cptr, cptr, &me,"you have been D-lined");
 #endif
 	    }
-	  i = 0;	/* start over from ground zero :-( */
+	  i = 0; 	/* start over from ground zero :-( */
 	  continue;
 	}
       if (!IsRegistered(cptr))
@@ -871,6 +871,8 @@ normal user.\n");
   motd = (aMotd *)NULL;
   helpfile = (aMotd *)NULL;
   motd_tm = NULL;
+
+
   read_motd(MOTD);
   read_help(HELPFILE);
 
@@ -988,7 +990,6 @@ normal user.\n");
     exit(1);
   }
 
-  (void)setup_ping();
   (void)get_my_name(&me, me.sockhost, sizeof(me.sockhost)-1);
   if (me.name[0] == '\0')
     strncpyzt(me.name, me.sockhost, sizeof(me.name));

@@ -1581,9 +1581,11 @@ int spam_num = MAX_JOIN_LEAVE_COUNT;
  
               if(sptr->oper_warn_count_down == 0)
                 {
-                  sendto_realops("User %s (%s@%s) is a possible spambot",
+                  sendto_realops("User %s (%s@%s) trying to join %s is a possible spambot",
                              sptr->name,
-                             sptr->user->username, sptr->user->host);
+                             sptr->user->username,
+			     sptr->user->host,
+			     name);	
                   sptr->oper_warn_count_down = OPER_SPAM_COUNTDOWN;
                 }
 #ifndef ANTI_SPAMBOT_WARN_ONLY
