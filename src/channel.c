@@ -1734,6 +1734,11 @@ int spam_num = MAX_JOIN_LEAVE_COUNT;
       if (MyClient(sptr))
 	{
 	  del_invite(sptr, chptr);
+        /*  call m_names BEFORE spewing the topic, so people actually see
+        **  the topic, and stop whining.  --SuperTaz
+        */
+          parv[1] = name;
+          (void)m_names(cptr, sptr, 2, parv);
 	  if (chptr->topic[0] != '\0')
 	    {
 	      sendto_one(sptr, rpl_str(RPL_TOPIC), me.name,
@@ -1745,8 +1750,6 @@ int spam_num = MAX_JOIN_LEAVE_COUNT;
 			 chptr->topic_time);
 #endif
 	    }
-	  parv[1] = name;
-	  (void)m_names(cptr, sptr, 2, parv);
 	}
     }
 

@@ -517,6 +517,22 @@ char	*comment	/* Reason for the exit */
       sptr->flags |= FLAGS_CLOSING;
       if (IsPerson(sptr))
 	{
+#ifdef ANTI_SPAMBOT_EXTRA
+	  /* catch the "one shot" spambots, they appear
+	   * to message a client, then exit. We can't do anything
+	   * to them since they are now exiting, but at least
+	   * we know about them now
+	   * -Dianora
+	   */
+	  if( sptr->person_privmsgs && !sptr->channel_privmsgs)
+	    {
+	      sendto_realops("Possible spambot exiting %s [%s@%s] : privmsgs to clients %d privmsgs to channels %d",
+			     sptr->name, sptr->user->username,
+			     sptr->user->host,
+			     sptr->person_privmsgs,sptr->channel_privmsgs);
+	    }
+#endif
+
 	  sendto_realops_lev(CCONN_LEV, "Client exiting: %s (%s@%s) [%s] [%s]",
 		    sptr->name, sptr->user->username,
 		    sptr->user->host,
@@ -736,30 +752,14 @@ static	void	exit_one_client(aClient *cptr,
 	  sendto_serv_butone(cptr,":%s QUIT :%s",
 			     sptr->name, comment);
 	}
+      if (sptr->user)
+	{
       /*
       ** If a person is on a channel, send a QUIT notice
       ** to every client (person) on the same channel (so
       ** that the client can show the "**signoff" message).
       ** (Note: The notice is to the local clients *only*)
       */
-      if (sptr->user)
-	{
-#ifdef ANTI_SPAMBOT_EXTRA
-	  /* catch the "one shot" spambots, they appear
-	   * to message a client, then exit. We can't do anything
-	   * to them since they are now exiting, but at least
-	   * we know about them now
-	   * -Dianora
-	   */
-
-	if( sptr->person_privmsgs && !sptr->channel_privmsgs)
-	  {
-	    sendto_realops("Possible spambot exiting %s [%s@%s] : privmsgs to clients %d privmsgs to channels %d",
-			   sptr->name, sptr->user->username,
-			   sptr->user->host,
-			   sptr->person_privmsgs,sptr->channel_privmsgs);
-	  }
-#endif
 
 #ifdef ANTI_SPAM_EXIT_MESSAGE
 	  if(sptr->flags & FLAGS_KILLED)
@@ -767,9 +767,11 @@ static	void	exit_one_client(aClient *cptr,
 				   sptr->name, comment);
 	  else
 	    {
-	      if( (sptr->firsttime + ANTI_SPAM_EXIT_MESSAGE_TIME) > NOW)
+	      if( (sptr->from == from ) && /* local client, MyConnect
+					      no longer valid! */
+		  (sptr->firsttime + ANTI_SPAM_EXIT_MESSAGE_TIME) > NOW)
 		sendto_common_channels(sptr, ":%s QUIT :%s",
-				       sptr->name, "client quit");
+				       sptr->name, "Client Quit");
 	      else
 		sendto_common_channels(sptr, ":%s QUIT :%s",
 				       sptr->name, comment);

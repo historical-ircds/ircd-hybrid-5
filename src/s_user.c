@@ -1882,9 +1882,11 @@ static	int	m_message(aClient *cptr,
     if ((acptr = find_person(nick, NULL)))
       {
 #ifdef ANTI_SPAMBOT_EXTRA
-	if(acptr != sptr->last_client_messaged)
-	  sptr->person_privmsgs++;
-	sptr->last_client_messaged = acptr;
+	if(MyConnect(sptr) && (acptr != sptr->last_client_messaged))
+	  {
+	    sptr->person_privmsgs++;
+	    sptr->last_client_messaged = acptr;
+	  }
 #endif
 #ifdef FLUD
 	if(!notice && MyFludConnect(acptr))
@@ -1924,8 +1926,9 @@ static	int	m_message(aClient *cptr,
 	  }
 #endif
 #ifdef ANTI_SPAMBOT_EXTRA
-	if( (sptr->person_privmsgs - sptr->channel_privmsgs)
-	    > SPAMBOT_PRIVMSG_POSSIBLE_SPAMBOT_COUNT)
+	if( MyConnect(sptr) &&
+	    ((sptr->person_privmsgs - sptr->channel_privmsgs)
+	    > SPAMBOT_PRIVMSG_POSSIBLE_SPAMBOT_COUNT) )
 	  {
 	    sendto_realops("Possible spambot %s [%s@%s] : privmsgs to clients %d privmsgs to channels %d",
 			   sptr->name, sptr->user->username,
@@ -1952,7 +1955,8 @@ static	int	m_message(aClient *cptr,
     if (IsPerson(sptr) && (chptr = find_channel(nick, NullChn)))
       {
 #ifdef ANTI_SPAMBOT_EXTRA
-	sptr->channel_privmsgs++;
+	if(MyConnect(sptr))
+	   sptr->channel_privmsgs++;
 #endif
 #ifdef FLUD
 	if(!notice)
@@ -1969,8 +1973,9 @@ static	int	m_message(aClient *cptr,
 	  sendto_one(sptr, err_str(ERR_CANNOTSENDTOCHAN),
 		     me.name, parv[0], nick);
 #ifdef ANTI_SPAMBOT_EXTRA
-	if( (sptr->person_privmsgs - sptr->channel_privmsgs)
-	    > SPAMBOT_PRIVMSG_POSSIBLE_SPAMBOT_COUNT)
+	if( MyConnect(sptr) &&
+	    ((sptr->person_privmsgs - sptr->channel_privmsgs)
+	    > SPAMBOT_PRIVMSG_POSSIBLE_SPAMBOT_COUNT) )
 	  {
 	    sendto_realops("Possible spambot %s [%s@%s] : privmsgs to clients %d privmsgs to channels %d",
 			   sptr->name, sptr->user->username,
