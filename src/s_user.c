@@ -1441,7 +1441,6 @@ nickkilldone:
               sptr->random_ping = my_rand();
               sendto_one(sptr, "PING :%d", sptr->random_ping);
               sptr->flags |= FLAGS_PINGSENT;
-              return 0;
 	    }
           else
 #endif
@@ -1449,19 +1448,11 @@ nickkilldone:
 		== FLUSH_BUFFER)
 	      return FLUSH_BUFFER;
 	}
-#ifdef ANTI_IP_SPOOF
-/* If its a local client, setting NICK for first time but
-   we have not received USER yet, defer it until we do
-*/
-    if(MyConnect(sptr))
-       return 0;
-#endif
     }
 
   /*
   **  Finally set new nick name.
   */
-
   if (sptr->name[0])
     (void)del_from_client_hash_table(sptr->name, sptr);
   (void)strcpy(sptr->name, nick);
@@ -2591,54 +2582,41 @@ int	m_pong(aClient *cptr,
   sptr->flags &= ~FLAGS_PINGSENT;
 
 #ifdef ANTI_IP_SPOOF
-  /* If ANTI_IP_SPOOF code is on, deal with pong from unregistered
-     clients first, before trying to route it.
-     Don't allow unregistered clients to send a PONG
-     for anything but the magic cookie. When ANTI_IP_SPOOF
-     is undef'ed PONG is not allowed from unregistered clients as it is.
-     -Dianora
- */
+  /* ANTI_IP_SPOOF delays the registration of a local client until after we
+     have received a response from a PING containing a random integer.  When
+     we receive the resulting PONG, then we register the client.
+  */
 
-  if(MyConnect(sptr) && !IsRegisteredUser(sptr))
-    {
-      if (sptr->random_ping) /* won't be zero if we have sent cookie */
-	{
-	  unsigned long received_random_ping;
-	  received_random_ping = (unsigned long)atol(origin);
+  if(MyConnect(sptr) && !IsRegisteredUser(sptr) && sptr->random_ping) {
+      unsigned long received_random_ping;
+      received_random_ping = (unsigned long)atol(origin);
 
-	  /* possibly redundant test, but who cares? */
-	  if ( (sptr->user) && (sptr->name[0])) /*aClient has a user and nick*/
-	    {
-	      if(received_random_ping == sptr->random_ping)
-		{
-		  sptr->tsinfo = timeofday + timedelta;
-		  
-		  if (register_user(cptr, sptr, sptr->name,
-				    sptr->user->username)
-		      == FLUSH_BUFFER)
+      if(received_random_ping) {
+          /* Ensure that aClient has a user and a nick (redundant) */
+          if((sptr->user) && (sptr->name[0])) {
+              if(received_random_ping == sptr->random_ping) {
+		  if(register_user(cptr, sptr, sptr->name,
+				    sptr->user->username) == FLUSH_BUFFER)
 		    return FLUSH_BUFFER;
-
-/* nick is never getting changed here, its only getting set
-  for first time, when an unregistered client finally sends
-  appropriate PONG response -Dianora */
-
-		  (void)add_to_client_hash_table(sptr->name, sptr);
-		}
-	      else {
-                ircstp->is_ipspoof++;
-		return exit_client(cptr,sptr,&me,"Wrong random PONG response");
+                  return 0;
+              } else {
+                  ircstp->is_ipspoof++;
+		  return exit_client(cptr,sptr,&me,
+                      "Wrong random PONG response");
               }
-	    }
-	}
-      return 0;
-    }
+	  }
+      }
+  }
 #endif
 
   /* Now attempt to route the PONG, comstud pointed out routable PING
-     is used for SPING.
-     routable PING should also probably be left in -Dianora */
-
-  if (!BadPtr(destination) && mycmp(destination, me.name) != 0)
+     is used for SPING.  routable PING should also probably be left in
+        -Dianora
+     That being the case, we will route, but only for registered clients (a
+     case can be made to allow them only from servers). -Shadowfax
+  */
+  if (!BadPtr(destination) && mycmp(destination, me.name) != 0
+		&& IsRegistered(sptr))
     {
       if ((acptr = find_client(destination, NULL)) ||
 	  (acptr = find_server(destination, NULL)))
