@@ -2528,11 +2528,37 @@ int	m_ping(aClient *cptr,
 	       int parc,
 	       char *parv[])
 {
-  /* After discussing it with orabidoo and Shadowfax...
-     lets NOT make PING/PONG routable, it breaks the RFC, but
-     we are writing a new standard for efnet anyway (right callas?)
-     -Dianora
-     */
+  aClient *acptr;
+  char	*origin, *destination;
+
+  if (parc < 2 || *parv[1] == '\0')
+    {
+      sendto_one(sptr, err_str(ERR_NOORIGIN), me.name, parv[0]);
+      return 0;
+    }
+  origin = parv[1];
+  destination = parv[2]; /* Will get NULL or pointer (parc >= 2!!) */
+
+  acptr = find_client(origin, NULL);
+  if (!acptr)
+    acptr = find_server(origin, NULL);
+  if (acptr && acptr != sptr)
+    origin = cptr->name;
+  if (!BadPtr(destination) && mycmp(destination, me.name) != 0)
+    {
+      if ((acptr = find_server(destination, NULL)))
+	sendto_one(acptr,":%s PING %s :%s", parv[0],
+		   origin, destination);
+      else
+	{
+	  sendto_one(sptr, err_str(ERR_NOSUCHSERVER),
+		     me.name, parv[0], destination);
+	  return 0;
+	}
+    }
+  else
+    sendto_one(sptr,":%s PONG %s :%s", me.name,
+	       (destination) ? destination : me.name, origin);
   return 0;
 }
 
@@ -2562,36 +2588,62 @@ int	m_pong(aClient *cptr,
   cptr->flags &= ~FLAGS_PINGSENT;
   sptr->flags &= ~FLAGS_PINGSENT;
 
-  /* Do not route PONG, ever.. sure it breaks the RFC, but its
-     already broken. 
-     */
-
 #ifdef ANTI_IP_SPOOF
-  if(MyConnect(sptr) && !IsRegisteredUser(sptr) && sptr->random_ping)
-    {
-      unsigned long received_random_ping;
-      received_random_ping = (unsigned long)atol(origin);
+  /* If ANTI_IP_SPOOF code is on, deal with pong from unregistered
+     clients first, before trying to route it.
+     Don't allow unregistered clients to send a PONG
+     for anything but the magic cookie. When ANTI_IP_SPOOF
+     is undef'ed PONG is not allowed from unregistered clients as it is.
+     -Dianora
+ */
 
-      if ( (sptr->user) && (sptr->name[0])) /* aClient has a user and nick */
+  if(MyConnect(sptr) && !IsRegisteredUser(sptr))
+    {
+      if (sptr->random_ping) /* won't be zero if we have sent cookie */
 	{
-	  if(received_random_ping == sptr->random_ping)
+	  unsigned long received_random_ping;
+	  received_random_ping = (unsigned long)atol(origin);
+
+	  /* possibly redundant test, but who cares? */
+	  if ( (sptr->user) && (sptr->name[0])) /*aClient has a user and nick*/
 	    {
-	      sptr->tsinfo = timeofday + timedelta;
-	      (void)del_from_client_hash_table(sptr->name, sptr);
+	      if(received_random_ping == sptr->random_ping)
+		{
+		  sptr->tsinfo = timeofday + timedelta;
+		  (void)del_from_client_hash_table(sptr->name, sptr);
+		  
+		  if (register_user(cptr, sptr, sptr->name,
+				    sptr->user->username)
+		      == FLUSH_BUFFER)
+		    return FLUSH_BUFFER;
 	      
-	      if (register_user(cptr, sptr, sptr->name,
-				sptr->user->username)
-		  == FLUSH_BUFFER)
-		return FLUSH_BUFFER;
-	      
-	      (void)add_to_client_hash_table(sptr->name, sptr);
+		  (void)add_to_client_hash_table(sptr->name, sptr);
+		}
+	      else
+		return exit_client(cptr,sptr,&me,"Wrong random PONG response");
 	    }
-	  else
-	    return exit_client(cptr,sptr,&me,"Wrong random PONG response");
 	}
       return 0;
     }
 #endif
+
+  /* Now attempt to route the PONG, comstud pointed out routable PING
+     is used for SPING.
+     routable PONG should also probably be left in -Dianora */
+
+  if (!BadPtr(destination) && mycmp(destination, me.name) != 0)
+    {
+      if ((acptr = find_client(destination, NULL)) ||
+	  (acptr = find_server(destination, NULL)))
+	sendto_one(acptr,":%s PONG %s %s",
+		   parv[0], origin, destination);
+      else
+	{
+	  sendto_one(sptr, err_str(ERR_NOSUCHSERVER),
+		     me.name, parv[0], destination);
+	  return 0;
+	}
+    }
 
 #ifdef	DEBUGMODE
   else
