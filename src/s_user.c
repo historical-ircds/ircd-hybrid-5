@@ -2035,10 +2035,12 @@ int	m_whois(aClient *cptr,
 	      user = &UnknownUser;
 	      name = "?";
 	    }
-#else
-	  user = acptr->user ? acptr->user : &UnknownUser;
-	  name = (!*acptr->name) ? "?" : acptr->name;
+	  else
 #endif
+	    {
+              user = acptr->user ? acptr->user : &UnknownUser;
+	      name = (!*acptr->name) ? "?" : acptr->name;
+            }
 	  invis = IsInvisible(acptr);
 	  member = (user->channel) ? 1 : 0;
 	  showperson = (wilds && !invis && !member) || !wilds;
