@@ -7,9 +7,9 @@ Usermodes: (* designates that the umode is oper only)
 
      USERMODE     DESCRIPTION
 -----------------------------------------------------------------
-         +O     - Designates this client is a global IRC Operator.
+         +O     - Designates this client is a local IRC Operator.
                   Use the /oper command to attain this.
-         +o     - Designates this client is a local IRC Operator.
+         +o     - Designates this client is a global IRC Operator.
                   Use the /oper command to attain this.
          +i     - Designates this client 'invisible'.
          +w     - Can see server wallops.
