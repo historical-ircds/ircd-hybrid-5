@@ -1130,24 +1130,28 @@ int	m_info(aClient *cptr,
 #else
 #define OUT1 "CUSTOM_ERR=0"
 #endif
-#ifdef DLINES_IN_KPATH
-#define OUT2 " DLINES_IN_KPATH=1"
+#ifdef DEBUGMODE
+#define OUT2 " DEBUGMODE=1"
 #else
-#define OUT2 " DLINES_IN_KPATH=0"
+#define OUT2 " DEBUGMODE=0"
+#endif
+#ifdef DLINES_IN_KPATH
+#define OUT3 " DLINES_IN_KPATH=1"
+#else
+#define OUT3 " DLINES_IN_KPATH=0"
 #endif
 #ifdef DNS_DEBUG
-#define OUT3 " DNS_DEBUG=1"
+#define OUT4 " DNS_DEBUG=1"
 #else
-#define OUT3 " DNS_DEBUG=0"
+#define OUT4 " DNS_DEBUG=0"
 #endif
 	sendto_one(sptr, rpl_str(RPL_INFO),
-		me.name, parv[0], OUT1 OUT2 OUT3 );
+		me.name, parv[0], OUT1 OUT2 OUT3 OUT4);
 
 #undef OUT1
 #undef OUT2
 #undef OUT3
 #undef OUT4
-
 #ifdef DO_IDENTD
 #define OUT1 "DO_IDENTD=1"
 #else
