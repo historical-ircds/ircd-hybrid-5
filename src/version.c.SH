@@ -71,7 +71,7 @@ char *infotext[] =
         "comstud             Chris Behrens       cbehrens@concentric.net",
         "Dianora             Diane Bruce         db@db.net",
 	"johan               Johannes Erdfelt    jerdfelt@eng.mindspring.net",
-        "Jolo                J. LoCicero         jolo@cadence.com",
+        "Jolo                Joan Touzet         jolo@cadence.com",
         "ns                  Sam Noble           ns@shadow.org",
         "orabidoo            Roger Espel Llima   espel@unix.bigots.org",
         "Rodder              Jon Lusky           lusky@vol.com",
