@@ -83,6 +83,7 @@ extern void count_memory(aClient *,char *);
 extern void rehash_ip_hash();		/* defined in s_conf.c */
 
 /* Local function prototypes */
+static int isnumber(char *);	/* return -1 if not, else return number */
 static char *cluster(char *);
 void read_motd(char *);
 
@@ -2814,7 +2815,7 @@ int     m_kline(aClient *cptr,
   argv = parv[1];
   temporary_kline_time = 0;
 
-  if(isdigit(*argv))
+  if((temporary_kline_time = isnumber(argv)) != -1)
     {
       if(parc < 3)
 	{
@@ -2822,7 +2823,6 @@ int     m_kline(aClient *cptr,
 		     me.name, parv[0], "KLINE");
 	  return 0;
 	}
-      temporary_kline_time = atoi(argv);
       if(temporary_kline_time > (24*60))
         temporary_kline_time = (24*60); /* Max it at 24 hours */
       temporary_kline_time_seconds = (time_t)temporary_kline_time * (time_t)60;
@@ -3137,6 +3137,32 @@ int     m_kline(aClient *cptr,
 
   return 0;
 #endif /* #ifdef LOCKFILE */
+}
+
+/*
+isnumber()
+
+inputs		- pointer to ascii string in
+output		- (-1) if not an integer number, else the number
+side effects	- none
+*/
+
+static int isnumber(char *p)
+{
+  int result = 0;
+
+  while(*p)
+    {
+      if(isdigit(*p))
+        {
+          result *= 10;
+          result += ((*p) & 0xF);
+          p++;
+        }
+      else
+        return(-1);
+    }
+  return(result);
 }
 
 #ifdef UNKLINE

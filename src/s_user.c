@@ -3032,6 +3032,7 @@ int	m_umode(aClient *cptr,
   Reg	char	**p, *m;
   aClient *acptr;
   int	what, setflags;
+  int   badflag = NO;	/* Only send one bad flag notice -Dianora */
 
   what = MODE_ADD;
 
@@ -3115,11 +3116,15 @@ int	m_umode(aClient *cptr,
 		break;
 	      }
 	  if (flag == 0 && MyConnect(sptr))
-	    sendto_one(sptr,
-		       err_str(ERR_UMODEUNKNOWNFLAG),
-		       me.name, parv[0]);
+	    badflag = YES;
 	  break;
 	}
+
+  if(badflag)
+            sendto_one(sptr,
+                       err_str(ERR_UMODEUNKNOWNFLAG),
+                       me.name, parv[0]);
+
   /*
    * stop users making themselves operators too easily
    */
