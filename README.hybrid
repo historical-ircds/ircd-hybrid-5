@@ -1,4 +1,4 @@
-+hybrid-5.1 (1/1/98) - The inevitable bug fix release
++hybrid-5.1 (2/5/98) - The inevitable bug fix release
 -fixes
 * removed ident_fdlist it was never used anyway (comstud)
 * fixed quote kline for 10 character user names (Dianora)
@@ -9,7 +9,7 @@
 * ANTI_IP_SPOOF moved to "broken" section of conf (Rodder)
 * ident lookups now work properly for all interfaces of
   multihomed (or "VIF"'d) machines, including Solaris 2.6 (Rodder)
-* stats l/L no longer shows -i clients to non-opers
+* stats l/L no longer shows -i clients to non-opers (Rodder)
 -feature adds
 * stop people from laming up the kline conf file with # in comment (Dianora)
 * added comstuds SEPARATE_QUOTE_KLINES_BY_DATE
