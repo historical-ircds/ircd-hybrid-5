@@ -1599,7 +1599,7 @@ int spam_num = MAX_JOIN_LEAVE_COUNT;
 		{
 		  allow_op = NO;
 		}
-		  if(!IsRestricted(sptr) && !allow_op)
+		  if(!IsRestricted(sptr) && (flags == CHFL_CHANOP) && !allow_op)
 		      sendto_one(sptr,":%s NOTICE %s :*** Notice -- Due to a network split, you can not obtain channel operator status in a new channel at this time.",
 				 me.name,
 				 sptr->name);

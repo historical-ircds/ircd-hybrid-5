@@ -424,7 +424,7 @@ struct	User
   int	joined;		/* number of channels joined */
   char	username[USERLEN+1];
   char	host[HOSTLEN+1];
-  char *server;		/* pointer to scached server name */
+  char	*server;	/* pointer to scached server name */
   /*
   ** In a perfect world the 'server' name
   ** should not be needed, a pointer to the
@@ -438,7 +438,7 @@ struct	User
 struct	Server
 {
   anUser *user;		/* who activated this connection */
-  char  *up;		/* Pointer to scache name */
+  char	*up;		/* Pointer to scache name */
   char	by[NICKLEN+1];
   aConfItem *nline;	/* N-line pointer for this server */
 };

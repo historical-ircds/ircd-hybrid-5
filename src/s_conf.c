@@ -60,6 +60,7 @@ char	specific_virtual_host;
 static	int	lookup_confhost (aConfItem *);
 static  int     attach_iline(aClient *, aConfItem *);
 static  aConfItem *temporary_klines = (aConfItem *)NULL;
+static	int	find_port_in_use(aConfItem *);
 
 static  char *set_conf_flags(aConfItem *,char *);
 
@@ -80,7 +81,7 @@ typedef struct ip_entry
   struct ip_entry *next;
 #ifdef LIMIT_UH
   Link  *ptr_clients_on_this_ip;
-  int  count_of_idented_users_on_this_ip;
+  int	count_of_idented_users_on_this_ip;
 #endif
 }IP_ENTRY;
 
@@ -113,7 +114,7 @@ extern	void  delist_conf(aConfItem *);
 
 #ifdef GLINES
 static  aConfItem *glines = (aConfItem *)NULL;
-extern void expire_pending_glines();	/* defined in s_serv.c */
+extern	void expire_pending_glines();	/* defined in s_serv.c */
 #endif
 
 /* general conf items link list root */
@@ -233,9 +234,9 @@ int	attach_Iline(aClient *cptr,
 }
 
 /*
-    rewrote to remove the "ONE" lamity *BLEH* I agree with comstud
-    on this one. 
-  - Dianora
+ *  rewrote to remove the "ONE" lamity *BLEH* I agree with comstud
+ *  on this one. 
+ * - Dianora
  */
 
 static int attach_iline(
@@ -280,13 +281,13 @@ static int attach_iline(
 static IP_ENTRY *free_ip_entries;
 
 /*
-clear_ip_hash_table()
-
-input		- NONE
-output		- NONE
-side effects	- clear the ip hash table
-
-stole the link list pre-allocator from list.c
+ * clear_ip_hash_table()
+ *
+ * input		- NONE
+ * output		- NONE
+ * side effects	- clear the ip hash table
+ *
+ * stole the link list pre-allocator from list.c
 */
 
 void clear_ip_hash_table()
@@ -325,20 +326,20 @@ void clear_ip_hash_table()
 }
 
 /* 
-find_or_add_ip()
-
-ifdef LIMIT_UH
-inputs		- cptr
- else
-inputs		- unsigned long IP address value
-endif
-
-output		- pointer to an IP_ENTRY element
-side effects	-
-
-If the ip # was not found, a new IP_ENTRY is created, and the ip
-count set to 0.
-*/
+ * find_or_add_ip()
+ *
+ * ifdef LIMIT_UH
+ * inputs		- cptr
+ * else
+ * inputs		- unsigned long IP address value
+ * endif
+ *
+ * output		- pointer to an IP_ENTRY element
+ * side effects	-
+ *
+ * If the ip # was not found, a new IP_ENTRY is created, and the ip
+ * count set to 0.
+ */
 
 #ifdef LIMIT_UH
 static IP_ENTRY *find_or_add_ip(aClient *cptr)
@@ -470,15 +471,15 @@ int count_users_on_this_ip(IP_ENTRY *ip_list,aClient *this_client)
 #endif
 
 /* 
-remove_one_ip
-
-inputs		- unsigned long IP address value
-output		- NONE
-side effects	- ip address listed, is looked up in ip hash table
-		  and number of ip#'s for that ip decremented.
-		  if ip # count reaches 0, the IP_ENTRY is returned
-		  to the free_ip_enties link list.
-*/
+ * remove_one_ip
+ *
+ * inputs	- unsigned long IP address value
+ * output	- NONE
+ * side effects	- ip address listed, is looked up in ip hash table
+ *		  and number of ip#'s for that ip decremented.
+ *		  if ip # count reaches 0, the IP_ENTRY is returned
+ *		  to the free_ip_enties link list.
+ */
 
 #ifdef LIMIT_UH
 void remove_one_ip(aClient *cptr)
@@ -558,12 +559,12 @@ void remove_one_ip(unsigned long ip_in)
 }
 
 /*
-hash_ip()
-
-input		- unsigned long ip address
-output		- integer value used as index into hash table
-side effects	- hopefully, none
-*/
+ * hash_ip()
+ * 
+ * input	- unsigned long ip address
+ * output	- integer value used as index into hash table
+ * side effects	- hopefully, none
+ */
 
 
 static int hash_ip(unsigned long ip)
@@ -576,16 +577,16 @@ static int hash_ip(unsigned long ip)
 
 /* Added so s_debug could check memory usage in here -Dianora */
 /*
-count_ip_hash
-
-inputs		- pointer to counter of number of ips hashed 
-		- pointer to memory used for ip hash
-output		- returned via pointers input
-side effects	- NONE
-
-number of hashed ip #'s is counted up, plus the amount of memory
-used in the hash.
-*/
+ * count_ip_hash
+ *
+ * inputs	- pointer to counter of number of ips hashed 
+ *		- pointer to memory used for ip hash
+ * output	- returned via pointers input
+ * side effects	- NONE
+ *
+ * number of hashed ip #'s is counted up, plus the amount of memory
+ * used in the hash.
+ */
 
 void count_ip_hash(int *number_ips_stored,u_long *mem_ips_stored)
 {
@@ -610,12 +611,12 @@ void count_ip_hash(int *number_ips_stored,u_long *mem_ips_stored)
 }
 
 /*
-iphash_stats()
-
-inputs		- 
-output		-
-side effects
-*/
+ * iphash_stats()
+ *
+ * inputs	- 
+ * output	-
+ * side effects	-
+ */
 
 void iphash_stats(aClient *cptr, aClient *sptr,int parc, char *parv[],int out)
 {
@@ -752,26 +753,26 @@ int	attach_conf(aClient *cptr,aConfItem *aconf)
       return -1;
     }
   /*
-    By using "ConfLinks(aconf) >= ConfMaxLinks(aconf)....
-    the client limit is set by the Y line, connection class, not
-    by the individual client count in each I line conf.
-
-    -Dianora
-
+   * By using "ConfLinks(aconf) >= ConfMaxLinks(aconf)....
+   * the client limit is set by the Y line, connection class, not
+   * by the individual client count in each I line conf.
+   *
+   * -Dianora
+   *
    */
 
   /* If the requested change, is to turn them into an OPER, then
-     they are already attached to a fd there is no need to check for
-     max in a class now is there?
-
-     -Dianora
-  */
+   * they are already attached to a fd there is no need to check for
+   * max in a class now is there?
+   *
+   * -Dianora
+   */
 
   /* If OLD_Y_LIMIT is defined the code goes back to the old way
-     I lines used to work, i.e. number of clients per I line
-     not total in Y
-     -Dianora
-  */
+   * I lines used to work, i.e. number of clients per I line
+   * not total in Y
+   * -Dianora
+   */
 #ifdef OLD_Y_LIMIT
   if ((aconf->status & (CONF_LOCOP | CONF_OPERATOR | CONF_CLIENT)) &&
     aconf->clients >= ConfMaxLinks(aconf) && ConfMaxLinks(aconf) > 0)
@@ -826,8 +827,15 @@ aConfItem *find_me()
     if (aconf->status & CONF_ME)
       return(aconf);
 
+#ifdef USE_SYSLOG
+  syslog(LOG_CRIT,"Server has no M: line");
+#endif
+
+  exit(-1);
+
   return((aConfItem *)NULL);	/* oh oh... is there code to handle
 				   this case ? - Dianora */
+				/* There is now... -Dianora */
 }
 
 /*
@@ -1790,6 +1798,16 @@ int 	initconf(int opt, int fd)
   (void)close(fd);
   check_class();
   nextping = nextconnect = time(NULL);
+
+
+  if(me.name[0] == '\0')
+    {
+      report_error_on_tty("Server has no M: line\n");
+#ifdef USE_SYSLOG
+      syslog(LOG_CRIT,"Server has no M: line");
+#endif
+      exit(-1);
+    }
   return 0;
 }
 
@@ -1797,8 +1815,8 @@ int 	initconf(int opt, int fd)
  * lookup_confhost
  *   Do (start) DNS lookups of all hostnames in the conf line and convert
  * an IP addresses in a.b.c.d number for to IP#s.
-
-  cleaned up Aug 3'97 - Dianora
+ *
+ * cleaned up Aug 3'97 - Dianora
  */
 static	int	lookup_confhost(aConfItem *aconf)
 {

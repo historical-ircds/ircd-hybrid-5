@@ -1491,6 +1491,21 @@ static	void	setup_signals()
 #endif
 }
 
+/*
+ * simple function added because its used more than once
+ * - Dianora
+ */
+
+report_error_on_tty(char *error_message)
+{
+  int fd;
+  if((fd = open("/dev/tty", O_WRONLY)) >= 0 )
+    {
+      write(fd,error_message,strlen(error_message));
+      close(fd);
+    }
+}
+
 #ifndef NO_PRIORITY
 /*
  * This is a pretty expensive routine -- it loops through

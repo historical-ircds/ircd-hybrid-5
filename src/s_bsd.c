@@ -161,7 +161,7 @@ void	add_local_domain(char *hname,int size)
 **	This a replacement for perror(). Record error to log and
 **	also send a copy to all *LOCAL* opers online.
 **
-**	text	is a *format* string for outputting error. It must
+**	text	is a *format* string for outputing error. It must
 **		contain only two '%s', the first will be replaced
 **		by the sockhost from the cptr, and the latter will
 **		be taken from sys_errlist[errno].
@@ -171,8 +171,8 @@ void	add_local_domain(char *hname,int size)
 */
 void	report_error(char *text,aClient *cptr)
 {
-  Reg	int	errtmp = errno; /* debug may change 'errno' */
-  Reg	char	*host;
+  register	int	errtmp = errno; /* debug may change 'errno' */
+  register	char	*host;
   int	err, len = sizeof(err);
   extern	char	*strerror();
 
@@ -200,7 +200,6 @@ void	report_error(char *text,aClient *cptr)
     fprintf(stderr, "\n");
   }
 #endif
-  return;
 }
 
 /*
@@ -505,7 +504,7 @@ void	init_sys()
       if( (pid = fork()) < 0)
 	{
 	  if ((fd = open("/dev/tty", O_RDWR)) >= 0)
-	    write(fd,"Couldn't fork!\n",15); /* crude, but effective */
+	  report_error_on_tty("Couldn't fork!\n");
 	  exit(0);
 	}
       else if(pid > 0)
