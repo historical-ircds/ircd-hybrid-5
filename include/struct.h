@@ -757,6 +757,13 @@ extern unsigned long tsdms;
 #define TMPRINT
 #endif
 
+/* allow 15 minutes after server rejoins the network before allowing
+   chanops new channels */
+
+#ifdef NO_CHANOPS_WHEN_SPLIT
+#define SERVER_SPLIT_RECOVERY_TIME (60*15)
+#endif
+
 
 #ifdef FLUD
 struct fludbot {

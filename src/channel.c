@@ -32,6 +32,21 @@ static char *rcs_version="$Id$";
 #include "channel.h"
 #include "h.h"
 
+#ifdef NO_CHANOPS_WHEN_SPLIT
+#include "fdlist.h"
+extern fdlist serv_fdlist;
+
+int server_was_split=NO;
+time_t server_split_time;
+#define USE_ALLOW_OP
+#endif
+
+#ifdef LITTLE_I_LINES
+#ifndef USE_ALLOW_OP
+#define USE_ALLOW_OP
+#endif
+#endif
+
 aChannel *channel = NullChn;
 
 static	void	add_invite (aClient *, aChannel *);
@@ -1441,6 +1456,9 @@ int	m_join(aClient *cptr,
   Reg	aChannel *chptr;
   Reg	char	*name, *key = NULL;
   int	i, flags = 0;
+#ifdef USE_ALLOW_OP
+  int   allow_op=YES;
+#endif
   char	*p = NULL, *p2 = NULL;
 #ifdef ANTI_SPAMBOT
   int   successful_join_count = 0; /* Number of channels successfully joined */
@@ -1576,12 +1594,15 @@ int spam_num = MAX_JOIN_LEAVE_COUNT;
 #ifdef NO_CHANOPS_WHEN_SPLIT
 	  if(!IsAnOper(sptr) && server_was_split)
 	    {
-	      if( (server_split_time + SERVER_SPLIT_RECOVERY_TIME) < now)
+	      if( (server_split_time + SERVER_SPLIT_RECOVERY_TIME) < NOW)
 		{
-		  server_was_split = 0;
+		  if(serv_fdlist.entry[1] > serv_fdlist.last_entry)
+		    server_was_split = NO;
+		  else
+		    server_split_time = NOW;	/* still split */
 		}
 	      else
-		flags = 0;
+		allow_op = NO;
 	    }
 #endif
 
@@ -1589,7 +1610,7 @@ int spam_num = MAX_JOIN_LEAVE_COUNT;
 	  if(sptr->confs && sptr->confs->value.aconf && 
 	     (sptr->confs->value.aconf->flags & CONF_FLAGS_LITTLE_I_LINE))
 	    {
-	      flags = 0;
+	      allow_op = NO;
 		  sendto_one(sptr, ":%s NOTICE %s :You are restricted and cannot be chanopped",
 			     me.name,
 			     sptr->name);
@@ -1665,16 +1686,35 @@ int spam_num = MAX_JOIN_LEAVE_COUNT;
       /*
       **  Complete user entry to the new channel (if any)
       */
+#ifdef USE_ALLOW_OP
+      if(allow_op)
+	add_user_to_channel(chptr, sptr, flags);
+      else
+	add_user_to_channel(chptr, sptr, 0);
+#else
       add_user_to_channel(chptr, sptr, flags);
+#endif
       /*
       **  Set timestamp if appropriate, and propagate
       */
       if (MyClient(sptr) && flags == CHFL_CHANOP)
 	{
 	  chptr->channelts = timeofday + timedelta;
+#ifdef USE_ALLOW_OP
+	  if(allow_op)
+	    sendto_match_servs(chptr, cptr,
+			       ":%s SJOIN %ld %s + :@%s", me.name,
+			       chptr->channelts, name, parv[0]);
+	  else
+	    sendto_match_servs(chptr, cptr,
+			       ":%s SJOIN %ld %s + :%s", me.name,
+			       chptr->channelts, name, parv[0]);
+#else
 	  sendto_match_servs(chptr, cptr,
 			     ":%s SJOIN %ld %s + :@%s", me.name,
 			     chptr->channelts, name, parv[0]);
+
+#endif
 	}
       else if (MyClient(sptr))
 	{

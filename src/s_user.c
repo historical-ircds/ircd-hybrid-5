@@ -886,11 +886,11 @@ static	int	register_user(aClient *cptr,
 #endif
 #ifdef LITTLE_I_LINES
 		  if(sptr->confs && sptr->confs->value.aconf &&
-		     (sptr->confs->value.aconf->
-		      flags & CONF_FLAGS_LITTLE_I_LINE))
+		     (sptr->confs->value.aconf->flags
+		      & CONF_FLAGS_LITTLE_I_LINE))
 		    {
-		      sendto_one(sptr,"NOTICE %s :*** You are in a restricted access mode");
-		      sendto_one(sptr,"NOTICE %s :*** You can not be chanopped");
+		      sendto_one(sptr,"NOTICE %s :*** You are in a restricted access mode",nick);
+		      sendto_one(sptr,"NOTICE %s :*** You can not be chanopped",nick);
 		    }
 #endif
 		  nextping = timeofday;

@@ -1482,10 +1482,17 @@ int	m_links(aClient *cptr,
     return 0;
 }
 
+#ifdef LITTLE_I_LINES
+static int report_array[10][3] = {
+#else
 static int report_array[9][3] = {
+#endif
   { CONF_CONNECT_SERVER,    RPL_STATSCLINE, 'C'},
   { CONF_NOCONNECT_SERVER,  RPL_STATSNLINE, 'N'},
   { CONF_CLIENT,            RPL_STATSILINE, 'I'},
+#ifdef LITTLE_I_LINES
+  { CONF_CLIENT,            RPL_STATSILINE, 'i'},
+#endif
   { CONF_KILL,              RPL_STATSKLINE, 'K'},
   { CONF_LEAF,		  RPL_STATSLLINE, 'L'},
   { CONF_OPERATOR,	  RPL_STATSOLINE, 'O'},
@@ -1509,11 +1516,20 @@ static	void	report_configured_links(aClient *sptr,int mask)
 	    break;
 	if (!*p)
 	  continue;
+#ifdef LITTLE_I_LINES
+	if(tmp->flags & CONF_FLAGS_LITTLE_I_LINE)
+	  {
+	    p += 3;
+            if (!*p)
+              continue;
+	  }
+#endif
 	c = (char)*(p+2);
 	host = BadPtr(tmp->host) ? null : tmp->host;
 	pass = BadPtr(tmp->passwd) ? null : tmp->passwd;
 	name = BadPtr(tmp->name) ? null : tmp->name;
 	port = (int)tmp->port;
+
 	/*
 	 * On K line the passwd contents can be
 	 * displayed on STATS reply. 	-Vesa
