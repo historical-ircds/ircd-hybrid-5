@@ -881,8 +881,21 @@ static	int	register_user(aClient *cptr,
 		  sendto_one(sptr,"NOTICE %s :*** Notice -- motd was last changed at %s",
 			     nick, motd_last_changed_date);
 #ifdef SHORT_MOTD
-		  sendto_one(sptr,"NOTICE %s :*** Notice -- Please read motd if you haven't read it ",
+		  sendto_one(sptr,
+       "NOTICE %s :*** Notice -- Please read the motd if you haven't read it",
 			     nick);
+
+		  sendto_one(sptr, rpl_str(RPL_MOTDSTART),
+			     me.name, parv[0], me.name);
+
+		  sendto_one(sptr,
+			     rpl_str(RPL_MOTD),
+			     me.name, parv[0],
+			     "*** This is the short motd ***"
+			     );
+
+		  sendto_one(sptr, rpl_str(RPL_ENDOFMOTD),
+			     me.name, parv[0]);
 #else
 		  (void)m_motd(sptr, sptr, 1, parv);
 #endif
