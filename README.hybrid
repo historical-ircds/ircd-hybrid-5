@@ -1,4 +1,4 @@
-+hybrid-5.1 (10/13/97)
++hybrid-5.1 (11/28/97)
 * The inevitable bug fix release
 -fixes
 * removed ident_fdlist it was never used anyway (comstud)
@@ -14,6 +14,7 @@
 * added LOCOPS, each type of wallops/operwall/locops is now flagged (Dianora)
 * added signon time to RPL_WHOISIDLE (Dianora)
 * allow local opers to see kills requested by riss (Dianora)
+* added ANTI_SPAMBOT code, read config.h (Dianora)
 +hybrid-5 (9/26/97)
 * LOTS AND LOTS OF CHANGES IN CONFIG.H
 * reorganized source tree, eliminating common subdir
