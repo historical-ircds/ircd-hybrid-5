@@ -4818,6 +4818,11 @@ int	m_rehash(aClient *cptr,
           read_motd(MOTD);
 	  return(0);
         }
+      else if(mycmp(parv[1],"dump") == 0)
+	{
+	  rehash_dump(sptr,parv[0]);
+	  return(0);
+	}
     }
   else
     {

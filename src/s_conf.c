@@ -1072,6 +1072,76 @@ aConfItem *find_conf_entry(aConfItem *aconf, int mask)
 }
 
 /*
+ * partially reconstruct an ircd.conf file (tsk tsk, you should have
+ * been making backups;but we've all done it)
+ * I just cull out the N/C/O/o/A lines, you'll have to finish
+ * the rest to use this dump.
+ *
+ * -Dianora
+ */
+
+int	rehash_dump(aClient *sptr,char *parv0)
+{
+  register aConfItem *aconf;
+  int out;
+  char ircd_dump_file[256];
+  char result_buf[256];
+  char timebuffer[MAX_DATE_STRING];
+  struct tm *tmptr;
+
+  tmptr = localtime(&NOW);
+  strftime(timebuffer, MAX_DATE_STRING, "%y%m%d%H%M", tmptr);
+  (void)sprintf(ircd_dump_file,"%s/ircd.conf.%s",
+		DPATH,timebuffer);
+  
+  if ((out = open(ircd_dump_file, O_RDWR|O_APPEND|O_CREAT,0664))==-1)
+    {
+      sendto_one(sptr, ":%s NOTICE %s :Problem opening %s ",
+		 me.name, parv0, ircd_dump_file);
+      return -1;
+    }
+  else
+    sendto_one(sptr, ":%s NOTICE %s :Writing ircd.conf dump to %s ",
+	       me.name, parv0, ircd_dump_file);
+
+  for(aconf=conf; aconf; aconf = aconf->next)
+    {
+      if(aconf->status == CONF_CONNECT_SERVER)
+	{
+	  (void)sprintf(result_buf,"C:%s:%s:%s::3\n",
+			 aconf->host,aconf->passwd,aconf->name);
+	  (void)write(out,result_buf,strlen(result_buf));
+	}
+      else if(aconf->status == CONF_NOCONNECT_SERVER)
+	{
+	  (void)sprintf(result_buf,"N:%s:%s:%s::3\n",
+			 aconf->host,aconf->passwd,aconf->name);
+	  (void)write(out,result_buf,strlen(result_buf));
+	}
+      else if(aconf->status == CONF_OPERATOR)
+	{
+	  (void)sprintf(result_buf,"O:%s:%s:%s::4\n",
+			 aconf->host,aconf->passwd,aconf->name);
+	  (void)write(out,result_buf,strlen(result_buf));
+	}
+      else if(aconf->status == CONF_LOCOP)
+	{
+	  (void)sprintf(result_buf,"o:%s:%s:%s::4\n",
+			 aconf->host,aconf->passwd,aconf->name);
+	  (void)write(out,result_buf,strlen(result_buf));
+	}
+      else if(aconf->status == CONF_ADMIN)
+	{
+	  (void)sprintf(result_buf,"A:%s:%s:%s::\n",
+			 aconf->host,aconf->passwd,aconf->name);
+	  (void)write(out,result_buf,strlen(result_buf));
+	}
+    }
+  (void)close(out);
+  return 0;
+}
+
+/*
  * rehash
  *
  * Actual REHASH service routine. Called with sig == 0 if it has been called
@@ -1080,10 +1150,10 @@ aConfItem *find_conf_entry(aConfItem *aconf, int mask)
  */
 int	rehash(aClient *cptr,aClient *sptr,int sig)
 {
-  Reg	aConfItem **tmp = &conf, *tmp2;
-  Reg	aClass	*cltmp;
-  Reg	aClient	*acptr;
-  Reg	int	i;
+  register aConfItem **tmp = &conf, *tmp2;
+  register aClass	*cltmp;
+  register aClient	*acptr;
+  register	int	i;
   int	ret = 0;
   int   fd;
 
@@ -1162,10 +1232,10 @@ int	rehash(aClient *cptr,aClient *sptr,int sig)
     MaxLinks(cltmp) = -1;
 
   /* do we really want to flush the DNS entirely on a SIGHUP?
-     why not let that be controlled by oper /rehash, and use SIGHUP
-     only to change conf file, if one doesn't have a valid O yet? :-)
-     -Dianora
-     */
+   * why not let that be controlled by oper /rehash, and use SIGHUP
+   * only to change conf file, if one doesn't have a valid O yet? :-)
+   * -Dianora
+   */
 
   if (sig != SIGINT)
     flush_cache();		/* Flush DNS cache */
