@@ -1166,9 +1166,8 @@ int 	initconf(int opt, char *conf_file)
 		for (s = tmp; (*s = *(s+1)); s++)
 		  ;
 	    }
-/*	  else if (*tmp == '#')
+	  else if (*tmp == '#')
 	    *tmp = '\0';
-	    */
 	}
       if (!*line || line[0] == '#' || line[0] == '\n' ||
 	  line[0] == ' ' || line[0] == '\t')
