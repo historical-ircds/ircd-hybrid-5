@@ -32,7 +32,12 @@ static char *rcs_version = "$Id$";
 #include <stdio.h>
 #include "numeric.h"
 
+/* FDLIST */
 void sendto_fdlist();
+/* LINKLIST */
+extern aClient *local_cptr_list;
+extern aClient *oper_cptr_list;
+extern aClient *serv_cptr_list;
 
 #define	NEWLINE	"\n"
 
@@ -368,7 +373,7 @@ va_dcl
 }
 
 /*
- * sendto_server_butone
+ * sendto_serv_butone
  *
  * Send a message to all connected servers except the client 'one'.
  */
@@ -394,6 +399,17 @@ va_dcl
   va_start(vl);
 # endif
 
+#ifdef USE_LINKLIST
+  /* LINKLIST */
+
+  for(cptr = serv_cptr_list; cptr; cptr = cptr->next_server_client)
+    {
+      if ((one && cptr == one->from))
+	continue;
+      sendto_one(cptr, pattern, p1, p2, p3, p4, p5, p6, p7, p8);
+    }
+#else
+
   for (i=serv_fdlist.entry[j=1] ;
        j<=serv_fdlist.last_entry ; i=serv_fdlist.entry[++j])
     {
@@ -407,11 +423,13 @@ va_dcl
 # else
   /*			sendto_one(cptr, pattern, p1, p2, p3, p4,
 				   p5, p6, p7, p8);*/
-  send_fdlist.entry[++k] = i;
+      send_fdlist.entry[++k] = i;
     }
   send_fdlist.last_entry = k;
   if (k) sendto_fdlist(&send_fdlist,pattern,p1,p2,p3,p4,p5,p6,p7,p8);
-# endif
+# endif /* USE_VARARGS */
+#endif /* USE_LINKLIST */
+
   return;
 }
 
@@ -606,42 +624,52 @@ aClient	*from;
 char	*format;
 va_dcl
 {
-	va_list	vl;
+  va_list	vl;
 #endif
-	register int j,k=0;
-	fdlist send_fdlist;
-	Reg	int	i;
-	Reg	aClient	*cptr;
+  register int j,k=0;
+  fdlist send_fdlist;
+  Reg	int	i;
+  Reg	aClient	*cptr;
 
 #ifdef	USE_VARARGS
-	va_start(vl);
+  va_start(vl);
 #endif
 
-	if (chptr)
-	    {
-		if (*chptr->chname == '&')
-			return;
-	    }
+  if (chptr)
+    {
+      if (*chptr->chname == '&')
+	return;
+    }
 
-	/*for (i = 0; i <= highest_fd; i++)*/
-for (i=serv_fdlist.entry[j=1] ; j<=serv_fdlist.last_entry ; i=serv_fdlist.entry[++j])
-	    {
-		if (!(cptr = local[i]))
-			continue;
-		if (cptr == from)
-			continue;
+#ifdef USE_LINKLIST
+  for(cptr = serv_cptr_list; cptr; cptr = cptr->next_server_client)
+    {
+      if (cptr == from)
+        continue;
+      sendto_one(cptr, format, p1, p2, p3, p4, p5, p6, p7, p8, p9);
+    }
+#else
+  /*for (i = 0; i <= highest_fd; i++)*/
+  for (i=serv_fdlist.entry[j=1] ; j<=serv_fdlist.last_entry ; i=serv_fdlist.entry[++j])
+    {
+      if (!(cptr = local[i]))
+        continue;
+      if (cptr == from)
+        continue;
+
 #ifdef	USE_VARARGS
-		sendto_one(cptr, format, vl);
-	    }
-	va_end(vl);
+      sendto_one(cptr, format, vl);
+    }
+  va_end(vl);
 #else
 /*		sendto_one(cptr, format, p1, p2, p3, p4, p5, p6, p7, p8, p9);*/
-	send_fdlist.entry[++k] = i;
-		}
-	send_fdlist.last_entry=k;
-	if (k) sendto_fdlist(&send_fdlist,format,p1,p2,p3,p4,p5,p6,p7,p8,p9);
-#endif
-	return;
+    send_fdlist.entry[++k] = i;
+  }
+    send_fdlist.last_entry=k;
+    if (k) sendto_fdlist(&send_fdlist,format,p1,p2,p3,p4,p5,p6,p7,p8,p9);
+#endif /* USE_VARARGS */
+#endif /* USE_LINKLIST */
+  return;
 }
 
 /*
@@ -777,38 +805,59 @@ va_dcl
 #ifdef        USE_VARARGS
   va_start(vl);
 #endif
-
-  for (i = 0; i <= highest_fd; i++)
-    if ((cptr = local[i]) && !IsServer(cptr) && !IsMe(cptr)) {
-      switch (lev) {
-      case CCONN_LEV: if (!SendCConnNotice(cptr) || !IsAnOper(cptr)) continue;
-	break;
-      case REJ_LEV: if (!SendRejNotice(cptr) || !IsAnOper(cptr)) continue;
-	break;
-      case SKILL_LEV: if (!SendSkillNotice(cptr)) continue;
-	break;
-      case FULL_LEV: if (!SendFullNotice(cptr) || !IsAnOper(cptr)) continue;
-	break;
-      case SPY_LEV: if (!SendSpyNotice(cptr) || !IsAnOper(cptr)) continue;
-	break;
-      case DEBUG_LEV: if (!SendDebugNotice(cptr) || !IsAnOper(cptr)) continue;
-	break;
-      case NCHANGE_LEV: if (!SendNickChange(cptr) || !IsAnOper(cptr)) continue;
-	break;
-      default: /* this is stupid, but oh well */
-	if (!SendServNotice(cptr)) continue;
-      }
-      (void)ircsprintf(nbuf, ":%s NOTICE %s :*** Notice -- ",
-		       me.name, cptr->name);
-      (void)strncat(nbuf, pattern,
-		    sizeof(nbuf) - strlen(nbuf));
-#ifdef        USE_VARARGS
-      sendto_one(cptr, nbuf, va_alist);
+#ifdef USE_LINKLIST
+  for(cptr = local_cptr_list; cptr; cptr = cptr->next_local_client)
+    if(!IsMe(cptr))
 #else
-      sendto_one(cptr, nbuf, p1, p2, p3, p4, p5, p6, p7, p8);
+  for (i = 0; i <= highest_fd; i++)
+    if ((cptr = local[i]) && !IsServer(cptr) && !IsMe(cptr))
 #endif
-    }
-return;
+      {
+	switch (lev)
+	  {
+	  case CCONN_LEV:
+	    if (!SendCConnNotice(cptr) || !IsAnOper(cptr))
+	      continue;
+	    break;
+	  case REJ_LEV:
+	    if (!SendRejNotice(cptr) || !IsAnOper(cptr))
+	      continue;
+	    break;
+	  case SKILL_LEV:
+	    if (!SendSkillNotice(cptr))
+	      continue;
+	    break;
+	  case FULL_LEV:
+	    if (!SendFullNotice(cptr) || !IsAnOper(cptr))
+	      continue;
+	    break;
+	  case SPY_LEV: 
+	    if (!SendSpyNotice(cptr) || !IsAnOper(cptr))
+	      continue;
+	    break;
+	  case DEBUG_LEV:
+	    if (!SendDebugNotice(cptr) || !IsAnOper(cptr))
+	      continue;
+	    break;
+	  case NCHANGE_LEV:
+	    if (!SendNickChange(cptr) || !IsAnOper(cptr))
+	      continue;
+	    break;
+	  default: /* this is stupid, but oh well */
+	    if (!SendServNotice(cptr)) continue;
+	  }
+	(void)ircsprintf(nbuf, ":%s NOTICE %s :*** Notice -- ",
+			 me.name, cptr->name);
+	(void)strncat(nbuf, pattern,
+		      sizeof(nbuf) - strlen(nbuf));
+
+#ifdef        USE_VARARGS
+	sendto_one(cptr, nbuf, va_alist);
+#else
+	sendto_one(cptr, nbuf, p1, p2, p3, p4, p5, p6, p7, p8);
+#endif
+      }
+  return;
 }  /* sendto_ops_lev */
 
 /*
@@ -835,9 +884,14 @@ va_dcl
 #ifdef	USE_VARARGS
   va_start(vl);
 #endif
+#ifdef USE_LINKLIST
+  for(cptr = oper_cptr_list; cptr; cptr = cptr->next_oper_client)
+    if(!IsMe(cptr) && SendServNotice(cptr))
+#else
   for (i = 0; i <= highest_fd; i++)
     if ((cptr = local[i]) && !IsServer(cptr) && !IsMe(cptr) &&
 	SendServNotice(cptr))
+#endif
       {
 	(void)ircsprintf(nbuf, ":%s NOTICE %s :*** Notice -- ",
 			 me.name, cptr->name);
@@ -849,7 +903,7 @@ va_dcl
 	sendto_one(cptr, nbuf, p1, p2, p3, p4, p5, p6, p7, p8);
 #endif
       }
-	return;
+  return;
 }
 
 

@@ -56,7 +56,16 @@ static char *rcs_version = "$Id$";
 #endif
 #include "dich_conf.h"
 #include "fdlist.h"
+/* FDLIST */
 extern fdlist serv_fdlist;
+
+#ifdef USE_LINKLIST
+/* LINKLIST */
+extern aClient *local_cptr_list;
+extern aClient *oper_cptr_list;
+extern aClient *serv_cptr_list;
+#endif
+
 extern int lifesux;
 static	char	buf[BUFSIZE]; 
 extern int rehashed;
@@ -879,9 +888,17 @@ int	m_server_estab(aClient *cptr)
  */
   reset_sock_opts(cptr->fd, 1);
 #endif /* MAXBUFFERS */
+  /* FDLIST */
   /* adds to fdlist */
   addto_fdlist(cptr->fd,&serv_fdlist);
 
+#ifdef USE_LINKLIST
+  /* LINKLIST */
+  /* add to server link list -Dianora */
+  cptr->next_server_client = serv_cptr_list;
+  serv_cptr_list = cptr;
+#endif
+ 
 #ifndef NO_PRIORITY
   /* this causes the server to be marked as "busy" */
   check_fdlists(timeofday);
@@ -2610,6 +2627,37 @@ int   m_set(aClient *cptr,
 		     me.name, parv[0], MAXCLIENTS, Count.local);
           return 0;
         }
+      /* DEBUG*/
+#if defined(USE_LINKLIST) && defined(DEBUG_LINKLIST)
+      else if(!strncasecmp(command,"LINKLIST",7))
+	{
+	  aClient *sptr;
+
+	  sendto_realops("local_cptr_list");
+	  sptr = local_cptr_list;
+	  while(sptr)
+	    {
+	      sendto_realops("local client>%s!%s@%s",
+			     sptr->name,sptr->user->username,sptr->user->host);
+	      sptr=sptr->next_local_client;
+	    }
+	  sendto_realops("oper_cptr_list");
+	  sptr = oper_cptr_list;
+	  while(sptr)
+	    {
+	      sendto_realops("oper>%s!%s@%s",
+			     sptr->name,sptr->user->username,sptr->user->host);
+	      sptr=sptr->next_oper_client;
+	    }
+	  sendto_realops("serv_cptr_list");
+	  sptr = serv_cptr_list;
+	  while(sptr)
+	    {
+	      sendto_realops("server name >%s",sptr->name);
+	      sptr=sptr->next_server_client;
+	    }
+	}
+#endif
 #ifdef FLUD
       else if(!strncasecmp(command, "FLUDNUM",7))
 	{

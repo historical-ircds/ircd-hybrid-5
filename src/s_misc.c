@@ -50,7 +50,15 @@ static char *rcs_version = "$Id$";
 #endif
 #include "h.h"
 #include "fdlist.h"
+/* FDLIST */
 extern fdlist serv_fdlist;
+
+#ifdef USE_LINKLIST
+/* LINKLIST */
+extern aClient *local_cptr_list;
+extern aClient *oper_cptr_list;
+extern aClient *serv_cptr_list;
+#endif
 
 #ifdef NO_CHANOPS_WHEN_SPLIT
 extern int server_was_split;
@@ -388,13 +396,89 @@ char	*comment	/* Reason for the exit */
 #endif
       if (IsAnOper(sptr))
 	{
+          /* FDLIST */
 	  delfrom_fdlist(sptr->fd, &oper_fdlist);
+
+#ifdef USE_LINKLIST
+          /* LINKLIST */
+          /* oh for in-line functions... */
+          {
+            aClient *prev_cptr=(aClient *)NULL;
+            aClient *cur_cptr = oper_cptr_list;
+            while(cur_cptr) 
+              {
+                if(sptr == cur_cptr)
+                  {
+                    if(prev_cptr)
+                      prev_cptr = cur_cptr->next_oper_client;
+                    else
+                      oper_cptr_list = cur_cptr->next_oper_client;
+		    cur_cptr->next_oper_client = (aClient *)NULL;
+                    break;
+                  }
+                prev_cptr = cur_cptr;
+                cur_cptr = cur_cptr->next_oper_client;
+              }
+          }
+#endif
 	}
-      if (IsClient(sptr)) Count.local--;
+      if (IsClient(sptr))
+        {
+          Count.local--;
+
+#ifdef USE_LINKLIST
+          /* LINKLIST */
+          /* oh for in-line functions... */
+          if(IsPerson(sptr))	/* a little extra paranoia */
+            {
+              aClient *prev_cptr = (aClient *)NULL;
+              aClient *cur_cptr = local_cptr_list;
+              while(cur_cptr)
+                {
+                  if(sptr == cur_cptr)
+                    {
+                      if(prev_cptr)
+                        prev_cptr = cur_cptr->next_local_client;
+                      else
+                        local_cptr_list = cur_cptr->next_local_client;
+                      cur_cptr->next_local_client = (aClient *)NULL;
+                      break;
+                    }
+                  prev_cptr = cur_cptr;
+                  cur_cptr = cur_cptr->next_local_client;
+                }
+            }
+#endif
+        }
       if (IsServer(sptr))
 	{
 	  Count.myserver--;
+          /* FDLIST */
 	  delfrom_fdlist(sptr->fd, &serv_fdlist);
+
+#ifdef USE_LINKLIST
+          /* LINKLIST */
+          /* oh for in-line functions... */
+          {
+            aClient *prev_cptr = (aClient *)NULL;
+            aClient *cur_cptr = serv_cptr_list;
+            while(cur_cptr)
+              {
+                if(sptr == cur_cptr)
+                  {
+                    if(prev_cptr)
+                      prev_cptr = cur_cptr->next_server_client;
+                    else
+                      serv_cptr_list = cur_cptr->next_server_client;
+                    cur_cptr->next_server_client = (aClient *)NULL;
+                    break;
+                  }
+                prev_cptr = cur_cptr;
+                cur_cptr = cur_cptr->next_server_client;
+              }
+          }
+#endif
+
 #ifdef NO_CHANOPS_WHEN_SPLIT
 	  /*	  if(serv_fdlist.entry[1] <= serv_fdlist.last_entry) */
 	  if(Count.myserver == 0)

@@ -1014,6 +1014,12 @@ error CLIENT_FLOOD undefined.
 #  define LOGFILE "/dev/null"
 #endif
 
+
+/* experimental LINKLIST */
+
+#define DEBUG_LINKLIST
+#define USE_LINKLIST
+
 #define CONFIG_H_LEVEL_5_2
 
 #endif /* __config_include__ */

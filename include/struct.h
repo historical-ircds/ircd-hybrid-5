@@ -442,6 +442,15 @@ struct	Server
 struct Client
 {
   struct	Client *next,*prev, *hnext;
+
+#ifdef USE_LINKLIST
+/* LINKLIST */
+
+  struct        Client *next_local_client;      /* keep track of these */
+  struct        Client *next_server_client;
+  struct        Client *next_oper_client;
+#endif
+
   anUser	*user;		/* ...defined, if this is a User */
   aServer	*serv;		/* ...defined, if this is a server */
   aWhowas 	*whowas;	/* Pointers to whowas structs */

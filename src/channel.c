@@ -33,9 +33,6 @@ static char *rcs_version="$Id$";
 #include "h.h"
 
 #ifdef NO_CHANOPS_WHEN_SPLIT
-#include "fdlist.h"
-extern fdlist serv_fdlist;
-
 int server_was_split=NO;
 time_t server_split_time;
 int server_split_recovery_time = (MAX_SERVER_SPLIT_RECOVERY_TIME * 60);
@@ -1573,7 +1570,8 @@ int spam_num = MAX_JOIN_LEAVE_COUNT;
 	    {
 	      if( (server_split_time + server_split_recovery_time) < NOW)
 		{
-		  if(serv_fdlist.entry[1] > serv_fdlist.last_entry)
+		  /*  if(serv_fdlist.entry[1] > serv_fdlist.last_entry) */
+		  if(Count.myserver > 0)
 		    server_was_split = NO;
 		  else
 		    {

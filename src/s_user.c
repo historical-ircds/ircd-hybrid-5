@@ -56,6 +56,13 @@ int    botwarn (char *, char *, char *, char *);
 
 extern char motd_last_changed_date[];
 
+#ifdef USE_LINKLIST
+/* LINKLIST */ 
+extern aClient *local_cptr_list;
+extern aClient *oper_cptr_list;
+extern aClient *serv_cptr_list;
+#endif
+ 
 extern void outofmemory(void);         /* defined in list.c */
 
 #ifdef MAXBUFFERS
@@ -1065,6 +1072,13 @@ static	int	register_user(aClient *cptr,
 	    ubuf[0] = '+';
 	    ubuf[1] = '\0';
 	  }
+
+#ifdef USE_LINKLIST
+        /* LINKLIST */
+        /* add to local client link list -Dianora */
+        sptr->next_local_client = local_cptr_list;
+        local_cptr_list = sptr;
+#endif
  
 	sendto_serv_butone(cptr, "NICK %s %d %ld %s %s %s %s :%s",
 			   nick, sptr->hopcount+1, sptr->tsinfo, ubuf,
@@ -3014,7 +3028,16 @@ int	m_oper(aClient *cptr,
 	  }
       Count.oper++;
       *--s =  '@';
+      /* FDLIST */
       addto_fdlist(sptr->fd, &oper_fdlist);
+
+#ifdef USE_LINKLIST
+      /* LINKLIST */  
+      /* add to oper link list -Dianora */
+      cptr->next_oper_client = oper_cptr_list;
+      oper_cptr_list = cptr;
+#endif
+
       sendto_ops("%s (%s@%s) is now operator (%c)", parv[0],
 		 sptr->user->username, sptr->sockhost,
 		 IsOper(sptr) ? 'O' : 'o');
@@ -3422,8 +3445,32 @@ int	m_umode(aClient *cptr,
   if ((setflags & (FLAGS_OPER|FLAGS_LOCOP)) && !IsAnOper(sptr))
     {
       Count.oper--;
+
       if (MyConnect(sptr))
-	delfrom_fdlist(sptr->fd, &oper_fdlist);
+        {
+#ifdef USE_LINKLIST
+          aClient *prev_cptr = (aClient *)NULL;
+          aClient *cur_cptr = oper_cptr_list;
+#endif
+	  delfrom_fdlist(sptr->fd, &oper_fdlist);
+
+#ifdef USE_LINKLIST         
+          while(cur_cptr)
+            {
+              if(sptr == cur_cptr) 
+                {
+                  if(prev_cptr)
+                    prev_cptr = cur_cptr->next_oper_client;
+                  else
+                    oper_cptr_list = cur_cptr->next_oper_client;
+                  cur_cptr->next_oper_client = (aClient *)NULL;
+                  break;
+                }
+              prev_cptr = cur_cptr;
+              cur_cptr = cur_cptr->next_oper_client;
+            }
+#endif
+        }
     }
 
   if (!(setflags & FLAGS_INVISIBLE) && IsInvisible(sptr))

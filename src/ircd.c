@@ -75,6 +75,15 @@ fdlist serv_fdlist;
 fdlist oper_fdlist;
 fdlist listen_fdlist;
 
+#ifdef USE_LINKLIST
+/* LINKLIST */
+/* client pointer lists -Dianora */ 
+  
+aClient *local_cptr_list=(aClient *)NULL;
+aClient *oper_cptr_list=(aClient *)NULL;
+aClient *serv_cptr_list=(aClient *)NULL;
+#endif
+
 #ifndef NO_PRIORITY
 fdlist busycli_fdlist;	/* high-priority clients */
 #endif
