@@ -519,6 +519,7 @@ static	time_t	check_pings(time_t currenttime)
 	      dying_clients[die_index] = cptr;
 	      dying_clients_reason[die_index++] = "reject held client";
 	      dying_clients[die_index] = (aClient *)NULL;
+	      continue;		/* and go examine next fd/cptr */
 	    }
 	}
 #endif
