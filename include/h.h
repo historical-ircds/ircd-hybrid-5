@@ -59,7 +59,7 @@ extern aConfList	FList2;
 extern aConfList	FList3;
 
 #include "fdlist.h"
-extern lifesux;
+extern int lifesux;
 extern fdlist serv_fdlist;
 extern fdlist busycli_fdlist;
 extern fdlist default_fdlist;

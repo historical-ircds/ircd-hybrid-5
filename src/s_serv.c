@@ -2373,15 +2373,6 @@ int     m_wallops(aClient *cptr,
       return 0;
     }
 
-  /* bleh. The code originally here translated the wallops for non opers into 
-     a privmsg to #wallops. What kind of STUPIDITY is that?
-     #wallops is +i, some children have it locked up. SO whats the fripping
-     point? unless every server just allows you to bypass the +i ban etc.
-     -Dianora
-     Those "children" include MOP (pikers bot) and cdy (cerf) :-)
-     -Dianora
-  */
-
   if (!IsServer(sptr) && MyConnect(sptr) && !IsAnOper(sptr))
     {
       sendto_one(sptr, err_str(ERR_NOPRIVILEGES), me.name, parv[0]);
@@ -2391,25 +2382,19 @@ int     m_wallops(aClient *cptr,
   /* If its coming from a server, do the normal thing
      if its coming from an oper, send the wallops along
      and only send the wallops to our local opers (those who are +oz)
-     bleh. why the fripp INVENT a new lame message type?
      -Dianora
   */
 
-  if(!IsServer(sptr))
+  if(!IsServer(sptr))	/* If source of message is not a server, i.e. oper */
     {
       send_operwall(sptr, "WALLOPS", message);
-      sendto_serv_butone( NULL, ":%s WALLOPS :%s", parv[0], message);
+      sendto_serv_butone( IsServer(cptr) ? cptr : NULL,
+			  ":%s WALLOPS :%s", parv[0], message);
     }
-  else
-    sendto_wallops_butone(cptr, sptr,
+  else			/* its a server wallops */
+    sendto_wallops_butone(IsServer(cptr) ? cptr : NULL, sptr,
 			    ":%s WALLOPS :%s", parv[0], message);
   return 0;
-}
-
-int wallops_from_oper(char *message)
-{
-  sendto_ops("wallops_from_oper = [%s]",message);
-  return (0);
 }
 
 /*

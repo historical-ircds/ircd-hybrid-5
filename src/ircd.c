@@ -395,6 +395,14 @@ static	time_t	check_pings(time_t currenttime)
       */
       if (cptr->flags & FLAGS_DEADSOCKET)
 	{
+	  /* N.B. EVERY single time dying_clients[] is set
+	   * it must be followed by an immediate continue,
+	   * to prevent this cptr from being marked again
+	   * this will cause exit_client() to be called twice
+	   * for the same cptr. i.e. bad news
+	   * -Dianora
+	   */
+
 	  dying_clients[die_index++] = cptr;
 	  dying_clients[die_index] = (aClient *)NULL;
 	  continue;
@@ -521,11 +529,19 @@ static	time_t	check_pings(time_t currenttime)
 	  ((!IsRegistered(cptr) && (currenttime - cptr->since) >= ping)) ||
 	  (rflag && !IsUnknown(cptr)) )
 	{
+	  /* ok. There has been a ping time out. determine what sort
+	   *  of ping timeout -Dianora
+	   */
+
 	  if (!IsRegistered(cptr) &&
 	      (DoingDNS(cptr) || DoingAuth(cptr)))
 	    {
+	      /* Either a DNS or authd failure */
+
 	      if (cptr->authfd >= 0)
 		{
+		  /* authd failure */
+
 		  (void)close(cptr->authfd);
 		  cptr->authfd = -1;
 		  cptr->count = 0;
@@ -544,11 +560,14 @@ static	time_t	check_pings(time_t currenttime)
 	      ClearDNS(cptr);
 	      SetAccess(cptr);
 	      cptr->since = currenttime;
-	      continue;
+	      continue;			/* and go examine next fd/cptr */
 	    }
+
 	  if (IsServer(cptr) || IsConnecting(cptr) ||
 	      IsHandshake(cptr))
 	    {
+	      /* Server ping out */
+
 	      sendto_ops("No response from %s, closing link",
 			 get_client_name(cptr, FALSE));
 	    }
@@ -558,7 +577,7 @@ static	time_t	check_pings(time_t currenttime)
 	   * first.
 	   * *** Moved up above  -taner ***
 	   */
-	  
+
 #if defined(R_LINES) && defined(R_LINES_OFTEN)
 	  if (IsPerson(cptr) && rflag)
 	    sendto_ops("Restricting %s, closing link.",
@@ -569,12 +588,14 @@ static	time_t	check_pings(time_t currenttime)
 	    ircstp->is_ipspoof++;
 #endif /* ANTI_IP_SPOOF */
 
-
 	  dying_clients[die_index++] = cptr;
 	  dying_clients[die_index] = (aClient *)NULL;
 	  cptr->flags2 |= FLAGS2_PING_TIMEOUT;
-
+	  continue;			/* and go examine next fd/cptr */
 	}
+
+      /* Not a ping time out */
+
       else if ((cptr->flags & FLAGS_PINGSENT) == 0)
 	{
 	  /*
@@ -600,9 +621,22 @@ ping_timeout:
       if (IsUnknown(cptr))
 	if (cptr->firsttime ? ((timeofday - cptr->firsttime) > 100) : 0)
 	  {
-	    dying_clients[die_index++] = cptr;
-	    dying_clients[die_index] = (aClient *)NULL;
-	    cptr->flags2 |= FLAGS2_CONNECTION_TIMEDOUT;
+	    /* Lets for the time being, make sure this cptr hasn't already 
+	       been marked for exit */
+
+	    if( cptr->flags2 && (FLAGS2_PING_TIMEOUT|FLAGS2_KILLFLAG|
+				 FLAGS2_GKILLFLAG|FLAGS2_DKILLFLAG))
+	      {
+		sendto_ops("cptr already marked for exit! cptr->flags2 = %x",
+			   cptr->flags2);
+	      }
+	    else
+	      /* end of temporary debug */
+	      {
+		dying_clients[die_index++] = cptr;
+		dying_clients[die_index] = (aClient *)NULL;
+		cptr->flags2 |= FLAGS2_CONNECTION_TIMEDOUT;
+	      }
 	  }
     }
 
