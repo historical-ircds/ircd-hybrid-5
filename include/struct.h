@@ -162,7 +162,8 @@ typedef struct	MotdItem aMotd;
 #define	FLAGS_WALLOP     0x0040 /* send wallops to them */
 #define	FLAGS_SERVNOTICE 0x0080 /* server notices such as kill */
 #define	FLAGS_BLOCKED    0x0100	/* socket is in a blocked condition */
-#define	FLAGS_UNIX	 0x0200	/* socket is in the unix domain, not inet */
+/* #define FLAGS_UNIX	 0x0200  Not used anymore, free for other use */
+     				/* socket is in the unix domain, not inet */
 #define	FLAGS_CLOSING    0x0400	/* set when closing to suppress errors */
 #define	FLAGS_LISTEN     0x0800 /* used to mark clients which we listen() on */
 #define	FLAGS_CHKACCESS  0x1000 /* ok to check clients access if set */
@@ -184,11 +185,6 @@ typedef struct	MotdItem aMotd;
 #define FLAGS_SENDQEX 0x10000000 /* Sendq exceeded */
 #define FLAGS_OPERWALL 0x20000000 /* Operwalls */
 #define FLAGS_IPHASH   0x40000000 /* iphashed this client */
-
-/*  grrr some servers still haven't fixed their OS'es -Dianora */
-#ifdef ANTI_IP_SPOOF
-#define FLAGS_GOT_ANTI_SPOOF_PING  0x80000000
-#endif
 
 /* for sendto_ops_lev */
 #define CCONN_LEV	1
@@ -226,8 +222,8 @@ typedef struct	MotdItem aMotd;
 #define SendSpyNotice(x)	((x)->flags & FLAGS_SPY)
 #define SendDebugNotice(x)	((x)->flags & FLAGS_DEBUG)
 #define SendNickChange(x)	((x)->flags & FLAGS_NCHANGE)
-
-#define	IsUnixSocket(x)		((x)->flags & FLAGS_UNIX)
+     /* #define	IsUnixSocket(x)		((x)->flags & FLAGS_UNIX) */
+     /* No more FLAGS_UNIX */
 #define	IsListening(x)		((x)->flags & FLAGS_LISTEN)
 #define	DoAccess(x)		((x)->flags & FLAGS_CHKACCESS)
 #define	IsLocal(x)		((x)->flags & FLAGS_LOCAL)

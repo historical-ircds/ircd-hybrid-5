@@ -283,8 +283,6 @@ char  *get_client_host(aClient *cptr)
     return cptr->name;
   if (!cptr->hostp)
     return get_client_name(cptr, FALSE);
-  if (IsUnixSocket(cptr))
-    (void) ircsprintf(nbuf, "%s[%s]", cptr->name, me.name);
   else
     (void)ircsprintf(nbuf, "%s[%-.*s@%-.*s]",
 		     cptr->name, USERLEN,
@@ -464,11 +462,11 @@ char	*comment	/* Reason for the exit */
 	    {
 	      if (cptr != NULL && sptr != cptr)
 		sendto_one(sptr, "ERROR :Closing Link: %s %s (%s)",
-			   IsUnixSocket(sptr) ? me.sockhost : sptr->sockhost,
+			   sptr->sockhost,
 			   sptr->name, comment);
 	      else
 		sendto_one(sptr, "ERROR :Closing Link: %s (%s)",
-			   IsUnixSocket(sptr) ? me.sockhost : sptr->sockhost,
+			   sptr->sockhost,
 			   comment);
 	    }
 	  /*

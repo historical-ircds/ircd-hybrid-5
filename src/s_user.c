@@ -75,7 +75,7 @@ static int user_modes[]		= { FLAGS_OPER, 'o',
 
 /* internally defined functions */
 int botreject(char *);
-unsigned int my_rand(void);	/* provided by orabidoo */
+unsigned long my_rand(void);	/* provided by orabidoo */
 
 /* externally defined functions */
 extern int find_bline(aClient *);	/* defined in s_conf.c */
@@ -455,10 +455,7 @@ static	int	register_user(aClient *cptr,
        */
       strncpyzt(bottemp, user->host, HOSTLEN);
 #endif
-      if (IsUnixSocket(sptr))
-	strncpyzt(user->host, me.sockhost, HOSTLEN+1);
-      else
-	strncpyzt(user->host, sptr->sockhost, HOSTLEN+1);
+      strncpyzt(user->host, sptr->sockhost, HOSTLEN+1);
 
       dots = 0;
       p = user->host;
@@ -599,7 +596,7 @@ static	int	register_user(aClient *cptr,
 	  (sptr->fd >= (MAXCLIENTS+MAX_BUFFER))) || ((sptr->fd >= (MAXCLIENTS - 5)) && !(find_fline(sptr))))
     {
       sendto_realops_lev(FULL_LEV, "Too many clients, rejecting %s[%s].",
-			 nick, IsUnixSocket(sptr) ? me.sockhost : sptr->sockhost);
+			 nick, sptr->sockhost);
       ircstp->is_ref++;
       return exit_client(cptr, sptr, &me,
 			 "Sorry, server is full - try later");
@@ -1440,34 +1437,18 @@ nickkilldone:
 #ifdef ANTI_IP_SPOOF
 	  if(MyConnect(sptr))
 	    {
-	      if (sptr->flags & FLAGS_GOT_ANTI_SPOOF_PING)
-                {
-		  return(register_user(cptr, sptr, nick, sptr->user->username);
-                }
-	      else
-		return 0;
-	    }
-          else
-#endif
-	  if (register_user(cptr, sptr, nick, sptr->user->username)
-	      == FLUSH_BUFFER)
-	    return FLUSH_BUFFER;
-	}
-#ifdef ANTI_IP_SPOOF
-      else	/* Havent' received ANTI_SPOOF_PING yet */
-	{
-	  if(MyConnect(sptr))
-	    {
-	      sptr->random_ping = my_rand();
 	      (void)strcpy(sptr->name,nick);
-	      /* I haven't already sent the PING since
-		 I have no username */
-	      sendto_one(sptr, "PING :%d", sptr->random_ping );
+	      sptr->random_ping = my_rand();
+	      sendto_one(sptr, "PING :%d", sptr->random_ping);
 	      sptr->flags |= FLAGS_PINGSENT;
 	      return 0;
 	    }
-	}
+          else
 #endif
+	    if (register_user(cptr, sptr, nick, sptr->user->username)
+		== FLUSH_BUFFER)
+	      return FLUSH_BUFFER;
+	}
     }
 
   /*
@@ -1486,13 +1467,13 @@ nickkilldone:
 /* a random number generator loosely based on RC5;
    assumes ints are at least 32 bit */
  
-unsigned int my_rand() {
-  static unsigned int s = 0, t = 0, k = 12345678;
+unsigned long my_rand() {
+  static unsigned long s = 0, t = 0, k = 12345678;
   int i;
  
   if (s == 0 && t == 0) {
-    s = (unsigned int)getpid();
-    t = (unsigned int)time(NULL);
+    s = (unsigned long)getpid();
+    t = (unsigned long)time(NULL);
   }
   for (i=0; i<12; i++) {
     s = (((s^t) << (t&31)) | ((s^t) >> (31 - (t&31)))) + k;
@@ -2226,28 +2207,14 @@ int	do_user(char *nick,
 #ifdef ANTI_IP_SPOOF
   if(MyConnect(sptr))
      {
-       if(sptr->flags & FLAGS_GOT_ANTI_SPOOF_PING)
+       if (sptr->name[0]) /* NICK already received, now I have USER... */
 	 {
-	   if (sptr->name[0]) /* NICK already received, now I have USER... */
-	     return register_user(cptr, sptr, sptr->name, username);
-	   else
-	     strncpyzt(sptr->user->username, username, USERLEN+1);
-           return 0;
-	 }
-       else
-	 {
-	   /* blargh save the username for later */
 	   strncpyzt(sptr->user->username, username, USERLEN+1);
-
-	   if(sptr->name[0] == '\0')
-	     /* I haven't already sent the PING since have no nick */
-	     {
-	       sptr->random_ping = my_rand();
-	       sendto_one(sptr, "PING :%d", sptr->random_ping);
-	       sptr->flags |= FLAGS_PINGSENT;
-	     }
-           return 0;
+	   sptr->random_ping = my_rand();
+	   sendto_one(sptr, "PING :%d", sptr->random_ping);
+	   sptr->flags |= FLAGS_PINGSENT;
 	 }
+       return 0;
      }
 #endif
   if (sptr->name[0]) /* NICK already received, now I have USER... */
@@ -2384,10 +2351,7 @@ int	m_kill(aClient *cptr,
       **	...!operhost!oper
       **	...!operhost!oper (comment)
       */
-      if (IsUnixSocket(cptr)) /* Don't use get_client_name syntax */
-	inpath = me.sockhost;
-      else
-	inpath = cptr->sockhost;
+      inpath = cptr->sockhost;
       if (!BadPtr(path))
 	{
 	  (void)ircsprintf(buf, "%s%s (%s)",
@@ -2552,47 +2516,14 @@ int	m_ping(aClient *cptr,
 	       int parc,
 	       char *parv[])
 {
-  aClient *acptr;
-  char	*origin, *destination;
-
-  if (parc < 2 || *parv[1] == '\0')
-    {
-      sendto_one(sptr, err_str(ERR_NOORIGIN), me.name, parv[0]);
-      return 0;
-    }
-  origin = parv[1];
-  destination = parv[2]; /* Will get NULL or pointer (parc >= 2!!) */
-
-  acptr = find_client(origin, NULL);
-  if (!acptr)
-    acptr = find_server(origin, NULL);
-  if (acptr && acptr != sptr)
-    origin = cptr->name;
-  if (!BadPtr(destination) && mycmp(destination, me.name) != 0)
-    {
-      /* After discussing it with orabidoo and Shadowfax...
-	 lets NOT make PING/PONG routable, it breaks the RFC, but
-	 we are writing a new standard for efnet anyway (right callas?)
-	 -Dianora
-	 */
-      return 0;
-#ifdef 0
-      if ((acptr = find_server(destination, NULL)))
-	sendto_one(acptr,":%s PING %s :%s", parv[0],
-		   origin, destination);
-      else
-	{
-	  sendto_one(sptr, err_str(ERR_NOSUCHSERVER),
-		     me.name, parv[0], destination);
-	  return 0;
-	}
-#endif
-    }
-  else
-    sendto_one(sptr,":%s PONG %s :%s", me.name,
-	       (destination) ? destination : me.name, origin);
+  /* After discussing it with orabidoo and Shadowfax...
+     lets NOT make PING/PONG routable, it breaks the RFC, but
+     we are writing a new standard for efnet anyway (right callas?)
+     -Dianora
+     */
   return 0;
 }
+
 
 /*
 ** m_pong
@@ -2619,59 +2550,36 @@ int	m_pong(aClient *cptr,
   cptr->flags &= ~FLAGS_PINGSENT;
   sptr->flags &= ~FLAGS_PINGSENT;
 
-  /* as discussed, I'm going to no-op this until we all agree it should
-     just go. - Dianora */
-  /* Whats more, the code would have been trying to route the random
-     pong response if ANTI_IP_SPOOF was defined *doh* -Dianora */
-
-#ifdef 0
-  if (!BadPtr(destination) && mycmp(destination, me.name) != 0)
-    {
-      if ((acptr = find_client(destination, NULL)) ||
-	  (acptr = find_server(destination, NULL)))
-	sendto_one(acptr,":%s PONG %s %s",
-		   parv[0], origin, destination);
-      else
-	{
-	  sendto_one(sptr, err_str(ERR_NOSUCHSERVER),
-		     me.name, parv[0], destination);
-	  return 0;
-	}
-    }
-#endif
+  /* Do not route PONG, ever.. sure it breaks the RFC, but its
+     already broken. 
+     */
 
 #ifdef ANTI_IP_SPOOF
-  if(MyConnect(sptr))
+  if(MyConnect(sptr) && !IsRegisteredUser(sptr) && sptr->random_ping)
     {
-      if((sptr->flags & FLAGS_GOT_ANTI_SPOOF_PING) == 0)
-	{
-	  unsigned int received_random_ping;
-	  received_random_ping = (unsigned int)atoi(origin);
+      unsigned long received_random_ping;
+      received_random_ping = (unsigned long)atol(origin);
 
+      if ( (sptr->user) && (sptr->name[0])) /* aClient has a user and nick */
+	{
 	  if(received_random_ping == sptr->random_ping)
 	    {
-	      sptr->flags |= FLAGS_GOT_ANTI_SPOOF_PING;
-
-	      if ((sptr->name[0]) && (sptr->user) )
-		{
-		  if(sptr->user->username[0])
-		    {
-		      (void)del_from_client_hash_table(sptr->name, sptr);
-		  
-		      if (register_user(cptr, sptr, sptr->name,
-					sptr->user->username)
-			  == FLUSH_BUFFER)
-			return FLUSH_BUFFER;
-		  
-		      (void)add_to_client_hash_table(sptr->name, sptr);
-		    }
-		}
+	      sptr->tsinfo = timeofday + timedelta;
+	      (void)del_from_client_hash_table(sptr->name, sptr);
+	      
+	      if (register_user(cptr, sptr, sptr->name,
+				sptr->user->username)
+		  == FLUSH_BUFFER)
+		return FLUSH_BUFFER;
+	      
+	      (void)add_to_client_hash_table(sptr->name, sptr);
 	    }
 	  else
 	    {
 	      return exit_client(cptr,sptr,&me,"Wrong random PONG response");
 	    }
 	}
+      return 0;	/* spurious PONG , ignore it */
     }
 #endif
 

@@ -1009,10 +1009,7 @@ void    send_operwall(aClient *from, char *message)
   else if (*user->host && MyConnect(from))
     {
       (void)strcat(sender, "@");
-      if (IsUnixSocket(from))
-	(void)strcat(sender, user->host);
-      else
-	(void)strcat(sender, from->sockhost);
+      (void)strcat(sender, from->sockhost);
     }
   for (i=oper_fdlist.entry[j=1];j<=oper_fdlist.last_entry;
        i=oper_fdlist.entry[++j])
@@ -1118,10 +1115,7 @@ va_dcl
 	  if (!flag && MyConnect(from) && *user->host)
 	    {
 	      (void)strcat(sender, "@");
-	      if (IsUnixSocket(from))
-		(void)strcat(sender, user->host);
-	      else
-		(void)strcat(sender, from->sockhost);
+	      (void)strcat(sender, from->sockhost);
 	    }
 	  par = sender;
 	}
