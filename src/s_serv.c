@@ -84,6 +84,8 @@ extern void rehash_ip_hash();		/* defined in s_conf.c */
 /* Local function prototypes */
 static int isnumber(char *);	/* return 0 if not, else return number */
 static char *cluster(char *);
+static host_is_legal_dline(char *);	/* return 1 if host is legal IP 
+					   else 0 */
 
 void read_motd(char *);
 
@@ -3521,6 +3523,24 @@ int     m_kline(aClient *cptr,
       return 0;
     }
 
+  /* 
+  ** At this point, I know the user and the host to place the k-line on
+  ** I also know whether its supposed to be a temporary kline or not
+  ** I also know the reason field is clean
+  ** Now what I want to do, is find out if its a kline of the form
+  **
+  ** /quote kline *@192.168.0.* i.e. it should be turned into a d-line instead
+  **
+  */
+
+  if((*user == '*' && *(user+1) == '\0') && host_is_legal_dline(host))
+    {
+      sendto_realops("%s added K-Line [%s@%s] [%s] but should be D-Line",
+                 parv[0], user, host, reason);
+      return place_dline(cptr,sptr,parc,parv,user,host,reason); 
+    }
+
+
 #ifdef NON_REDUNDANT_KLINES
   if( (aconf = find_is_klined(host,user)) )
      {
@@ -3738,6 +3758,51 @@ int     m_kline(aClient *cptr,
 
   return 0;
 #endif /* #ifdef LOCKFILE */
+}
+
+/*
+host_is_legal_dline
+
+inputs		- hostname
+output		- YES if hostname is ip# only NO if its not
+side effects	- NONE
+
+(If you think you've seen this somewhere else, you are right.
+ripped out of tcm-dianora basically)
+
+-Diaora
+*/
+
+static int host_is_legal_dline(char *host_name)
+{
+  int number_of_dots = 0;
+
+  if(*host_name == '.')return(NO);	/* degenerate case */
+  while(*host_name)
+    {
+      if( *host_name == '.' )
+	number_of_dots++;
+      else if(*host_name == '*')
+	{
+	  if(*(host_name+1) == '\0')
+	    {
+	      if(number_of_dots == 3)
+		return(YES);
+	      else
+		return(NO);
+	    }
+	  else
+	    return(NO);
+	}
+      else if(!isdigit(*host_name))
+	return(NO);
+      host_name++;
+    }
+
+  if(number_of_dots == 3 )
+    return(YES);
+  else
+    return(NO);
 }
 
 /*
@@ -4175,17 +4240,10 @@ int     m_dline(aClient *cptr,
 		int parc,
 		char *parv[])
 {
-#if defined(LOCKFILE) && defined(DLINES_IN_KPATH)
-  struct pkl *k;
-#else
-  int out;
-#endif
-  char buffer[1024];
-  char *host, *reason, *p;
-  char *current_date;
+  char *user, *host, *reason;
+  char *p;
   int number_of_dots=0;
   aClient *acptr;
-  aConfItem *aconf;
 
 #ifdef NO_LOCAL_KLINE
   if (!MyClient(sptr) || !IsOper(sptr))
@@ -4287,6 +4345,38 @@ int     m_dline(aClient *cptr,
     }
   else
     reason = "No reason";
+
+
+  /*
+  ** At this point, I know the host to place the d-line on
+  ** I also know the reason field is clean
+  **
+  */
+
+      return place_dline(cptr,sptr,parc,parv,user,host,reason); 
+}
+
+/*
+** place_dline()
+** actual code that places the d-line
+*/
+
+int     place_dline(aClient *cptr,
+		    aClient *sptr,
+		    int parc,
+		    char *parv[],
+		    char *user,
+		    char *host,
+		    char *reason)
+{
+#if defined(LOCKFILE) && defined(DLINES_IN_KPATH)
+  struct pkl *k;
+#else
+  int out;
+#endif
+  char buffer[1024];
+  char *current_date;
+  aConfItem *aconf;
 
 #ifdef NON_REDUNDANT_KLINES
   if( (aconf = find_is_dlined(host)) )

@@ -195,6 +195,7 @@ extern	void	terminate (void), write_pidfile (void);
 
 extern	int	send_queued (aClient *);
 extern  int     send_motd(aClient *,aClient *,int,char **);
+extern  int     place_dline(aClient *,aClient *,int,char **,char*, char*, char*);
 
 /* Missing definitions */
 /*VARARGS*/

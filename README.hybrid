@@ -2,6 +2,7 @@
 - fix to ANTI_IP_SPOOF in s_user.c sent in by jailbird@alcatraz.fdf.net
 - report user doing /motd, removed STATS_FLAG (Dianora)
 - added delay between motd requests (Dianora)
+- kline of *@some ip block is translated into dline (Dianora)
 
 +hybrid-5.3 (6/13/98)
 added NO_CHANOPS_WHEN_SPLIT code back in (Rodder/Dianora)
