@@ -32,16 +32,6 @@ static char *rcs_version="$Id$";
 #include "channel.h"
 #include "h.h"
 
-#ifdef NO_CHANOPS_WHEN_SPLIT
-#include "fdlist.h"
-extern fdlist serv_fdlist;
-
-int server_was_split=NO;
-time_t server_split_time;
-int server_split_recovery_time = (MAX_SERVER_SPLIT_RECOVERY_TIME * 60);
-#define USE_ALLOW_OP
-#endif
-
 #ifdef LITTLE_I_LINES
 #ifndef USE_ALLOW_OP
 #define USE_ALLOW_OP
@@ -1590,30 +1580,6 @@ int spam_num = MAX_JOIN_LEAVE_COUNT;
 	  ** Operator.
 	  */
 	  flags = (ChannelExists(name)) ? 0 : CHFL_CHANOP;
-#ifdef NO_CHANOPS_WHEN_SPLIT
-	  if(!IsAnOper(sptr) && server_was_split && server_split_recovery_time)
-	    {
-	      if( (server_split_time + server_split_recovery_time) < NOW)
-		{
-		  if(serv_fdlist.entry[1] > serv_fdlist.last_entry)
-		    server_was_split = NO;
-		  else
-		    {
-		      server_split_time = NOW;	/* still split */
-		      allow_op = NO;
-		    }
-		}
-	      else
-		{
-		  allow_op = NO;
-		}
-		  if(!IsRestricted(sptr) && !allow_op)
-		      sendto_one(sptr,":%s NOTICE %s :*** Notice -- Due to a network split, you can not obtain channel operator status in a new channel at this time.",
-				 me.name,
-				 sptr->name);
-	    }
-#endif
-
 #ifdef LITTLE_I_LINES
 	  if(!IsAnOper(sptr) && IsRestricted(sptr))
 	    {

@@ -652,13 +652,6 @@
  */
 #define NOISY_HTM YES
 
-/* NO_CHANOP_WHEN_SPLIT
- * When this is defined, users will not be chanopped on empty channels
- * if there are no servers presently connected to this server
- * opers are not affected. 
- */
-#define NO_CHANOPS_WHEN_SPLIT
-
 /* LITTLE_I_LINES
  * yes, a version of ircnet's i: line
  * if you define this, you can use i: lines to give those clients

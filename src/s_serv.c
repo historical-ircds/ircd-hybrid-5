@@ -1222,11 +1222,6 @@ int	m_info(aClient *cptr,
 #else
 	strcpy(outstr,"NON_REDUNDANT_KLINES=0");
 #endif
-#ifdef NO_CHANOPS_WHEN_SPLIT
-        strcat(outstr," NO_CHANOPS_WHEN_SPLIT=1");
-#else
-        strcat(outstr," NO_CHANOPS_WHEN_SPLIT=0");
-#endif
 #ifdef NO_DEFAULT_INVISIBLE
         strcat(outstr," NO_DEFAULT_INVISIBLE=1");
 #else
@@ -2535,10 +2530,6 @@ extern int spam_num;
 extern int spam_time;
 #endif
 
-#ifdef NO_CHANOPS_WHEN_SPLIT
-extern int server_split_recovery_time;
-#endif
-
 /*
  * m_set - set options while running
  */
@@ -2674,36 +2665,6 @@ int   m_set(aClient *cptr,
 	    }
 	}
 #endif
-#ifdef NO_CHANOPS_WHEN_SPLIT
-      else if(!strncasecmp(command, "SPLITDELAY",10))
-	{
-          if(parc > 2)
-            {
-              int newval = atoi(parv[2]);
-
-              if(newval < 0)
-                {
-                  sendto_one(sptr, ":%s NOTICE %s :split delay must be >= 0",
-                             me.name, parv[0]);
-                  return 0;
-                }
-	      if(newval > MAX_SERVER_SPLIT_RECOVERY_TIME)
-		newval = MAX_SERVER_SPLIT_RECOVERY_TIME;
-              sendto_ops("%s has changed spam SERVER SPLIT RECOVERY TIME  to %i", parv[0], newval);
-              sendto_one(sptr, ":%s NOTICE %s :SERVER SPLIT RECOVERY TIME is now set to %i",
-                         me.name, parv[0], newval );
-	      server_split_recovery_time = (newval*60);
-              return 0;
-            }
-	  else
-	    {
-	      sendto_one(sptr, ":%s NOTICE %s :SERVER SPLIT RECOVERY TIME is currently %i",
-			 me.name,
-			 parv[0],
-			 server_split_recovery_time/60);
-	    }
-	}
-#endif
 #ifdef ANTI_SPAMBOT
 /*
 int spam_time = MIN_JOIN_LEAVE_TIME;
@@ -2777,11 +2738,6 @@ int spam_num = MAX_JOIN_LEAVE_COUNT;
 		 me.name, parv[0]);
 #endif
 #ifdef ANTI_SPAMBOT
-      sendto_one(sptr, ":%s NOTICE %s :Options: SPLITDELAY",
-		 me.name, parv[0]);
-
-#endif
-#ifdef NO_CHANOPS_WHEN_SPLIT
       sendto_one(sptr, ":%s NOTICE %s :Options: SPAMNUM, SPAMTIME",
 		 me.name, parv[0]);
 #endif

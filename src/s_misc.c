@@ -52,11 +52,6 @@ static char *rcs_version = "$Id$";
 #include "fdlist.h"
 extern fdlist serv_fdlist;
 
-#ifdef NO_CHANOPS_WHEN_SPLIT
-extern int server_was_split;
-extern time_t server_split_time;
-#endif
-
 static	void	exit_one_client (aClient *,aClient *,aClient *,char *);
 
 static	char	*months[] = {
@@ -390,13 +385,6 @@ char	*comment	/* Reason for the exit */
 	{
 	  Count.myserver--;
 	  delfrom_fdlist(sptr->fd, &serv_fdlist);
-#ifdef NO_CHANOPS_WHEN_SPLIT
-	  if(serv_fdlist.entry[1] <= serv_fdlist.last_entry)
-	    {
-	      server_was_split = YES;
-	      server_split_time = NOW;
-	    }
-#endif
 	}
       sptr->flags |= FLAGS_CLOSING;
       if (IsPerson(sptr))
