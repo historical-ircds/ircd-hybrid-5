@@ -638,7 +638,7 @@ static	int	cancel_clients(aClient *cptr,
    */
   if (IsServer(sptr) || IsMe(sptr))
     {
-      sendto_realops_lev(DEBUG_LEV, "Message (%s) for %s[%s] from %s", cmd,
+      sendto_realops_lev(DEBUG_LEV, "Message for %s[%s] from %s",
 			 sptr->name, sptr->from->name,
 			 get_client_name(cptr, TRUE));
       if (IsServer(cptr))
