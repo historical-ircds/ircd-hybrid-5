@@ -1596,7 +1596,7 @@ nickkilldone:
       /* A server introducing a new client, change source */
       
       sptr = make_client(cptr);
-      add_client_to_list(sptr);
+      add_client_to_list(sptr);		/* double linked list */
       if (parc > 2)
 	sptr->hopcount = atoi(parv[2]);
       if (newts)
@@ -1885,6 +1885,16 @@ static	int	m_message(aClient *cptr,
 		     acptr->user->away);
 	sendto_prefix_one(acptr, sptr, ":%s %s %s :%s",
 			  parv[0], cmd, nick, parv[2]);
+
+#ifdef	IDLE_CHECK
+	/* reset idle time for message only if its not to self */
+	if (sptr != acptr)
+	  {
+	    if(sptr->user)
+	      sptr->user->last = timeofday;
+	  }
+#endif
+
 #ifdef        EXTRA_BOT_NOTICES
 	if (sptr == acptr)      /* msging self */
 	  {
@@ -1902,6 +1912,14 @@ static	int	m_message(aClient *cptr,
 
 	continue;
       }
+#ifdef	IDLE_CHECK
+    else
+      {
+	/* reset idle time for message only if target exists */
+	if(sptr->user)
+	  sptr->user->last = timeofday;
+      }
+#endif
     /*
     ** channel msg?
     */

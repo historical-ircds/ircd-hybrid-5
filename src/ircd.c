@@ -533,6 +533,8 @@ static	time_t	check_pings(time_t currenttime)
 	      aconf->port = 0;
 	      aconf->hold = timeofday + 60;
 	      add_temp_kline(aconf);
+	      sendto_ops("Idle exceeder %s temp k-lining",
+			 get_client_name(cptr,FALSE));
 	      continue;		/* and go examine next fd/cptr */
 	    }
 	}

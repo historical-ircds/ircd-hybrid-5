@@ -165,17 +165,28 @@ extern int m_set(aClient *,aClient *,int,char **);
 #ifdef MSGTAB
 
 struct Message msgtab[] = {
-#ifdef IDLE_FROM_MSG
+#ifdef IDLE_FROM_MSG	/* reset idle time only if privmsg used */
+#ifdef IDLE_CHECK	/* reset idle time only if valid target for privmsg
+			   and target is not source */
+
   /*                                        |-- allow use even when unreg.
 					    v	yes/no			*/
+  { MSG_PRIVATE, m_private,  0, MAXPARA, 1, 0, 0, 0L },
+#else
   { MSG_PRIVATE, m_private,  0, MAXPARA, 1, 0, 1, 0L },
+#endif
+
   /*                                           ^
 					       |__ reset idle time when 1 */
+#else	/* IDLE_FROM_MSG */
+#ifdef	IDLE_CHECK	/* reset idle time on anything but privmsg */
+  { MSG_PRIVATE, m_private,  0, MAXPARA, 1, 0, 1, 0L },
 #else
   { MSG_PRIVATE, m_private,  0, MAXPARA, 1, 0, 0, 0L },
   /*                                           ^
 					       |__ reset idle time when 0 */
-#endif
+#endif	/* IDLE_CHECK */
+#endif	/* IDLE_FROM_MSG */
 
   { MSG_NICK,    m_nick,     0, MAXPARA, 1, 1, 0, 0L },
   { MSG_NOTICE,  m_notice,   0, MAXPARA, 1, 0, 0, 0L },

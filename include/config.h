@@ -592,11 +592,10 @@
  */
 #undef	CRYPT_LINK_PASSWORD
 
-/* IDLE_FROM_MSG - Idle-time nullified only from privmsg
- * Idle-time nullified only from privmsg, if undefined idle-time
- * is nullified from everything except ping/pong.
+/* IDLE_FROM_MSG - Idle-time reset only from privmsg
+ * Idle-time reset only from privmsg, if undefined idle-time
+ * is reset from everything except ping/pong.
  * 
- * LEAVE THIS DEFINED!  undefining it has "broken" results
  */
 #define IDLE_FROM_MSG
 
@@ -670,7 +669,9 @@
  * This adds some CPU... you might not want to use this on a large server.
  * However, if defined, and a client is discovered idling more than
  * IDLE_TIME minutes, it is t-klined for 1 minute to discourage
- * reconnects.
+ * reconnects. The idle time is settable via /quote set
+ * /quote set idletime
+ *
  * -Dianora
  */
 #define IDLE_CHECK
