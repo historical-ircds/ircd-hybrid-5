@@ -1,4 +1,6 @@
-+hybrid-5.3DEV (7/6/98)
++hybrid-5.4 (7/8/98)
+- reworked s_err.c/numeric.h no more CUSTOM_ERR for now (Dianora)
+- added hash debug on /quote hash (Dianora)
 - d-line hash, use a hash table for numeric ip's allows use of CIDR style
 masks in /quote dlines i.e. "/quote dline 192.168.1.0/30 :test" (Dianora)
 - fix to ANTI_IP_SPOOF in s_user.c sent in by jailbird@alcatraz.fdf.net

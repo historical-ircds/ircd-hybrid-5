@@ -945,14 +945,14 @@ static	int	register_user(aClient *cptr,
 		  /* This is a duplicate of the NOTICE but see below...*/
 		  sendto_one(sptr, rpl_str(RPL_YOURHOST), me.name, nick,
 			     get_client_name(&me, FALSE), version);
-#ifdef	IRCII_KLUDGE
+
 		  /*
 		  ** Don't mess with this one - IRCII needs it! -Avalon
 		  */
 		  sendto_one(sptr,
 			     "NOTICE %s :*** Your host is %s, running version %s",
 			     nick, get_client_name(&me, FALSE), version);
-#endif
+
 		  sendto_one(sptr, rpl_str(RPL_CREATED),me.name,nick,creation);
 		  sendto_one(sptr, rpl_str(RPL_MYINFO), me.name, parv[0],
 			     me.name, version);

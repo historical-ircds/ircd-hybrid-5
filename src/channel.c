@@ -868,10 +868,6 @@ static	int	set_mode(aClient *cptr,
 	      {
                 if(MyClient(sptr))
 		  {
-		    ircstp->is_kill++;
-		    sendto_one(sptr,
-                    ":%s KILL %s :Trying to abuse +k bug", me.name, sptr->name);
-		    sptr->flags |= FLAGS_KILLED;
                     return exit_client(sptr, sptr, &me,
                                   "Trying to abuse +k bug");
  		  }

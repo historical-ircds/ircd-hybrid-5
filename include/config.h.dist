@@ -173,16 +173,6 @@
  */
 #define WARN_NO_NLINE
 
-/* CUSTOM_ERR - colorful notice/error/messages
- * Defining this will use custom notice/error/messages from include/s_err.h
- * instead of stock ones in ircd/s_err.c.  If you prefer the "colorful"
- * messages that Hybrid was known for, or if you wish to customize the
- * messages, define this.  Otherwise leave it undef'd for plain ole
- * boring messages.
- */
-#undef CUSTOM_ERR
-
-
 /* FAILED_OPER_NOTICE - send a notice to all opers when someone
  * tries to /oper and uses an incorrect password.
  */
@@ -884,23 +874,25 @@
 */
 #define HYBRID_SOMAXCONN 25
 
-
-/* ----------------- archaic and/or broken secion -------------------- */
-
 /* ANTI_IP_SPOOF - protects against TCP sequence guessing attacks
  * Define this if you want the server to send a random ping at USER or NICK
  * to defeat IP sequence spoofers. Note, this will stop _some_ very few
  * clients from using the server. MIRC/IRCII clients are fine with this though
  *
- * N.B. This code would be totally unnecessary if you only get
+ * N.B. This code would be totally unnecessary if you get
  * the proper anti-sequence prediction patches from your OS vendor,
  * but if you absolutely need this until you do, here it is.
  *
- * this code isn't ready for primetime yet, it's guaranteed to make
- * your ircd dump core.
- *
  */
 #undef ANTI_IP_SPOOF
+
+/* DEBUGMODE is used mostly for internal development, it is likely
+ * to make your client server very sluggish.
+ * You usually shouldn't need this. -db
+*/
+#undef  DEBUGMODE               /* define DEBUGMODE to enable debugging mode.*/
+
+/* ----------------- archaic and/or broken secion -------------------- */
 
 /* GLINES - global Kline-like bans
  * Define this if you want GLINE support
@@ -946,12 +938,6 @@
  * You may want to define IRC_UID and IRC_GID
  */
 #undef CHROOTDIR
-
-/* DEBUGMODE is used mostly for internal development, it is likely
- * to make your client server very sluggish.
- * You usually shouldn't need this. -db
-*/
-#undef  DEBUGMODE               /* define DEBUGMODE to enable debugging mode.*/
 
 /*
  * NOTE: On some systems, valloc() causes many problems.

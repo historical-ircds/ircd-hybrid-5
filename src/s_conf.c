@@ -71,7 +71,7 @@ extern  void    outofmemory(void);	/* defined in list.c */
 */
 
 #define IP_HASH_SIZE 0x1000
-#define DLINE_HASH_SIZE 0x8000
+#define DLINE_HASH_SIZE 0x1000
 
 typedef struct ip_entry
 {
@@ -475,6 +475,39 @@ void count_ip_hash(int *number_ips_stored,u_long *mem_ips_stored)
 
           ip_hash_ptr = ip_hash_ptr->next;
         }
+    }
+}
+
+/*
+dhash_stats()
+
+inputs		- 
+output		-
+side effects
+*/
+
+void iphash_stats(aClient *cptr, aClient *sptr,int parc, char *parv[])
+{
+  IP_ENTRY *ip_hash_ptr;
+  int i;
+  int collision_count;
+
+  sendto_one(sptr,":%s NOTICE %s :*** hash stats for iphash",
+	     me.name,cptr->name);
+
+  for(i = 0; i < IP_HASH_SIZE ;i++)
+    {
+      ip_hash_ptr = ip_hash_table[i];
+
+      collision_count = 0;
+      while(ip_hash_ptr)
+	{
+          collision_count++;
+	  ip_hash_ptr = ip_hash_ptr->next;
+	}
+      if(collision_count)
+        sendto_one(sptr,":%s NOTICE %s :Entry %d (0x%X) Collisions %d",
+		 me.name,cptr->name,i,i,collision_count);
     }
 }
 
@@ -2829,7 +2862,7 @@ output		-
 side effects
 */
 
-int report_dline_hash(aClient *sptr, int numeric)
+void report_dline_hash(aClient *sptr, int numeric)
 {
   aConfItem *tmp;
   int i;
@@ -2858,5 +2891,46 @@ int report_dline_hash(aClient *sptr, int numeric)
 	}
     }
 
+}
+
+/*
+dhash_stats()
+
+inputs		- 
+output		-
+side effects
+*/
+
+void dhash_stats(aClient *cptr, aClient *sptr,int parc, char *parv[])
+{
+  aConfItem *tmp;
+  int i;
+  DLINE_ENTRY *p;
+  int collision_count;
+
+  sendto_one(sptr,":%s NOTICE %s :*** hash stats for dhash",
+	     me.name,cptr->name);
+
+  for(i = 0; i < DLINE_HASH_SIZE; i++)
+    {
+      p = dline_hash_table[i];
+
+      collision_count = 0;
+      while(p)
+	{
+	  tmp = p->conf_entry;
+	  if (tmp == (aConfItem *)NULL)
+	    {
+	      collision_count++;
+	      p = p->next;
+	      continue;
+	    }
+          collision_count++;
+	  p = p->next;
+	}
+      if(collision_count)
+        sendto_one(sptr,":%s NOTICE %s :Entry %d (0x%X) Collisions %d",
+		 me.name,cptr->name,i,i,collision_count);
+    }
 }
 

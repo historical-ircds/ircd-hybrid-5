@@ -26,12 +26,16 @@ static char *rcs_version = "$Id$";
 #include "struct.h"
 #include "common.h"
 #include "sys.h"
+#include "numeric.h"
+#include "msg.h"
 #include "hash.h"
 #include "h.h"
 
 static	aHashEntry	clientTable[U_MAX];
 static	aHashEntry	channelTable[CH_MAX];
 
+static void client_stats(aClient *,aClient*,int,char**);
+static void channel_stats(aClient *,aClient*,int,char**);
 /*
 
 look in whowas.c for the missing ...[WW_MAX]; entry
@@ -399,13 +403,115 @@ aChannel	*hash_find_channel(char *name,aChannel *chptr)
  *       algorithm to be sought if this one becomes troublesome.
  *       -avalon
  *
- * Needs rewriting for DOUGH_HASH, consider this a place holder
- * until thats done. Hopefully for hybrid-5, if not. tough. 
- * - Dianora
-
+ * partially rewritten (finally) -Dianora
  */
 
 int	m_hash(aClient *cptr,aClient *sptr,int parc,char *parv[])
 {
+  char *command;
+
+   if (!MyClient(sptr) || !IsOper(sptr))
+    {
+      sendto_one(sptr, err_str(ERR_NOPRIVILEGES), me.name, parv[0]);
+      return 0;
+    }
+
+  if (parc > 1)
+    {
+      command = parv[1];
+      if(!strcmp(command,"dhash"))
+        dhash_stats(cptr,sptr,parc,parv);
+      else if(!strcmp(command,"iphash"))
+	iphash_stats(cptr,sptr,parc,parv);
+      else if(!strcmp(command,"client"))
+	client_stats(cptr,sptr,parc,parv);
+      else if(!strcmp(command,"channel"))
+	channel_stats(cptr,sptr,parc,parv);
+    }
+  else
+    {
+      sendto_one(sptr, ":%s NOTICE %s :hash [dhash|iphash|client|channel|dump]",
+        me.name, parv[0]);
+    }
+
   return 0;
 }
+
+/*
+client_stats()
+
+inputs		- 
+output		-
+side effects
+*/
+
+static void client_stats(aClient *cptr, aClient *sptr,int parc, char *parv[])
+{
+  int i;
+  aHashEntry *p;
+  aClient *client_ptr;
+  int collision_count;
+
+  sendto_one(sptr,":%s NOTICE %s :*** hash stats for client",
+	     me.name,cptr->name);
+
+  for(i = 0; i < U_MAX; i++)
+    {
+      p = &clientTable[i];
+
+      collision_count = 0;
+      if(p->list)
+	{
+	  client_ptr = (aClient *)p->list;
+	  collision_count++;
+	  while(client_ptr->hnext)
+	    {
+	      collision_count++;
+	      client_ptr = client_ptr->hnext;
+	    }
+	}
+      if(collision_count)
+        sendto_one(sptr,":%s NOTICE %s :Entry %d (0x%X) Collisions %d",
+		   me.name,cptr->name,i,i,collision_count);
+    }
+}
+
+/*
+channel_stats()
+
+inputs		- 
+output		-
+side effects
+*/
+
+static void channel_stats(aClient *cptr, aClient *sptr,int parc, char *parv[])
+{
+  int i;
+  aHashEntry *p;
+  aChannel *channel_ptr;
+  int collision_count;
+
+  sendto_one(sptr,":%s NOTICE %s :*** hash stats for channel",
+	     me.name,cptr->name);
+
+  for(i = 0; i < CH_MAX; i++)
+    {
+      p = &channelTable[i];
+
+      collision_count = 0;
+      if(p->list)
+	{
+	  channel_ptr = (aChannel *)p->list;
+	  collision_count++;
+	  while(channel_ptr->hnextch)
+	    {
+	      collision_count++;
+	      channel_ptr = channel_ptr->hnextch;
+	    }
+	}
+      if(collision_count)
+        sendto_one(sptr,":%s NOTICE %s :Entry %d (0x%X) Collisions %d",
+		   me.name,cptr->name,i,i,collision_count);
+    }
+}
+
