@@ -1672,7 +1672,10 @@ int spam_num = MAX_JOIN_LEAVE_COUNT;
       */
       if (MyClient(sptr) && flags == CHFL_CHANOP)
 	{
-	  chptr->channelts = timeofday;
+	  if((chptr->channelts = timeofday) < (time_t)887300000)
+	    ts_warn("Setting insane TS (%ld) for %s", chptr->channelts,
+			chptr->chname);
+	      
 #ifdef USE_ALLOW_OP
 	  if(allow_op)
 	    sendto_match_servs(chptr, cptr,
