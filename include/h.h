@@ -333,9 +333,9 @@ extern	void	send_listinfo (aClient *, char *);
 extern	void	count_memory (aClient *, char *);
 #endif
 
+/* iphash code */
 void remove_one_ip(unsigned long);
 void clear_ip_hash_table(void);
-void rehash_ip_hash(void);
 
 #ifdef FLUD
 int	check_for_ctcp();

@@ -674,7 +674,7 @@ static	int	cancel_clients(aClient *cptr,
       {
 	if (sptr->user)
 	  sendto_realops_lev(DEBUG_LEV,
-	      "Message (%s) for %s[%s@%s!%s] from %s (TS, ignored)", cmd,
+	      "Message for %s[%s@%s!%s] from %s (TS, ignored)",
 			     sptr->name, sptr->user->username, sptr->user->host,
 			   sptr->from->name, get_client_name(cptr, TRUE));
 	return 0;
@@ -683,7 +683,7 @@ static	int	cancel_clients(aClient *cptr,
       {
 	if (sptr->user)
 	  sendto_realops_lev(DEBUG_LEV,
-			     "Message (%s) for %s[%s@%s!%s] from %s", cmd,
+			     "Message for %s[%s@%s!%s] from %s",
 			   sptr->name, sptr->user->username, sptr->user->host,
 			   sptr->from->name, get_client_name(cptr, TRUE));
 	sendto_serv_butone(NULL,

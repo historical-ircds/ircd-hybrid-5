@@ -330,14 +330,11 @@ static IP_ENTRY *find_or_add_ip(unsigned long ip_in)
 
   if ( (ptr = ip_hash_table[hash_index]) != (IP_ENTRY *)NULL )
     {
-      if( free_ip_entries == (IP_ENTRY *)NULL)	/* it might be recoverable */
+      if( free_ip_entries == (IP_ENTRY *)NULL)
 	{
 	  sendto_ops("s_conf.c free_ip_entries was found NULL in find_or_add");
-	  sendto_ops("rehash_ip was done, this is an error.");
 	  sendto_ops("Please report to the hybrid team! ircd-hybrid@vol.com");
-	  rehash_ip_hash();
-	  if(free_ip_entries == (IP_ENTRY *)NULL)
-	    outofmemory();
+	  outofmemory();
 	}
 
       newptr = ip_hash_table[hash_index] = free_ip_entries;
@@ -350,14 +347,11 @@ static IP_ENTRY *find_or_add_ip(unsigned long ip_in)
     }
   else
     {
-      if( free_ip_entries == (IP_ENTRY *)NULL)  /* it might be recoverable */
+      if( free_ip_entries == (IP_ENTRY *)NULL)
         {
           sendto_ops("s_conf.c free_ip_entries was found NULL in find_or_add");
-          sendto_ops("rehash_ip was done, this is an error.");
           sendto_ops("Please report to the hybrid team! ircd-hybrid@vol.com");
-          rehash_ip_hash();
-          if(free_ip_entries == (IP_ENTRY *)NULL)
-            outofmemory();
+          outofmemory();
         }
 
       ptr = ip_hash_table[hash_index] = free_ip_entries;
@@ -508,67 +502,6 @@ void iphash_stats(aClient *cptr, aClient *sptr,int parc, char *parv[])
       if(collision_count)
         sendto_one(sptr,":%s NOTICE %s :Entry %d (0x%X) Collisions %d",
 		 me.name,cptr->name,i,i,collision_count);
-    }
-}
-
-/*
-rehash_ip_hash
-
-inputs		- NONE
-output		- NONE
-side effects	- 
-
-This function clears the ip hash table, then re-enters all the ip's
-found in local clients.
-
-N.B. This should never have to be called, and hopefully, we can remove
-this function in future versions of hybrid. i.e. if everything is working
-right, there should never ever be a case where an IP is still in the ip_hash
-table and the corresponding client isn't.
-
-*/
-
-void rehash_ip_hash()
-{
-  IP_ENTRY *ip_hash_ptr;
-  IP_ENTRY *tmp_ip_hash_ptr;
-  IP_ENTRY *old_free_ip_entries;
-  int i;
-
-  /* first, clear the ip hash */
-
-  for(i = 0; i < IP_HASH_SIZE ;i++)
-    {
-      ip_hash_ptr = ip_hash_table[i];
-      while(ip_hash_ptr)
-        {
-	  tmp_ip_hash_ptr = ip_hash_ptr->next;
-	  if(free_ip_entries)
-	    {
-	      old_free_ip_entries = free_ip_entries;
-	      free_ip_entries = ip_hash_ptr;
-	      ip_hash_ptr->next = old_free_ip_entries;
-	    }
-	  else
-	    {
-	      free_ip_entries = ip_hash_ptr;
-	      ip_hash_ptr->next = (IP_ENTRY *)NULL;
-	    }
-          ip_hash_ptr = tmp_ip_hash_ptr;
-        }
-      ip_hash_table[i] = (IP_ENTRY *)NULL;
-    }
-
-  for (i = highest_fd; i >= 0; i--)
-    {
-      if (local[i] && MyClient(local[i]))
-	{
-          if(local[i]->fd >= 0)
-	    {
-	      ip_hash_ptr = find_or_add_ip(local[i]->ip.s_addr);
-              ip_hash_ptr->count++;
-            }
-        }
     }
 }
 

@@ -679,7 +679,13 @@ static	int	register_user(aClient *cptr,
 #ifdef BOTCHECK
 	  !isbot &&
 #endif /* BOTCHECK */
-	  (sptr->fd >= (MAXCLIENTS+MAX_BUFFER))) || ((sptr->fd >= (MAXCLIENTS - 5)) && !(find_fline(sptr))))
+          ((Count.local + 1) >= (MAXCLIENTS+MAX_BUFFER))) ||
+            (((Count.local +1) >= (MAXCLIENTS - 5)) && !(find_fline(sptr))))
+/*
+	  (sptr->fd >= (MAXCLIENTS+MAX_BUFFER))) ||
+             ((sptr->fd >= (MAXCLIENTS - 5)) && !(find_fline(sptr))))
+*/
+
     {
       sendto_realops_lev(FULL_LEV, "Too many clients, rejecting %s[%s].",
 			 nick, sptr->sockhost);

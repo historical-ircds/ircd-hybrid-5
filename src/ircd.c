@@ -1299,7 +1299,9 @@ time_t io_loop(time_t delay)
     }
   if((timeofday = time(NULL)) == -1)
     {
+#ifdef USE_SYSLOG
       syslog(LOG_WARNING, "Clock Failure (%d), TS can be corrupted", errno);
+#endif
       sendto_ops("Clock Failure (%d), TS can be corrupted", errno);
     }
 

@@ -79,7 +79,6 @@ extern void report_conf_links(aClient *, aConfList *, int, char);
 extern void show_opers(aClient *,char *);
 extern void show_servers(aClient *,char *);
 extern void count_memory(aClient *,char *);
-extern void rehash_ip_hash();		/* defined in s_conf.c */
 
 /* Local function prototypes */
 static int isnumber(char *);	/* return 0 if not, else return number */
@@ -4609,14 +4608,6 @@ int	m_rehash(aClient *cptr,
           read_motd(MOTD);
 	  return(0);
         }
-      else if(mycmp(parv[1],"IP") == 0)
-	{
-	  sendto_one(sptr, rpl_str(RPL_REHASHING), me.name, parv[0], "ip hash");
-	  rehash_ip_hash();
-	  sendto_ops("%s is rehashing iphash while whistling innocently",
-		 parv[0]);
-	  return 0;
-	}
     }
   else
     {

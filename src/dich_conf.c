@@ -123,11 +123,7 @@ void report_conf_links(aClient *sptr,
 		       pass, name, port, get_conf_class(tmp));
 #endif
 	  else
-	    if (tmp->status == CONF_DLINE)
-	      sendto_one(sptr, rpl_str(numeric), me.name,
-			 sptr->name, c, host, pass);
-	    else
-	      sendto_one(sptr, rpl_str(numeric), me.name,
+	    sendto_one(sptr, rpl_str(numeric), me.name,
 			 sptr->name, c, host, name, port,
 			 get_conf_class(tmp));
 	}

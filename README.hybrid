@@ -1,9 +1,12 @@
 +hybrid-5.4 (7/8/98)
+- fixed missing USE_SYLOG in ircd.c (ThemBones)
+- use Count.local instead of sptr->fd in s_user for SET MAX (ThemBones)
+- remove unnecessary report if for D lines in dich_conf.c (Dianora)
 - reworked s_err.c/numeric.h no more CUSTOM_ERR for now (Dianora)
 - added hash debug on /quote hash (Dianora)
 - d-line hash, use a hash table for numeric ip's allows use of CIDR style
 masks in /quote dlines i.e. "/quote dline 192.168.1.0/30 :test" (Dianora)
-- fix to ANTI_IP_SPOOF in s_user.c sent in by jailbird@alcatraz.fdf.net
+- fix to ANTI_IP_SPOOF in s_user.c (jailbird@alcatraz.fdf.net)
 - report user doing /motd, removed STATS_FLAG (Dianora)
 - added delay between motd requests (Dianora)
 - kline of *@some ip block is translated into dline (Dianora)
