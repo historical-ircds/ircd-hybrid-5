@@ -2029,18 +2029,15 @@ int	m_whois(aClient *cptr,
 	   * - only send replies about common or public channels
 	   *   the target user(s) are on;
 	   */
-#ifdef ANTI_IP_SPOOF
+
+/* If its an unregistered client, ignore it, it can
+   be "seen" on a /trace anyway  -Dianora */
+
           if(!IsRegistered(acptr))
-	    {
-	      user = &UnknownUser;
-	      name = "?";
-	    }
-	  else
-#endif
-	    {
-              user = acptr->user ? acptr->user : &UnknownUser;
-	      name = (!*acptr->name) ? "?" : acptr->name;
-            }
+	    continue;
+
+          user = acptr->user ? acptr->user : &UnknownUser;
+	  name = (!*acptr->name) ? "?" : acptr->name;
 	  invis = IsInvisible(acptr);
 	  member = (user->channel) ? 1 : 0;
 	  showperson = (wilds && !invis && !member) || !wilds;
