@@ -796,8 +796,12 @@ static	int	register_user(aClient *cptr,
 		   }
 #endif /* REJECT_IPHONE */
 		sendto_realops_lev(CCONN_LEV,
-				   "Client connecting: %s (%s@%s) [%s]", nick,
-				   user->username, user->host,sptr->hostip);
+				   "Client connecting: %s (%s@%s) [%s] {%d}",
+				   nick,
+				   user->username,
+				   user->host,
+				   sptr->hostip,
+				   get_client_class(sptr));
 		if ((++Count.local) > Count.max_loc)
 		  {
 		    Count.max_loc = Count.local;
@@ -2011,6 +2015,97 @@ int	m_whois(aClient *cptr,
       */
       if (!MyConnect(sptr) && wilds)
 	continue;
+
+      /* If the nick doesn't have any wild cards in it,
+	 then just pick it up from the hash table
+	 - Dianora */
+
+      if(!wilds)
+	{
+	  acptr = hash_find_client(nick,(aClient *)NULL);
+	  if(!acptr)
+	    {
+	      sendto_one(sptr, err_str(ERR_NOSUCHNICK),
+			 me.name, parv[0], nick);
+	      continue;
+	    }
+
+          user = acptr->user ? acptr->user : &UnknownUser;
+	  name = (!*acptr->name) ? "?" : acptr->name;
+	  invis = IsInvisible(acptr);
+	  member = (user->channel) ? 1 : 0;
+
+	  a2cptr = find_server(user->server, NULL);
+	  
+	  sendto_one(sptr, rpl_str(RPL_WHOISUSER), me.name,
+		     parv[0], name,
+		     user->username, user->host, acptr->info);
+
+	  mlen = strlen(me.name) + strlen(parv[0]) + 6 +
+	    strlen(name);
+	  for (len = 0, *buf = '\0', lp = user->channel; lp;
+	       lp = lp->next)
+	    {
+	      chptr = lp->value.chptr;
+	      if (ShowChannel(sptr, chptr))
+		{
+		  if (len + strlen(chptr->chname)
+		      > (size_t) BUFSIZE - 4 - mlen)
+		    {
+		      sendto_one(sptr,
+				 ":%s %d %s %s :%s",
+				 me.name,
+				 RPL_WHOISCHANNELS,
+				 parv[0], name, buf);
+		      *buf = '\0';
+		      len = 0;
+		    }
+		  if (is_chan_op(acptr, chptr))
+		    *(buf + len++) = '@';
+		  else if (has_voice(acptr, chptr))
+		    *(buf + len++) = '+';
+		  if (len)
+		    *(buf + len) = '\0';
+		  (void)strcpy(buf + len, chptr->chname);
+		  len += strlen(chptr->chname);
+		  (void)strcat(buf + len, " ");
+		  len++;
+		}
+	    }
+	  if (buf[0] != '\0')
+	    sendto_one(sptr, rpl_str(RPL_WHOISCHANNELS),
+		       me.name, parv[0], name, buf);
+	  
+	  sendto_one(sptr, rpl_str(RPL_WHOISSERVER),
+		     me.name, parv[0], name, user->server,
+		     a2cptr?a2cptr->info:"*Not On This Net*");
+
+	  if (user->away)
+	    sendto_one(sptr, rpl_str(RPL_AWAY), me.name,
+		       parv[0], name, user->away);
+
+	  if (IsAnOper(acptr))
+	    sendto_one(sptr, rpl_str(RPL_WHOISOPERATOR),
+		       me.name, parv[0], name);
+#ifdef WHOIS_NOTICE
+	  if ((MyOper(acptr)) && ((acptr)->flags & FLAGS_SPY) &&
+	      (MyConnect(sptr)) && (IsPerson(sptr)) && (acptr != sptr))
+	    sendto_one(acptr,
+		       ":%s NOTICE %s :*** Notice -- %s (%s@%s) is doing a /whois on you.",
+		       me.name, acptr->name, parv[0], sptr->user->username,
+		       sptr->user->host);
+#endif /* #ifdef WHOIS_NOTICE */
+
+
+	  if (acptr->user && MyConnect(acptr))
+	    sendto_one(sptr, rpl_str(RPL_WHOISIDLE),
+		       me.name, parv[0], name,
+		       timeofday - user->last,
+		       acptr->firsttime);
+	    
+	  continue;
+	}
+
       for (acptr = client; (acptr = next_client(acptr, nick));
 	   acptr = acptr->next)
 	{
