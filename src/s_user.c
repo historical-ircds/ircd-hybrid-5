@@ -2736,8 +2736,13 @@ int	m_oper(aClient *cptr,
       char *s;
       
       s = index(aconf->host, '@');
-      if(s)
-        *s++ = '\0';
+      if(s == (char *)NULL)
+        {
+          sendto_one(sptr, err_str(ERR_NOOPERHOST), me.name, parv[0]);
+          sendto_realops("corrupt aconf->host = [%s]",aconf->host);
+          return 0;
+        }
+      *s++ = '\0';
 #ifdef	OPER_REMOTE
       if (aconf->status == CONF_LOCOP)
 #else
@@ -2754,8 +2759,7 @@ int	m_oper(aClient *cptr,
 	    sptr->flags |= (OPER_UMODES);
 	  }
       Count.oper++;
-      if(s)
-        *--s =  '@';
+      *--s =  '@';
       addto_fdlist(sptr->fd, &oper_fdlist);
       sendto_ops("%s (%s@%s) is now operator (%c)", parv[0],
 		 sptr->user->username, sptr->sockhost,

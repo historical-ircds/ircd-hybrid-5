@@ -863,16 +863,15 @@ aConfItem *find_conf_ip(Link *lp,char *ip,char *user, int statmask)
       if (!(tmp->status & statmask))
 	continue;
       s = index(tmp->host, '@');
-      if(s)
-	*s = '\0';
+      if(s == (char *)NULL)
+	continue;
+      *s = '\0';
       if (match(tmp->host, user))
 	{
-	  if(s)
-	    *s = '@';
+	  *s = '@';
 	  continue;
 	}
-      if(s)
-	*s = '@';
+      *s = '@';
       if (!bcmp((char *)&tmp->ipnum, ip, sizeof(struct in_addr)))
 	return tmp;
     }
