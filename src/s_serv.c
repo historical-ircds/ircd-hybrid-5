@@ -85,6 +85,8 @@ extern void rehash_ip_hash();		/* defined in s_conf.c */
 /* Local function prototypes */
 static int isnumber(char *);	/* return 0 if not, else return number */
 static char *cluster(char *);
+static int wallops_from_oper(char *);
+
 void read_motd(char *);
 
 #ifdef GLINES
@@ -1176,11 +1178,6 @@ int	m_info(aClient *cptr,
 #endif
 	sendto_one(sptr, rpl_str(RPL_INFO),
 		me.name, parv[0], outstr);
-#ifdef LINKS_NOTICE
-	strcpy(outstr,"LINKS_NOTICE=1");
-#else
-	strcpy(outstr,"LINKS_NOTICE=0");
-#endif
 #ifdef LINK_WAIT
 	strcat(outstr," LINK_WAIT=1");
 #else
@@ -2324,16 +2321,29 @@ int     m_wallops(aClient *cptr,
      -Dianora
   */
 
-  if(IsServer(cptr))
-    sendto_wallops_butone(cptr, sptr,
-			    ":%s WALLOPS :%s", parv[0], message);
-  else
+  if(sptr->user)
+    {
+      sendto_ops("sptr->user->username=[%s]",sptr->user->username);
+    }
+  sendto_ops("sptr->name=[%s]",sptr->name);
+  sendto_ops("cptr->name=[%s]",cptr->name);
+
+
+  if(!IsServer(sptr))
     {
       send_operwall(sptr, "WALLOPS", message);
       sendto_serv_butone( NULL, ":%s WALLOPS :%s", parv[0], message);
     }
-
+  else
+    sendto_wallops_butone(cptr, sptr,
+			    ":%s WALLOPS :%s", parv[0], message);
   return 0;
+}
+
+int wallops_from_oper(char *message)
+{
+  sendto_ops("wallops_from_oper = [%s]",message);
+  return (0);
 }
 
 /*
@@ -3009,12 +3019,13 @@ int     m_gline(aClient *cptr,
 		       host);
 	  return 0;
 	}
+
       oper_nick = sptr->name;
       oper_username = sptr->username;
       oper_host = sptr->user->host;
       oper_server = sptr->user->server;
 
-      sendto_serv_butone(NULL, ":%s GLINE %s %s %s %s %s :%s",
+      sendto_serv_butone(NULL, ":%s GLINE %s %s :%s",
 			 me.name,
 			 user,
 			 host,
@@ -3032,22 +3043,21 @@ int     m_gline(aClient *cptr,
       if(parc < 8)
 	return 0;
 
-
       user = parv[1];
       host = parv[2];
       oper_nick = parv[3];
       oper_username = parv[4];
       oper_host = parv[5];
-      reason = parv[6];
-      oper_server = parv[7];
+      oper_server = parv[6];
+      reason = parv[7];
 
-      sendto_serv_butone(sptr, ":%s GLINE %s %s %s %s %s :%s",
+      sendto_serv_butone(sptr, ":%s GLINE %s %s :%s",
                          me.name,
                          user,
                          host,
-                         oper_nick,
-                         oper_username,
-                         oper_host,
+			 oper_nick,
+			 oper_username,
+			 oper_host,
 			 oper_server,
                          reason);
     }

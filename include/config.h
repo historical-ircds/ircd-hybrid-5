@@ -358,8 +358,8 @@
 #define STATS_NOTICE
 
 /* LINKS_NOTICE - See a notice when a user does a /links
+ * its always defined now
  */
-#define LINKS_NOTICE
 
 /* LINK_WAIT - minimum seconds between use of LINKS
  * Allow a links request only every LINK_WAIT seconds to
