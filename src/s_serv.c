@@ -1526,18 +1526,23 @@ int	m_info(aClient *cptr,
 #else
 #define OUT1 "USE_FAST_FD_ISSET=0"
 #endif
-#ifdef USE_SYSLOG
-#define OUT2 " USE_SYSLOG=1"
+#ifdef USE_LINKLIST
+#define OUT2 " USE_LINKLIST=1"
 #else
-#define OUT2 " USE_SYSLOG=0"
+#define OUT2 " USE_LINKLIST=0"
+#endif
+#ifdef USE_SYSLOG
+#define OUT3 " USE_SYSLOG=1"
+#else
+#define OUT3 " USE_SYSLOG=0"
 #endif
 #ifdef USE_UH
-#define OUT3 " USE_UH=1"
+#define OUT4 " USE_UH=1"
 #else
-#define OUT3 " USE_UH=0"
+#define OUT4 " USE_UH=0"
 #endif
 	sendto_one(sptr, rpl_str(RPL_INFO),
-		me.name, parv[0], OUT1 OUT2 OUT3);
+		me.name, parv[0], OUT1 OUT2 OUT3 OUT4);
 
 #undef OUT1
 #undef OUT2
@@ -1588,13 +1593,6 @@ int	m_info(aClient *cptr,
         ircsprintf(outstr,"TS_MAX_DELTA=%d TS_WARN_DELTA=%d",TS_MAX_DELTA,TS_WARN_DELTA);
 	sendto_one(sptr, rpl_str(RPL_INFO),
 		me.name, parv[0], outstr);
-#ifdef USE_LINKLIST
-	sendto_one(sptr, rpl_str(RPL_INFO),
-		me.name, parv[0], "USE_LINKLIST=1");
-#else
-	sendto_one(sptr, rpl_str(RPL_INFO),
-		me.name, parv[0], "USE_LINKLIST=0");
-#endif
       }
 
       sendto_one(sptr,
@@ -2854,7 +2852,7 @@ int   m_set(aClient *cptr,
 			     me.name, parv[0],MIN_IDLETIME/60);
 		  return 0;
 		}       
-	      sendto_ops("%s has changed IDLETIME to %i", parv[0], idle_time);
+	      sendto_ops("%s has changed IDLETIME to %i", parv[0], newval);
 	      sendto_one(sptr, ":%s NOTICE %s :IDLETIME is now set to %i",
 			 me.name, parv[0], newval);
 	      idle_time = (newval*60);
