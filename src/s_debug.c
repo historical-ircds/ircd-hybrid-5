@@ -125,7 +125,7 @@ char	serveropts[] = {
 'F',
 #endif
 
-#ifdef GLINE
+#ifdef GLINES
 'G',
 #endif
 
