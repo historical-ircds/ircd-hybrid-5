@@ -13,6 +13,7 @@
 * exorcised evil timedelta variable
 * Fixed oper wallops broadcasting instead of routing (Dianora)
 * Covered up bogus "Got Ident" messages in read_authports() (Rodder)
+* Fixed missing RPL_ENDOFTRACE for non-opered clients (Dianora)
 
 -feature adds
 * stop people from laming up the kline conf file with # in comment (Dianora)
@@ -42,7 +43,7 @@
 * NO_CHANOPS_WHEN_SPLIT delays channel hacking until rejoin (Dianora)
 * ANTI_SPAMBOT on sign on code (ThemBones)
 * only allow 4 kicked nicks per kick (Dianora)
-* sped up kline processing , redid check_pings in ircd.c (Dianora) 
+* sped up kline processing, redid check_pings in ircd.c (Dianora) 
 * Server now checks for sane TS when connecting to other server,
   see TS_MAX_DELTA and TS_WARN_DELTA in config.h (Rodder)
 * Server checks for backwards spinning clock and complains if
