@@ -1484,6 +1484,38 @@ int	m_join(aClient *cptr,
 	{
 	  if (sptr->user->channel == NULL)
 	    continue;
+#ifdef ANTI_SPAMBOT 	  /* Dianora */
+	  if( MyConnect(sptr) && !IsAnOper(sptr))
+	    {
+	      if(sptr->join_leave_count >= MAX_JOIN_LEAVE_COUNT)
+		{
+		  sendto_ops("User %s (%s@%s) is a possible spambot",
+			     sptr->name,
+			     sptr->user->username, sptr->user->host);
+		  sptr->oper_warn_count_down = OPER_SPAM_COUNTDOWN;
+		}
+	      else
+		{
+		  if( (sptr->last_leave_time + JOIN_LEAVE_COUNT_EXPIRE_TIME)
+		      < NOW)
+		    {
+		      if(sptr->join_leave_count > 0)
+			sptr->join_leave_count--;
+		      else
+			sptr->join_leave_count = 0;
+		    }
+		  else
+		    {
+		      if((NOW - (sptr->last_join_time)) < MIN_JOIN_LEAVE_TIME)
+			{
+			  /* oh, its a possible spambot */
+			  sptr->join_leave_count++;
+			}
+		    }
+		  sptr->last_leave_time = NOW;
+		}
+	    }
+#endif
 	  while ((lp = sptr->user->channel))
 	    {
 	      chptr = lp->value.chptr;
@@ -1503,14 +1535,40 @@ int	m_join(aClient *cptr,
 	  ** Operator.
 	  */
 	  flags = (ChannelExists(name)) ? 0 : CHFL_CHANOP;
-	  
+      
 	  if ((sptr->user->joined >= MAXCHANNELSPERUSER) &&
-	      (!IsAnOper(sptr) || (sptr->user->joined >= MAXCHANNELSPERUSER*3)))
+	     (!IsAnOper(sptr) || (sptr->user->joined >= MAXCHANNELSPERUSER*3)))
 	    {
 	      sendto_one(sptr, err_str(ERR_TOOMANYCHANNELS),
 			 me.name, parv[0], name);
 	      return 0;
 	    }
+#ifdef ANTI_SPAMBOT 	  /* Dianora */
+
+	  if( sptr->join_leave_count >= MAX_JOIN_LEAVE_COUNT)
+	    {
+	      /* Its already known as a possible spambot */
+
+	      if(sptr->oper_warn_count_down > 0)  /* my general paranoia */
+		sptr->oper_warn_count_down--;
+	      else
+		sptr->oper_warn_count_down = 0;
+
+	      if(sptr->oper_warn_count_down == 0)
+		{
+		  sendto_ops("User %s (%s@%s) is a possible spambot",
+			     sptr->name,
+			     sptr->user->username, sptr->user->host);
+		  sptr->oper_warn_count_down = OPER_SPAM_COUNTDOWN;
+		}
+#ifndef ANTI_SPAMBOT_WARN_ONLY
+	      return 0; /* Don't actually JOIN anything, but don't let
+			   spambot know that */
+#endif
+	    }
+	  else
+	      sptr->last_join_time = NOW;
+#endif
 	}
       else
 	{
@@ -1608,6 +1666,41 @@ int	m_part(aClient *cptr,
     }
 
   name = strtoken( &p, parv[1], ",");
+
+#ifdef ANTI_SPAMBOT	/* Dianora */
+      /* if its my client, and isn't an oper */
+
+      if (name && MyConnect(sptr) && !IsAnOper(sptr))
+	{
+	  if(sptr->join_leave_count >= MAX_JOIN_LEAVE_COUNT)
+	    {
+	      sendto_ops("User %s (%s@%s) is a possible spambot",
+			 sptr->name,
+			 sptr->user->username, sptr->user->host);
+	      sptr->oper_warn_count_down = OPER_SPAM_COUNTDOWN;
+	    }
+	  else
+	    {
+	      if( (sptr->last_leave_time + JOIN_LEAVE_COUNT_EXPIRE_TIME)
+		  < NOW)
+		{
+		  if(sptr->join_leave_count > 0)
+		    sptr->join_leave_count--;
+		  else
+		    sptr->join_leave_count = 0;
+		}
+	      else
+		{
+		  if( (NOW - (sptr->last_join_time)) < MIN_JOIN_LEAVE_TIME)
+		    {
+		      /* oh, its a possible spambot */
+		      sptr->join_leave_count++;
+		    }
+		}
+	      sptr->last_leave_time = NOW;
+	    }
+	}
+#endif
 
   while ( name )
     {

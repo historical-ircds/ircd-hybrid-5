@@ -1524,7 +1524,17 @@ static	int	m_message(aClient *cptr,
     }
 
   if (MyConnect(sptr))
-    parv[1] = canonize(parv[1]);
+    {
+#ifdef ANTI_SPAMBOT
+#ifndef ANTI_SPAMBOT_WARN_ONLY
+      /* if its a spambot, just ignore it */
+      if(sptr->join_leave_count >= MAX_JOIN_LEAVE_COUNT)
+	return 0;
+#endif
+#endif
+      parv[1] = canonize(parv[1]);
+    }
+
   for (p = NULL, nick = strtoken(&p, parv[1], ","), i = 0; nick;
        nick = strtoken(&p, NULL, ",")) {
     /*

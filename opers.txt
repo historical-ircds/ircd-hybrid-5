@@ -91,6 +91,10 @@ COMMAND         - USAGE and DESCRIPTION
                   Sends an OPERWALL message of <message> to all
                   opers who are umode +w and +z
 
++ LOCOPS        - LOCOPS :<message>
+                  Sends an LOCOPS message of <message. o to all
+                  opers on local server who are umode +w and +z
+
   TRACE         - TRACE [server|nick]
                   TRACE shows client info about [server|nick] or about
                   the server you are on if no [server|nick] is given.
