@@ -627,11 +627,9 @@
 /* You shouldn't change anything below this line, unless absolutely needed. */
 
 /* VIRTUAL_HOST - bind to a specific IP address
- * Define this if you'd like to run two or more servers on the same port
- * of one machine, using IP aliasing.  ircd will do look up the IP address
- * for the server name defined in the M: line and bind to that IP. 
+ * This is no longer used.  Use the passwd field of the M: line to
+ * bind to a specific virtual host
  */
-#undef VIRTUAL_HOST
 
 /* INITIAL_DBUFS - how many dbufs to preallocate
  */

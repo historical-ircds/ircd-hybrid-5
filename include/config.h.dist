@@ -627,11 +627,9 @@
 /* You shouldn't change anything below this line, unless absolutely needed. */
 
 /* VIRTUAL_HOST - bind to a specific IP address
- * Define this if you'd like to run two or more servers on the same port
- * of one machine, using IP aliasing.  ircd will do look up the IP address
- * for the server name defined in the M: line and bind to that IP. 
+ * This is no longer used.  Use the passwd field of the M: line to
+ * bind to a specific virtual host
  */
-#undef VIRTUAL_HOST
 
 /* INITIAL_DBUFS - how many dbufs to preallocate
  */
@@ -790,7 +788,7 @@
  *
  */
 #define MIN_JOIN_LEAVE_TIME  60
-#define MAX_JOIN_LEAVE_COUNT  5
+#define MAX_JOIN_LEAVE_COUNT  25
 #define OPER_SPAM_COUNTDOWN   5 
 #define JOIN_LEAVE_COUNT_EXPIRE_TIME 120
 
@@ -824,7 +822,7 @@
  * i.e. #undef OLD_Y_LIMIT makes more sense, because you can limit
  * the total number of clients in a class. In a closed I line server
  * The old behaviour can make more sense.
- * 
+ *
  * -Dianora
 */
 #undef OLD_Y_LIMIT
