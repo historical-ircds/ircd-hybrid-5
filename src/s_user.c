@@ -3558,6 +3558,13 @@ void	send_umode_out(aClient *cptr,
 
   send_umode(NULL, sptr, old, SEND_UMODES, buf);
 
+#ifdef USE_LINKLIST
+
+  for(acptr = serv_cptr_list; acptr; acptr = acptr->next_server_client)
+    if((acptr != cptr) && (acptr != sptr) && (*buf))
+     sendto_one(acptr, ":%s MODE %s :%s",
+		sptr->name, sptr->name, buf);
+#else
   /*
    * Cycling through serv_fdlist here should be MUCH faster than
    * looping through every client looking for servers. -ThemBones
@@ -3568,8 +3575,9 @@ void	send_umode_out(aClient *cptr,
 	(acptr != sptr) && (*buf) )
       sendto_one(acptr, ":%s MODE %s :%s",
 		 sptr->name, sptr->name, buf);
+#endif
   
-      if (cptr && MyClient(cptr))
+  if (cptr && MyClient(cptr))
     send_umode(cptr, sptr, old, ALL_UMODES, buf);
 }
 
