@@ -1,3 +1,4 @@
+#!/bin/sh
 spitshell=cat
 package=IRC
 
