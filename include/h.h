@@ -194,6 +194,8 @@ extern	void	server_reboot (void);
 extern	void	terminate (void), write_pidfile (void);
 
 extern	int	send_queued (aClient *);
+extern  int     send_motd(aClient *,aClient *,int,char **);
+
 /* Missing definitions */
 /*VARARGS*/
 extern  void	sendto_ops_lev();		/* defined in send.c */

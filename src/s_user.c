@@ -955,7 +955,7 @@ static	int	register_user(aClient *cptr,
 		  sendto_one(sptr, rpl_str(RPL_ENDOFMOTD),
 			     me.name, parv[0]);
 #else
-		  (void)m_motd(sptr, sptr, 1, parv);
+		  (void)send_motd(sptr, sptr, 1, parv);
 #endif
 #ifdef LITTLE_I_LINES
 		  if(sptr->confs && sptr->confs->value.aconf &&
@@ -1539,7 +1539,11 @@ nickkilldone:
       else
 	{
 	  sendto_common_channels(sptr, ":%s NICK :%s", parv[0], nick);
+#ifdef ANTI_IP_SPOOF
 	  if ((sptr->user)&&(sptr->flags & FLAGS_GOT_ANTI_SPOOF_PING))
+#else
+	  if (sptr->user)
+#endif
 	    {
 	      add_history(sptr,1);
 	      

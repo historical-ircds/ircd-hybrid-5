@@ -1333,11 +1333,6 @@ int	m_info(aClient *cptr,
 #else
         strcat(outstr," SHOW_UH=0");
 #endif
-#ifdef STATS_NOTICE
-	strcat(outstr," STATS_NOTICE=1");
-#else
-	strcat(outstr," STATS_NOTICE=0");
-#endif
 	sendto_one(sptr, rpl_str(RPL_INFO),
 		me.name, parv[0], outstr);
 #ifdef SUNDBE
@@ -1679,13 +1674,13 @@ int	m_stats(aClient *cptr,
   if ((num > 5) && !IsAnOper(sptr))
     {
       sendto_one(sptr, rpl_str(RPL_LOAD2HI), me.name, parv[0]);
-#ifdef STATS_NOTICE
+
       if (stat != (char)0)
 	sendto_realops_lev(SPY_LEV, 
 			   "STATS %c DENIED to %s (%s@%s) [%s] (%d in 15s)",
 			   stat,sptr->name, sptr->user->username,
 			   sptr->user->host, sptr->user->server, num);
-#endif
+
     /*
      * After 15s has passed, reset the counter time, and if we were already
      * in "defensive" mode, allow only 1 /stats in the next 15s
@@ -1702,12 +1697,12 @@ int	m_stats(aClient *cptr,
       last = timeofday;
       num = (num > 5) ? 4 : 0;
     }
-#ifdef STATS_NOTICE
+
   if (stat != (char)0)
     sendto_realops_lev(SPY_LEV, "STATS %c requested by %s (%s@%s) [%s]", stat,
 		       sptr->name, sptr->user->username, sptr->user->host,
 		       sptr->user->server);
-#endif
+
   switch (stat)
     {
     case 'L' : case 'l' :
@@ -4750,11 +4745,42 @@ int	m_motd(aClient *cptr,
 	       int parc,
 	       char *parv[])
 {
+  static time_t last_motd=0;
+
+  if( ( (last_motd + MOTD_WAIT) < NOW) || IsAnOper(sptr) )
+    {
+      last_motd = NOW;
+
+      if (hunt_server(cptr, sptr, ":%s MOTD :%s", 1,parc,parv)!=HUNTED_ISME)
+	return 0;
+
+      sendto_realops_lev(SPY_LEV, "motd requested by %s (%s@%s) [%s]",
+			 sptr->name, sptr->user->username, sptr->user->host,
+			 sptr->user->server);
+
+      return(send_motd(cptr,sptr,parc,parv));
+    }
+  else
+    return 0;
+}
+
+/*
+** send_motd
+**	parv[0] = sender prefix
+**	parv[1] = servername
+**
+** This function split off so a server notice could be generated on a
+** user requested motd, but not on each connecting client.
+** -Dianora
+*/
+
+int send_motd(aClient *cptr,
+	  aClient *sptr,
+	  int parc,
+	  char *parv[])
+{
   register aMotd	*temp;
   struct	tm	*tm;
-
-  if (hunt_server(cptr, sptr, ":%s MOTD :%s", 1,parc,parv)!=HUNTED_ISME)
-    return 0;
 
   tm = motd_tm;
   if (motd == (aMotd *)NULL)
