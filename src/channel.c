@@ -1424,6 +1424,9 @@ int	m_join(aClient *cptr,
   Reg	char	*name, *key = NULL;
   int	i, flags = 0;
   char	*p = NULL, *p2 = NULL;
+#ifdef ANTI_SPAMBOT
+  int   successful_join_count = 0; /* Number of channels successfully joined */
+#endif
   
   if (!(sptr->user))
     {
@@ -1489,6 +1492,13 @@ int	m_join(aClient *cptr,
 	{
 	  if (sptr->user->channel == NULL)
 	    continue;
+	  while ((lp = sptr->user->channel))
+	    {
+	      chptr = lp->value.chptr;
+	      sendto_channel_butserv(chptr, sptr, PartFmt,
+				     parv[0], chptr->chname);
+	      remove_user_from_channel(sptr, chptr);
+	    }
 /*
   Added /quote set for SPAMBOT
 
@@ -1496,24 +1506,30 @@ int spam_time = MIN_JOIN_LEAVE_TIME;
 int spam_num = MAX_JOIN_LEAVE_COUNT;
 */
 #ifdef ANTI_SPAMBOT 	  /* Dianora */
-	  if( MyConnect(sptr) && !IsAnOper(sptr))
+
+	  if( MyConnect(sptr) && !IsAnOper(sptr) )
 	    {
 	      if(sptr->join_leave_count >= spam_num)
 		{
 		  sendto_realops("User %s (%s@%s) is a possible spambot",
-			     sptr->name,
-			     sptr->user->username, sptr->user->host);
+				 sptr->name,
+				 sptr->user->username, sptr->user->host);
 		  sptr->oper_warn_count_down = OPER_SPAM_COUNTDOWN;
 		}
 	      else
 		{
-		  if( (sptr->last_leave_time + JOIN_LEAVE_COUNT_EXPIRE_TIME)
-		      < NOW)
+		  int t_delta;
+
+		  if( (t_delta = (NOW - sptr->last_leave_time)) >
+		      JOIN_LEAVE_COUNT_EXPIRE_TIME)
 		    {
-		      if(sptr->join_leave_count > 0)
-			sptr->join_leave_count--;
-		      else
+		      int decrement_count;
+		      decrement_count = (t_delta/JOIN_LEAVE_COUNT_EXPIRE_TIME);
+
+		      if(decrement_count > sptr->join_leave_count)
 			sptr->join_leave_count = 0;
+		      else
+			sptr->join_leave_count -= decrement_count;
 		    }
 		  else
 		    {
@@ -1527,13 +1543,6 @@ int spam_num = MAX_JOIN_LEAVE_COUNT;
 		}
 	    }
 #endif
-	  while ((lp = sptr->user->channel))
-	    {
-	      chptr = lp->value.chptr;
-	      sendto_channel_butserv(chptr, sptr, PartFmt,
-				     parv[0], chptr->chname);
-	      remove_user_from_channel(sptr, chptr);
-	    }
 	  sendto_match_servs(NULL, cptr, ":%s JOIN 0", parv[0]);
 	  continue;
 	}
@@ -1552,33 +1561,35 @@ int spam_num = MAX_JOIN_LEAVE_COUNT;
 	    {
 	      sendto_one(sptr, err_str(ERR_TOOMANYCHANNELS),
 			 me.name, parv[0], name);
+#ifdef ANTI_SPAMBOT
+	      if(successful_join_count)
+		sptr->last_join_time = NOW;
+#endif
 	      return 0;
 	    }
 #ifdef ANTI_SPAMBOT 	  /* Dianora */
-
-	  if( sptr->join_leave_count >= spam_num)
-	    {
-	      /* Its already known as a possible spambot */
-
-	      if(sptr->oper_warn_count_down > 0)  /* my general paranoia */
-		sptr->oper_warn_count_down--;
-	      else
-		sptr->oper_warn_count_down = 0;
-
-	      if(sptr->oper_warn_count_down == 0)
-		{
-		  sendto_realops("User %s (%s@%s) is a possible spambot",
-			     sptr->name,
-			     sptr->user->username, sptr->user->host);
-		  sptr->oper_warn_count_down = OPER_SPAM_COUNTDOWN;
-		}
+          successful_join_count++;
+          if( sptr->join_leave_count >= spam_num)
+            { 
+              /* Its already known as a possible spambot */
+ 
+              if(sptr->oper_warn_count_down > 0)  /* my general paranoia */
+                sptr->oper_warn_count_down--;
+              else
+                sptr->oper_warn_count_down = 0;
+ 
+              if(sptr->oper_warn_count_down == 0)
+                {
+                  sendto_realops("User %s (%s@%s) is a possible spambot",
+                             sptr->name,
+                             sptr->user->username, sptr->user->host);
+                  sptr->oper_warn_count_down = OPER_SPAM_COUNTDOWN;
+                }
 #ifndef ANTI_SPAMBOT_WARN_ONLY
-	      return 0; /* Don't actually JOIN anything, but don't let
-			   spambot know that */
+              return 0; /* Don't actually JOIN anything, but don't let
+                           spambot know that */
 #endif
-	    }
-	  else
-	      sptr->last_join_time = NOW;
+            }
 #endif
 	}
       else
@@ -1600,6 +1611,10 @@ int spam_num = MAX_JOIN_LEAVE_COUNT;
 	  sendto_one(sptr,
 		     ":%s %d %s %s :Sorry, cannot join channel.",
 		     me.name, i, parv[0], name);
+#ifdef ANTI_SPAMBOT
+	  if(successful_join_count > 0)
+	    successful_join_count--;
+#endif
 	  continue;
 	}
       if (IsMember(sptr, chptr))
@@ -1653,6 +1668,12 @@ int spam_num = MAX_JOIN_LEAVE_COUNT;
 	  (void)m_names(cptr, sptr, 2, parv);
 	}
     }
+
+
+#ifdef ANTI_SPAMBOT
+  if(MyConnect(sptr) && successful_join_count)
+    sptr->last_join_time = NOW;
+#endif
   return 0;
 }
 
@@ -1692,13 +1713,18 @@ int	m_part(aClient *cptr,
 	    }
 	  else
 	    {
-	      if( (sptr->last_leave_time + JOIN_LEAVE_COUNT_EXPIRE_TIME)
-		  < NOW)
+	      int t_delta;
+
+	      if( (t_delta = (NOW - sptr->last_leave_time)) >
+		  JOIN_LEAVE_COUNT_EXPIRE_TIME)
 		{
-		  if(sptr->join_leave_count > 0)
-		    sptr->join_leave_count--;
-		  else
+		  int decrement_count;
+		  decrement_count = (t_delta/JOIN_LEAVE_COUNT_EXPIRE_TIME);
+
+		  if(decrement_count > sptr->join_leave_count)
 		    sptr->join_leave_count = 0;
+		  else
+		    sptr->join_leave_count -= decrement_count;
 		}
 	      else
 		{
