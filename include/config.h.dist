@@ -108,6 +108,11 @@
  */
 #define LOCKFILE "/tmp/ircd.conf.lock"
 
+/* SEPARATE_QUOTE_KLINES_BY_DATE
+*/
+
+#define SEPARATE_QUOTE_KLINES_BY_DATE
+
 /* UNKLINE - /quote unkline - remove klines on the fly
  * if you choose to support this, an oper can do a /quote UNKLINE
  * of an exact matching KLINE to remove the kline

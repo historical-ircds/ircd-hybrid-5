@@ -551,7 +551,7 @@ int	m_server(aClient *cptr,
       */
       char nbuf[HOSTLEN * 2 + USERLEN + 5]; /* same size as in s_misc.c */
 
-      bcptr = (cptr->firstname > acptr->from->firsttime) ? cptr : acptr->from;
+      bcptr = (cptr->firsttime > acptr->from->firsttime) ? cptr : acptr->from;
       sendto_one(bcptr,"ERROR :Server %s already exists", host);
       if (bcptr == cptr)
       {
@@ -2759,6 +2759,9 @@ void expire_pending_glines()
 m_kline()
 
 re-worked a tad ... -Dianora
+
+Added comstuds SEPARATE_QUOTE_KLINES_BY_DATE code
+ -Dianora
 */
 
 int     m_kline(aClient *cptr,
@@ -2766,12 +2769,20 @@ int     m_kline(aClient *cptr,
 		int parc,
 		char *parv[])
 {
-#ifdef LOCKFILE
+#if defined (LOCKFILE) && !defined(SEPARATE_QUOTE_KLINES_BY_DATE)
   struct pkl *k;
 #else
   int out;
 #endif
   char buffer[1024];
+
+#ifdef SEPARATE_QUOTE_KLINES_BY_DATE
+  char timebuffer[20];
+  char filenamebuf[1024];
+  struct tm *tmptr;
+#endif
+  char *filename;		/* filename to use for kline */
+
   char *user, *host;
   char *reason;
   char *current_date;
@@ -2988,12 +2999,27 @@ int     m_kline(aClient *cptr,
 	  break;
       }
 
+    /* comstud's SEPARATE_QUOTE_KLINES_BY_DATE code */
+    /* Note, that if SEPARATE_QUOTE_KLINES_BY_DATE is defined,
+       it doesn't make sense to have LOCKFILE on the kline file */
+
+#ifdef SEPARATE_QUOTE_KLINES_BY_DATE
+  tmptr = localtime(&NOW);
+  strftime(timebuffer, 20, "%y%m%d", tmptr);
+  (void)sprintf(filenamebuf, "%s.%s", klinefile, timebuffer);
+  filename = filenamebuf;
+  sendto_one(sptr, ":%s NOTICE %s :Added K-Line [%s@%s] to %s",
+	     me.name, parv[0], user, host, filenamebuf);
+#else
+  filename = klinefile;
+
 #ifdef KPATH
   sendto_one(sptr, ":%s NOTICE %s :Added K-Line [%s@%s] to server klinefile",
 	     me.name, parv[0], user, host);
 #else
   sendto_one(sptr, ":%s NOTICE %s :Added K-Line [%s@%s] to server configfile",
 	     me.name, parv[0], user, host);
+#endif
 #endif
 
   rehashed = YES;
@@ -3002,7 +3028,9 @@ int     m_kline(aClient *cptr,
   sendto_realops("%s added K-Line for [%s@%s] [%s]",
 		 parv[0], user, host, reason);
 
-#ifdef LOCKFILE /* MDP - Careful, don't cut & paste that ^O */
+#if defined(LOCKFILE) && !defined(SEPARATE_QUOTE_KLINES_BY_DATE)
+/* MDP - Careful, don't cut & paste that ^O */
+
   if((k = (struct pkl *)malloc(sizeof(struct pkl))) == NULL)
     {
       sendto_one(sptr, ":%s NOTICE %s :Problem allocating memory",
@@ -3051,14 +3079,19 @@ int     m_kline(aClient *cptr,
   do_pending_klines();
   return(0);
 
-#else /* LOCKFILE - MDP */
+#else /* LOCKFILE - MDP and not SEPARATE_KLINES_BY_DATE */
 
-  if ((out = open(klinefile, O_WRONLY|O_APPEND))==-1)
+#ifdef SEPARATE_QUOTE_KLINES_BY_DATE
+  fchmod(out, 0660); 
+#endif 
+
+  if ((out = open(filename, O_RDWR|O_APPEND|O_CREAT))==-1)
     {
       sendto_one(sptr, ":%s NOTICE %s :Problem opening %s ",
-		 me.name, parv[0], klinefile);
+		 me.name, parv[0], filename);
       return 0;
     }
+
 
   (void)ircsprintf(buffer, "#%s!%s@%s K'd: %s@%s:%s\n",
 		   sptr->name, sptr->user->username,
@@ -3122,6 +3155,8 @@ int     m_kline(aClient *cptr,
 * re-worked and cleanedup for use in hybrid-5 
 * -Dianora
 *
+* Added comstuds SEPARATE_QUOTE_KLINES_BY_DATE
+*
 */
 int m_unkline (aClient *cptr,aClient *sptr,int parc,char *parv[])
 {
@@ -3129,6 +3164,13 @@ int m_unkline (aClient *cptr,aClient *sptr,int parc,char *parv[])
   int	pairme = NO;
   char	buf[256], buff[256];
   char	temppath[256];
+
+#ifdef SEPARATE_QUOTE_KLINES_BY_DATE
+  char timebuffer[20];
+  char filenamebuf[1024];
+  struct tm *tmptr;
+#endif
+  char  *filename;		/* filename to use for unkline */
   char	*user,*host;
   char  *p;
   int   nread;
@@ -3204,7 +3246,7 @@ int m_unkline (aClient *cptr,aClient *sptr,int parc,char *parv[])
       return 0;
     }
 
-#ifdef LOCKFILE
+#if defined(LOCKFILE) && !defined(SEPARATE_QUOTE_KLINES_BY_DATE)
   if(lock_kline_file() < 0 )
     {
       sendto_one(sptr,":%s NOTICE %s :%s is locked try again in a few minutes",
@@ -3212,11 +3254,21 @@ int m_unkline (aClient *cptr,aClient *sptr,int parc,char *parv[])
       return -1;
     }
 #endif
-  if( (in = open(klinefile, O_RDONLY)) == -1)
+
+#ifdef SEPARATE_QUOTE_KLINES_BY_DATE
+  tmptr = localtime(&NOW);
+  strftime(timebuffer, 20, "%y%m%d", tmptr);
+  (void)sprintf(filenamebuf, "%s.%s", klinefile, timebuffer);
+  filename = filenamebuf;
+#else
+  filename = klinefile;
+#endif			
+
+  if( (in = open(filename, O_RDONLY)) == -1)
     {
       sendto_one(sptr, ":%s NOTICE %s :Cannot open %s",
-	me.name,parv[0],klinefile);
-#ifdef LOCKFILE
+	me.name,parv[0],filename);
+#if defined(LOCKFILE) && !defined(SEPARATE_QUOTE_KLINES_BY_DATE)
       (void)unlink(LOCKFILE);
 #endif
       return 0;
@@ -3227,8 +3279,8 @@ int m_unkline (aClient *cptr,aClient *sptr,int parc,char *parv[])
       sendto_one(sptr, ":%s NOTICE %s :Cannot open %s",
         me.name,parv[0],temppath);
       (void)close(in);
-#ifdef LOCKFILE
-  (void)unlink(LOCKFILE);
+#if defined (LOCKFILE) && !defined(SEPARATE_QUOTE_KLINES_BY_DATE)
+      (void)unlink(LOCKFILE);
 #endif
       return 0;
     }
@@ -3399,24 +3451,28 @@ Then just ignore the line
     }
 
   (void)close(in);
+
+  (void)fchmod(out, 0660);	/* default it to rw-rw---- for now */
+
+
 /* The result of the rename should be checked too... oh well */
 /* If there was an error on a write above, then its been reported
    and I am not going to trash the original kline /conf file
    -Dianora
 */
   if( (!error_on_write) && (close(out) >= 0) )
-    (void)rename(temppath, klinefile);
+    (void)rename(temppath, filename);
   else
     {
       sendto_one(sptr,":%s NOTICE %s :Couldn't write temp kline file, aborted",
         me.name,parv[0]);
-#ifdef LOCKFILE
+#if defined (LOCKFILE) && !defined(SEPARATE_QUOTE_KLINES_BY_DATE)
       (void)unlink(LOCKFILE);
 #endif
       return -1;
     }
 
-#ifdef LOCKFILE
+#if defined (LOCKFILE) && !defined(SEPARATE_QUOTE_KLINES_BY_DATE)
   (void)unlink(LOCKFILE);
 #endif
 	
