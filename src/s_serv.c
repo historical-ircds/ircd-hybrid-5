@@ -3878,7 +3878,8 @@ int     m_dline(aClient *cptr,
       return 0;
     }
 
-  (void)ircsprintf(buffer, "D:%s:%s:\n", host, reason);
+  (void)ircsprintf(buffer, "D:%s:%s (%s):\n", host, reason,
+			current_date);
 
   if (write(out, buffer, strlen(buffer)) <= 0)
     {
