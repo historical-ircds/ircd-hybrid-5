@@ -788,7 +788,11 @@ int	main(int argc, char *argv[])
   time_t	delay = 0;
   int fd;
 
-  timeofday = time(NULL);
+  if((timeofday = time(NULL)) == -1)
+    {
+      (void)fprintf(stderr,"ERROR: Clock Failure (%d)\n", errno);
+      exit(errno);
+    }
 
   /*
    * We don't want to calculate these every time they are used :)
@@ -1035,7 +1039,11 @@ normal user.\n");
 	default_fdlist.entry[i] = i-1;
       }
   }
-  timeofday = time(NULL);
+  if((timeofday = time(NULL)) == -1)
+    {
+      syslog(LOG_WARNING, "Clock Failure (%d), TS can be corrupted", errno);
+      sendto_ops("Clock Failure (%d), TS can be corrupted", errno);
+    }
 
   if (portnum < 0)
     portnum = PORTNUM;
@@ -1166,7 +1174,11 @@ normal user.\n");
   check_fdlists(time(NULL));
 #endif
 
-  timeofday = time(NULL);
+  if((timeofday = time(NULL)) == -1)
+    {
+      syslog(LOG_WARNING, "Clock Failure (%d), TS can be corrupted", errno);
+      sendto_ops("Clock Failure (%d), TS can be corrupted", errno);
+    }
   while (1)
     delay = io_loop(delay);
 }
@@ -1180,7 +1192,11 @@ time_t io_loop(time_t delay)
   time_t lasttimeofday;
 
   lasttimeofday = timeofday;
-  timeofday = time(NULL);
+  if((timeofday = time(NULL)) == -1)
+    {
+      syslog(LOG_WARNING, "Clock Failure (%d), TS can be corrupted", errno);
+      sendto_ops("Clock Failure (%d), TS can be corrupted", errno);
+    }
 
   if (timeofday < lasttimeofday)
   {
@@ -1325,7 +1341,11 @@ time_t io_loop(time_t delay)
 	}
       (void)flush_fdlist_connections(&serv_fdlist);      
     }
-  timeofday = time(NULL);
+  if((timeofday = time(NULL)) == -1)
+    {
+      syslog(LOG_WARNING, "Clock Failure (%d), TS can be corrupted", errno);
+      sendto_ops("Clock Failure (%d), TS can be corrupted", errno);
+    }
 
   /*
    * CLIENT_SERVER = TRUE:

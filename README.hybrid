@@ -46,6 +46,7 @@
   see TS_MAX_DELTA and TS_WARN_DELTA in config.h (Rodder)
 * Server checks for backwards spinning clock and complains if
   found (Rodder)
+* Check for error when timeofday is set (Shadowfax)
 
 +hybrid-5 (9/26/97)
 * LOTS AND LOTS OF CHANGES IN CONFIG.H

@@ -1671,7 +1671,12 @@ int read_packet(aClient *cptr, int msg_ready)
       nfds = select(MAXCONNECTIONS, read_set, write_set,
 		    0, &wait);
 #endif
-      timeofday = time(NULL);
+      if((timeofday = time(NULL)) == -1)
+        {
+          syslog(LOG_WARNING, "Clock Failure (%d), TS can be corrupted", errno);
+          sendto_ops("Clock Failure (%d), TS can be corrupted", errno);
+        }   
+
       if (nfds == -1 && errno == EINTR)
 	{	
 	  return -1;
