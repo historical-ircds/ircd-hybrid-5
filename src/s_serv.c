@@ -2999,9 +2999,9 @@ int     m_kline(aClient *cptr,
 	  break;
       }
 
-    /* comstud's SEPARATE_QUOTE_KLINES_BY_DATE code */
-    /* Note, that if SEPARATE_QUOTE_KLINES_BY_DATE is defined,
-       it doesn't make sense to have LOCKFILE on the kline file */
+/* comstud's SEPARATE_QUOTE_KLINES_BY_DATE code */
+/* Note, that if SEPARATE_QUOTE_KLINES_BY_DATE is defined,
+   it doesn't make sense to have LOCKFILE on the kline file */
 
 #ifdef SEPARATE_QUOTE_KLINES_BY_DATE
   tmptr = localtime(&NOW);
@@ -3081,10 +3081,6 @@ int     m_kline(aClient *cptr,
 
 #else /* LOCKFILE - MDP and not SEPARATE_KLINES_BY_DATE */
 
-#ifdef SEPARATE_QUOTE_KLINES_BY_DATE
-  fchmod(out, 0660); 
-#endif 
-
   if ((out = open(filename, O_RDWR|O_APPEND|O_CREAT))==-1)
     {
       sendto_one(sptr, ":%s NOTICE %s :Problem opening %s ",
@@ -3092,6 +3088,9 @@ int     m_kline(aClient *cptr,
       return 0;
     }
 
+#ifdef SEPARATE_QUOTE_KLINES_BY_DATE
+  fchmod(out, 0660);
+#endif
 
   (void)ircsprintf(buffer, "#%s!%s@%s K'd: %s@%s:%s\n",
 		   sptr->name, sptr->user->username,
@@ -3101,7 +3100,7 @@ int     m_kline(aClient *cptr,
   if (write(out, buffer, strlen(buffer)) <= 0)
     {
       sendto_one(sptr, ":%s NOTICE %s :Problem writing to %s",
-		 me.name, parv[0], klinefile);
+		 me.name, parv[0], filename);
       (void)close(out);
       return 0;
     }
@@ -3123,7 +3122,7 @@ int     m_kline(aClient *cptr,
   if (write(out, buffer, strlen(buffer)) <= 0)
     {
       sendto_one(sptr, ":%s NOTICE %s :Problem writing to %s",
-		 me.name, parv[0], klinefile);
+		 me.name, parv[0], filename);
       (void)close(out);
       return 0;
     }
@@ -3171,6 +3170,7 @@ int m_unkline (aClient *cptr,aClient *sptr,int parc,char *parv[])
   struct tm *tmptr;
 #endif
   char  *filename;		/* filename to use for unkline */
+
   char	*user,*host;
   char  *p;
   int   nread;

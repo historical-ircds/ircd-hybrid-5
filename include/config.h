@@ -108,6 +108,15 @@
  */
 #define LOCKFILE "/tmp/ircd.conf.lock"
 
+/* SEPARATE_QUOTE_KLINES_BY_DATE
+ * If you define this, then klines will be read and written
+ * to a separate kline file according to date. You =must= then run
+ * a daily/nightly script to consolidate your klines, or the previous
+ * days klines are lost. If you define this, LOCKFILE on kline file
+ * makes no sense
+ */
+#undef SEPARATE_QUOTE_KLINES_BY_DATE
+
 /* UNKLINE - /quote unkline - remove klines on the fly
  * if you choose to support this, an oper can do a /quote UNKLINE
  * of an exact matching KLINE to remove the kline

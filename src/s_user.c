@@ -75,6 +75,7 @@ static int user_modes[]		= { FLAGS_OPER, 'o',
 
 /* internally defined functions */
 int botreject(char *);
+unsigned int my_rand(void);	/* provided by orabidoo */
 
 /* externally defined functions */
 extern int find_bline(aClient *);	/* defined in s_conf.c */
@@ -1441,9 +1442,7 @@ nickkilldone:
 	    {
 	      if (sptr->flags & FLAGS_GOT_ANTI_SPOOF_PING)
                 {
-		  if (register_user(cptr, sptr, nick, sptr->user->username)
-		      == FLUSH_BUFFER)
-		    return FLUSH_BUFFER;
+		  return(register_user(cptr, sptr, nick, sptr->user->username);
                 }
 	      else
 		return 0;
@@ -1459,13 +1458,12 @@ nickkilldone:
 	{
 	  if(MyConnect(sptr))
 	    {
-	      srandom( time((time_t)0) );
-	  
-	      sptr->random_ping = random();
+	      sptr->random_ping = my_rand();
 	      (void)strcpy(sptr->name,nick);
 	      /* I haven't already sent the PING since
 		 I have no username */
 	      sendto_one(sptr, "PING :%d", sptr->random_ping );
+	      sptr->flags |= FLAGS_PINGSENT;
 	      return 0;
 	    }
 	}
@@ -1482,6 +1480,27 @@ nickkilldone:
   (void)add_to_client_hash_table(nick, sptr);
 
   return 0;
+}
+
+/* Code provided by orabidoo */
+/* a random number generator loosely based on RC5;
+   assumes ints are at least 32 bit */
+ 
+unsigned int my_rand() {
+  static unsigned int s = 0, t = 0, k = 12345678;
+  int i;
+ 
+  if (s == 0 && t == 0) {
+    s = (unsigned int)getpid();
+    t = (unsigned int)time(NULL);
+  }
+  for (i=0; i<12; i++) {
+    s = (((s^t) << (t&31)) | ((s^t) >> (31 - (t&31)))) + k;
+    k += s + t;
+    t = (((t^s) << (s&31)) | ((t^s) >> (31 - (s&31)))) + k;
+    k += s + t;
+  }
+  return s;
 }
 
 
@@ -2223,9 +2242,9 @@ int	do_user(char *nick,
 	   if(sptr->name[0] == '\0')
 	     /* I haven't already sent the PING since have no nick */
 	     {
-	       srandom( time((time_t)0) );
-	       sptr->random_ping = random();
+	       sptr->random_ping = my_rand();
 	       sendto_one(sptr, "PING :%d", sptr->random_ping);
+	       sptr->flags |= FLAGS_PINGSENT;
 	     }
            return 0;
 	 }
@@ -2551,6 +2570,13 @@ int	m_ping(aClient *cptr,
     origin = cptr->name;
   if (!BadPtr(destination) && mycmp(destination, me.name) != 0)
     {
+      /* After discussing it with orabidoo and Shadowfax...
+	 lets NOT make PING/PONG routable, it breaks the RFC, but
+	 we are writing a new standard for efnet anyway (right callas?)
+	 -Dianora
+	 */
+      return 0;
+#ifdef 0
       if ((acptr = find_server(destination, NULL)))
 	sendto_one(acptr,":%s PING %s :%s", parv[0],
 		   origin, destination);
@@ -2560,6 +2586,7 @@ int	m_ping(aClient *cptr,
 		     me.name, parv[0], destination);
 	  return 0;
 	}
+#endif
     }
   else
     sendto_one(sptr,":%s PONG %s :%s", me.name,
@@ -2592,6 +2619,12 @@ int	m_pong(aClient *cptr,
   cptr->flags &= ~FLAGS_PINGSENT;
   sptr->flags &= ~FLAGS_PINGSENT;
 
+  /* as discussed, I'm going to no-op this until we all agree it should
+     just go. - Dianora */
+  /* Whats more, the code would have been trying to route the random
+     pong response if ANTI_IP_SPOOF was defined *doh* -Dianora */
+
+#ifdef 0
   if (!BadPtr(destination) && mycmp(destination, me.name) != 0)
     {
       if ((acptr = find_client(destination, NULL)) ||
@@ -2605,14 +2638,15 @@ int	m_pong(aClient *cptr,
 	  return 0;
 	}
     }
+#endif
 
 #ifdef ANTI_IP_SPOOF
   if(MyConnect(sptr))
     {
-      if(!(sptr->flags & FLAGS_GOT_ANTI_SPOOF_PING))
+      if((sptr->flags & FLAGS_GOT_ANTI_SPOOF_PING) == 0)
 	{
-	  long received_random_ping;
-	  received_random_ping = atol(origin);
+	  unsigned int received_random_ping;
+	  received_random_ping = (unsigned int)atoi(origin);
 
 	  if(received_random_ping == sptr->random_ping)
 	    {

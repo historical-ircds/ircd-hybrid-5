@@ -1012,8 +1012,27 @@ int	rehash(aClient *cptr,aClient *sptr,int sig)
   clear_conf_list(&FList3);
 
   (void) initconf(0,configfile);
+#ifdef SEPARATE_QUOTE_KLINES_BY_DATE
+  {
+    char timebuffer[20];
+    char filenamebuf[1024];
+    struct tm *tmptr;
+    tmptr = localtime(&NOW);
+    (void)strftime(timebuffer, 20, "%y%m%d", tmptr);
+    ircsprintf(filenamebuf, "%s.%s", klinefile, timebuffer);
+    if(initconf(0,filenamebuf))
+      {
+	sendto_ops("There was a problem opening %s",filenamebuf);
+      }
+    else
+      {
+	sendto_ops("loaded K-lines from %s", filenamebuf);
+      }
+  }
+#else
 #ifdef KLINEFILE
   (void) initconf(0,klinefile);
+#endif
 #endif
   close_listeners();
 

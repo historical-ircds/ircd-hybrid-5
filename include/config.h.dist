@@ -108,10 +108,14 @@
  */
 #define LOCKFILE "/tmp/ircd.conf.lock"
 
-/* SEPARATE_QUOTE_KLINES_BY_DATE
-*/
-
-#define SEPARATE_QUOTE_KLINES_BY_DATE
+/* SEPARATE_QUOTE_KLINES_BY_DATE (from comstud)
+ * If you define this, then klines will be read and written
+ * to a separate kline file according to date. You =must= then run
+ * a daily/nightly script to consolidate your klines, or the previous
+ * days klines are lost. If you define this, LOCKFILE on kline file
+ * makes no sense
+ */
+#undef SEPARATE_QUOTE_KLINES_BY_DATE
 
 /* UNKLINE - /quote unkline - remove klines on the fly
  * if you choose to support this, an oper can do a /quote UNKLINE
@@ -255,8 +259,7 @@
  * Define this if you want GLINE support
  * when this is defined, 3 completely different opers from
  * three different servers must do the identical GLINE in order
- * for the G line to take effect. I don't know what comstud did
- * (nor do I really care) I have not looked at his code. - Dianora
+ * for the G line to take effect. 
  */
 #define GLINES
 
