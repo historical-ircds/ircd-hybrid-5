@@ -1386,7 +1386,7 @@ int	m_info(aClient *cptr,
 #define OUT4 " RK_NOTICES=0"
 #endif
 	sendto_one(sptr, rpl_str(RPL_INFO),
-		me.name, parv[0], OUT1 OUT2 OUT3 OUT4);
+		me.name, parv[0], OUT1 OUT2 OUT3 OUT4 );
 
 #undef OUT1
 #undef OUT2
@@ -1408,8 +1408,13 @@ int	m_info(aClient *cptr,
 #else
 #define OUT3 " R_LINES_REHASH=0"
 #endif
+#ifdef REPORT_DLINE_TO_USER
+#define OUT4 "  REPORT_DLINE_TO_USER=1"
+#else
+#define OUT4 " REPORT_DLINE_TO_USER=0"
+#endif
 	sendto_one(sptr, rpl_str(RPL_INFO),
-		me.name, parv[0], OUT1 OUT2 OUT3);
+		me.name, parv[0], OUT1 OUT2 OUT3 OUT4);
 
 #undef OUT1
 #undef OUT2
