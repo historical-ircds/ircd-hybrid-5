@@ -4549,29 +4549,6 @@ int	m_trace(aClient *cptr,
     case HUNTED_ISME:
       break;
     default:
-#if 0
-      /* DISABLED */
-      /*
-       * GhostDetectII:
-       * 	Ok, if a remote user /traced to us, and we are sending
-       * 	them "No such server" as a reply, this must mean that
-       *	the nick they /traced (after we assure it's a nick ;)
-       *	is ghosted - so kill it.
-       *		-Taner
-       */
-      if (!MyConnect(sptr) && !(index(tname, '.')) && !(index(tname, '*'))) {
-	if (IsClient(sptr))
-	  sendto_realops_lev(DEBUG_LEV, "Ghost: %s, request from %s[%s@%s!%s]",
-			     tname, sptr->name, sptr->user->username, sptr->user->host,
-			     sptr->from->name);
-	else
-	  sendto_realops_lev(DEBUG_LEV, "Ghost: %s, request from %s[%s]",
-			     tname, sptr->name, sptr->from->name);
-	sendto_serv_butone(NULL, ":%s KILL %s :%s (%s Ghosted via 'trace')",
-			   me.name, tname, me.name, tname);
-      }
-#endif /* 0 */
-
       return 0;
     }
 
@@ -4698,20 +4675,26 @@ int	m_trace(aClient *cptr,
   if (!SendWallops(sptr) || !cnt)
     {
       if (cnt)
-	return 0;
+	{
+	  sendto_one(sptr, rpl_str(RPL_ENDOFTRACE),me.name,
+		     parv[0],tname);
+	  return 0;
+	}
       /* let the user have some idea that its at the end of the
        * trace
        */
       sendto_one(sptr, rpl_str(RPL_TRACESERVER),
 		 me.name, parv[0], 0, link_s[me.fd],
 		 link_u[me.fd], me.name, "*", "*", me.name);
+      sendto_one(sptr, rpl_str(RPL_ENDOFTRACE),me.name,
+		 parv[0],tname);
       return 0;
     }
   for (cltmp = FirstClass(); doall && cltmp; cltmp = NextClass(cltmp))
     if (Links(cltmp) > 0)
       sendto_one(sptr, rpl_str(RPL_TRACECLASS), me.name,
 		 parv[0], Class(cltmp), Links(cltmp));
-  sendto_one(sptr, rpl_str(RPL_ENDOFTRACE),me.name, parv[0]);
+  sendto_one(sptr, rpl_str(RPL_ENDOFTRACE),me.name, parv[0],tname);
   return 0;
 }
 
