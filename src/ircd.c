@@ -345,17 +345,41 @@ static	time_t	try_connections(time_t currenttime)
 }
 
 
+/* Note, that dying_clients and dying_clients_reason
+ * really don't need to be any where near as long as MAXCONNECTIONS
+ * but I made it this long for now. If its made shorter,
+ * then a limit check is going to have to be added as well
+ * -Dianora
+ */
+
+aClient *dying_clients[MAXCONNECTIONS];	/* list of dying clients */
+
+#ifdef KLINE_WITH_REASON
+char *dying_clients_reason[MAXCONNECTIONS];
+#endif
+
 static	time_t	check_pings(time_t currenttime)
 {		
   Reg	aClient	*cptr;
   aConfItem *aconf = (aConfItem *)NULL;
-  Reg	int	killflag, dkillflag;
-#ifdef GLINES
-  int	gkillflag;
-#endif
   int	ping = 0, i, rflag = 0;
   time_t	oldest = 0, timeout;
-  
+  int die_index;				/* index into list */
+						/* of dying clients */
+  dying_clients[0] = (aClient *)NULL;
+
+  /*
+   * I re-wrote the way klines are handled. Instead of rescanning
+   * the local[] array and calling exit_client() right away, I
+   * mark the client thats dying by placing a pointer to its aClient
+   * into dying_clients[]. When I have examined all in local[],
+   * I then examine the dying_clients[] for aClient's to exit.
+   * This saves the rescan on k-lines, also greatly simplifies the code,
+   *
+   * Jan 28, 1998
+   * -Dianora
+   */
+
   for (i = 0; i <= highest_fd; i++)
     {
       if (!(cptr = local[i]) || IsMe(cptr) || IsLog(cptr))
@@ -367,139 +391,113 @@ static	time_t	check_pings(time_t currenttime)
       */
       if (cptr->flags & FLAGS_DEADSOCKET)
 	{
-	  (void)exit_client(cptr, cptr, &me, (cptr->flags & FLAGS_SENDQEX) ?
-			    "SendQ exceeded" : "Dead socket");
-	  i = 0;
+	  dying_clients[die_index++] = cptr;
+	  dying_clients[die_index] = (aClient *)NULL;
 	  continue;
 	}
+
+      /*
+       * To make the exit reason have the kline reason
+       * I have to keep a copy of the reason in dying_clients_reason[]
+       * IF KLINE_WITH_REASON is defined. Its' going to be slightly
+       * faster if KLINE_WITH_REASON is #undef'ed
+       *
+       * -Dianora
+       */
       
       if (rehashed)
 	{
 	  if(dline_in_progress)
 	    {
-	      killflag = NO;
-	      dkillflag = NO;
-#ifdef GLINES
-	      gkillflag = NO;
-#endif
+	      char *reason;
 	      if(IsPerson(cptr))
 		{
-		  if( (aconf = find_dkill(cptr)) )	/* if there is a returned */
-		    dkillflag = 1;		/* aConfItem.. then kill it */
+		  if( (aconf = find_dkill(cptr)) ) /* if there is a returned 
+						      aConfIem then kill it */
+		    {
+		      sendto_ops("D-line active for %s",
+				 get_client_name(cptr, FALSE));
+		      reason = aconf->passwd ? aconf->passwd : "D-lined";
+		      cptr->flags2 |= FLAGS2_KILLFLAG;
+#ifdef KLINE_WITH_REASON
+		      dying_clients[die_index] = cptr;
+		      dying_clients_reason[die_index++] = reason;
+		      dying_clients[die_index] = (aClient *)NULL;
+#else
+		      dying_clients[die_index++] = cptr;
+		      dying_clients[die_index] = (aClient *)NULL;
+#endif
+		      sendto_one(cptr, err_str(ERR_YOUREBANNEDCREEP),
+				 me.name, cptr->name, reason);
+		      continue;
+		    }
 		}
 	    }
 	  else
 	    {
-	      killflag = NO;
-	      dkillflag = NO;
-#ifdef GLINES
-	      gkillflag = NO;
-#endif
+	      char *reason;
+
 	      if(IsPerson(cptr))
 		{
 #ifdef GLINES
 		  if( (aconf = find_gkill(cptr)) )
-		    gkillflag = YES;
+		    {
+		      sendto_ops("G-line active for %s",
+				 get_client_name(cptr, FALSE));
+		      reason = aconf->passwd ? aconf->passwd : "G-lined";
+		      cptr->flags2 |= FLAGS2_GKILLFLAG;	      
+#ifdef KLINE_WITH_REASON
+		      dying_clients[die_index] = cptr;
+		      dying_clients_reason[die_index++] = reason;
+		      dying_clients[die_index] = (aClient *)NULL;
+#else
+		      dying_clients[die_index++] = cptr;
+		      dying_clients[die_index] = (aClient *)NULL;
+#endif
+		      sendto_one(cptr, err_str(ERR_YOUREBANNEDCREEP),
+				 me.name, cptr->name, reason);
+		      continue;
+		    }
 		  else
 #endif
-		  if( (aconf = find_kill(cptr)) )	/* if there is a returned */
-		    killflag = YES;		/* aConfItem.. then kill it */
+		  if((aconf = find_kill(cptr)))	/* if there is a returned
+						   aConfItem.. then kill it */
+		    {
+		      sendto_ops("K-line active for %s",
+				 get_client_name(cptr, FALSE));
+#ifdef K_COMMENT_ONLY
+		      reason = aconf->passwd ? aconf->passwd : "K-lined";
+#else
+		      reason = (BadPtr(aconf->passwd) || 
+				!is_comment(aconf->passwd)) ?
+			"K-lined" : aconf->passwd;
+#endif
+		      cptr->flags2 |= FLAGS2_KILLFLAG;
+#ifdef KLINE_WITH_REASON
+		      dying_clients[die_index] = cptr;
+		      dying_clients_reason[die_index++] = reason;
+		      dying_clients[die_index] = (aClient *)NULL;
+#else
+		      dying_clients[die_index++] = cptr;
+		      dying_clients[die_index] = (aClient *)NULL;
+#endif
+		      sendto_one(cptr, err_str(ERR_YOUREBANNEDCREEP),
+				 me.name, cptr->name, reason);
+		      continue;
+		    }
 		}
 	    }
 	}
-      else
-	{
-	  killflag = NO;
-	  dkillflag = NO;
-#ifdef GLINES
-	  gkillflag = NO;
-#endif
-	}
+
 #ifdef R_LINES_OFTEN
       rflag = IsPerson(cptr) ? find_restrict(cptr) : 0;
 #endif
-      /*
-      ** Added a bit of code here to differentiate
-      ** between K and D-lines. -ThemBones
-      */
-#ifdef GLINES
-      if ((!dkillflag) && (!killflag) && (!gkillflag))
-	ping = get_client_ping(cptr);
-#else
-      if ((!dkillflag) && (!killflag))
-	ping = get_client_ping(cptr);
-#endif
-      else
-	{
-	  char *reason;
 
-#ifdef GLINES
-	  if(gkillflag)
-	    {
-	      sendto_ops("G-line active for %s",
-			 get_client_name(cptr, FALSE));
-#ifdef K_COMMENT_ONLY
-	      reason = aconf->passwd ? aconf->passwd : "G-lined";
-#else
-	      reason = (BadPtr(aconf->passwd) || !is_comment(aconf->passwd)) ?
-		"K-lined" : aconf->passwd;
-#endif
-	    }
-	  else
-#endif
-	  if(killflag)
-	    {
-	      sendto_ops("K-line active for %s",
-			 get_client_name(cptr, FALSE));
-#ifdef K_COMMENT_ONLY
-	      reason = aconf->passwd ? aconf->passwd : "K-lined";
-#else
-	      reason = (BadPtr(aconf->passwd) || !is_comment(aconf->passwd)) ?
-		"K-lined" : aconf->passwd;
-#endif
-	    }
-	  else /* its a D line */
-	    {
-	      sendto_ops("D-line active for %s",
-			 get_client_name(cptr, FALSE));
-	      reason = aconf->passwd ? aconf->passwd : "D-lined";
-	    }
-
-	  sendto_one(cptr, err_str(ERR_YOUREBANNEDCREEP),
-		     me.name, cptr->name, reason);
-
-#ifdef GLINES
-	  if(gkillflag)
-	    {
-#ifdef KLINE_WITH_REASON
-	      (void)exit_client(cptr, cptr, &me,reason);
-#else
-	      (void)exit_client(cptr, cptr, &me,"you have been G-lined");
-#endif
-	    }
-	  else
-#endif
-	  if(killflag)
-	    {
-#ifdef KLINE_WITH_REASON
-	      (void)exit_client(cptr, cptr, &me,reason);
-#else
-	      (void)exit_client(cptr, cptr, &me,"you have been K-lined");
-#endif
-	    }
-	  else
-	    {
-#ifdef KLINE_WITH_REASON
-	      (void)exit_client(cptr, cptr, &me, reason);
-#else
-	      (void)exit_client(cptr, cptr, &me,"you have been D-lined");
-#endif
-	    }
-	  i = 0; 	/* start over from ground zero :-( */
-	  continue;
-	}
       if (!IsRegistered(cptr))
 	ping = CONNECTTIMEOUT;
+      else
+	ping = get_client_ping(cptr);
+
       /*
        * Ok, so goto's are ugly and can be avoided here but this code
        * is already indented enough so I think its justified. -avalon
@@ -566,14 +564,12 @@ static	time_t	check_pings(time_t currenttime)
 	  if(!IsRegistered(cptr) && (cptr->name[0]) && (cptr->user))
 	    ircstp->is_ipspoof++;
 #endif /* ANTI_IP_SPOOF */
-	  (void)exit_client(cptr, cptr, &me,"Ping timeout");
 
-	  /*
-	   * need to start loop over because the close can
-	   * affect the ordering of the local[] array.- avalon
-	   */
-	  i = 0;
-	  continue;
+
+	  dying_clients[die_index++] = cptr;
+	  dying_clients[die_index] = (aClient *)NULL;
+	  cptr->flags2 |= FLAGS2_PING_TIMEOUT;
+
 	}
       else if ((cptr->flags & FLAGS_PINGSENT) == 0)
 	{
@@ -600,9 +596,59 @@ ping_timeout:
       if (IsUnknown(cptr))
 	if (cptr->firsttime ? ((timeofday - cptr->firsttime) > 100) : 0)
 	  {
-	    (void)exit_client(cptr, cptr, &me, "Connection Timed Out");
+	    dying_clients[die_index++] = cptr;
+	    dying_clients[die_index] = (aClient *)NULL;
+	    cptr->flags2 |= FLAGS2_CONNECTION_TIMEDOUT;
 	  }
     }
+
+  /* Now exit clients marked for exit above.
+   * it doesn't matter if local[] gets re-arranged now
+   *
+   * -Dianora
+   */
+
+  for(die_index = 0; cptr = dying_clients[die_index]; die_index++)
+    {
+      if(cptr->flags & FLAGS_DEADSOCKET)
+	{
+	  (void)exit_client(cptr, cptr, &me, (cptr->flags & FLAGS_SENDQEX) ?
+			    "SendQ exceeded" : "Dead socket");
+	}
+      else if(cptr->flags2 & FLAGS2_KILLFLAG)
+	{
+#ifdef KLINE_WITH_REASON
+	  (void)exit_client(cptr, cptr, &me, dying_clients_reason[die_index]);
+#else
+	  (void)exit_client(cptr, cptr, &me,"you have been K-lined");
+#endif
+	}
+      else if(cptr->flags2 & FLAGS2_DKILLFLAG)
+	{
+#ifdef KLINE_WITH_REASON
+	  (void)exit_client(cptr, cptr, &me, dying_clients_reason[die_index]);
+#else
+	  (void)exit_client(cptr, cptr, &me,"you have been D-lined");
+#endif
+	}
+      else if(cptr->flags2 & FLAGS2_GKILLFLAG)
+	{
+#ifdef KLINE_WITH_REASON
+	  (void)exit_client(cptr, cptr, &me, dying_clients_reason[die_index]);
+#else
+	  (void)exit_client(cptr, cptr, &me,"you have been G-lined");
+#endif
+	}
+      else if(cptr->flags2 & FLAGS2_PING_TIMEOUT)
+	{
+	  (void)exit_client(cptr, cptr, &me,"Ping timeout");
+	}
+      else if(cptr->flags2 & FLAGS2_CONNECTION_TIMEDOUT)
+	{
+	  (void)exit_client(cptr, cptr, &me, "Connection Timed Out");
+	}
+    }
+
   rehashed = 0;
   dline_in_progress = 0;
 

@@ -308,6 +308,12 @@
  * Your opers can be hit with retalitation... Or if your opers use
  * scripts that stick an ID into the comment field. etc. It's up to you
  * whether you want to use it or not.
+ *
+ * I have rewritten a portion of the k-line processing making it faster
+ * unfortuantely, using KLINE_WITH_REASON would slow down this
+ * processing slightly.. how much I can't say. For very few clients
+ * being KLINED very little difference, but you have been forewarned
+ *
  */
 #define KLINE_WITH_REASON
 

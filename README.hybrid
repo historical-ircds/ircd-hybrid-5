@@ -38,7 +38,8 @@
 * NO_CHANOPS_WHEN_SPLIT delays channel hacking until rejoin (Dianora)
 * ANTI_SPAMBOT on sign on code (ThemBones)
 * only allow 4 kicked nicks per kick (Dianora)
- 
+* sped up kline processing , redid check_pings in ircd.c (Dianora) 
+
 +hybrid-5 (9/26/97)
 * LOTS AND LOTS OF CHANGES IN CONFIG.H
 * reorganized source tree, eliminating common subdir
