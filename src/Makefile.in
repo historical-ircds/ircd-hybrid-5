@@ -41,7 +41,7 @@ install: build
 	@echo "Please do a make install from the top level directory"
 
 version.c: version.c.SH
-	./version.c.SH
+	/bin/sh ./version.c.SH
 
 bsd.o: bsd.c ../include/struct.h ../include/config.h \
  ../include/setup.h ../include/defs.h ../include/hash.h \
